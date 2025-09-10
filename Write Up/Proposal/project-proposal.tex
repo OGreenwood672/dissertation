@@ -11,30 +11,29 @@
 \textheight=9.0in
 \headsep=0.25in
 
+
+% \title{\fontsize{15}{5}\selectfont MARLo Polo: Emergent Communication in Multi-Agent Reinforcement Learning for Complex Tasks}
+
+\title{MARLo Polo: Emergent Communication in Multi-Agent Reinforcement Learning for Complex Tasks}
+\author{Oliver Greenwood}
+\date{\today}
+
 \begin{document}
 
+\maketitle
 
 %--Paper--
 \section*{\fontsize{30}{36}\selectfont Proposal}
 
-\section*{Notes}
-This work compares emergent discrete communication—using quantized message protocols—and continuous communication, both managed through Graph Attention Networks (GAT), for complex multi-agent reinforcement learning (MARL) tasks built on the QMIX framework. By integrating GATs to govern which agents communicate and how, the study systematically evaluates how discrete channel constraints (e.g., using vector quantization) versus raw continuous message sharing affect coordination, learning efficiency, and overall task performance in challenging, cooperative environments.
-
-\section*{\fontsize{15}{5}\selectfont MARLo Polo: Emergent Communication in Multi-Agent Reinforcement Learning for Complex Tasks}
 
 \section{Introduction}
 
-
+\large
 Since Google Deepmind released AlphaGo in 2016, there has been a steady increase of interest into the field of reinforcement learning. This has led to breakthroughs in areas of finance, trading, robotics and even video games. A clear next step for reinforcement learning is multi-agent reinforcement learning where multiple agents are placed into the same environment and have to learn to interact with one another efficiently. This area of research has potential to improve surgery robots, traffic optimisations and search and rescue operations. However, there exist a range of challenges which make multi-agent reinforcement learning more difficult in practice such as: non-stationary problem, credit assignment issues, and the one I will focus on in this project, communication problems. Unlike single-agent reinforcement learning, multi-agent reinformcent learning has the ability to communicate to improve the agent's knowledge on the environment and/or teach them the optimal next step. A very common issue with communication is the "Joint Exploration Problem", this is a struggle for agents to communicate effectivly in novel environments. A recent paper[1] described a technique which is able to counter this issue was suggested.
 
+In this project, I propose to extend AI Mother Tongue to a realistic situation for a more rigourous evaluation of the paper's proposed method. I will simulate an area for mulptiple agents with the goal of exploration. I will train the agents using a VDN (Value Decomposition Network) to work together to explore the area. I will have a continuous communication protocol which broadcasts raw information from agent to agent and use this as a baseline to compare to my emergent communication protocol. This other protocol will use a vector quanitsed variational autoencoder (VQ-VAE) to generate discrete symbols to broadcast from agent to agent.
 
-
-In this project, I propose to extend AI Mother Tongue to a realistic situation for a more rigourous evaluation of the paper's proposed method. I will compare the emergent communication to a simplistic communication protocol for a quantitive comparison.
-
-
-Subgoals focusing on larger goals instead of technical goals. Like We must produce a simulation to test our protocols on which can swap communication protocols.
-
-
+This new method using a VQ-VAE allows communication protocols to emerge naturally rather than relying on manually designed rules or incentives. The limited alphabet forces agents to communicate with more compact, informative, and interpretable message that prioritize essential information sharing to achieve coordination. Hence we expect a improvement over the baseline communication protocol.
 
 \pagebreak
 \section{Structure of the Project}
@@ -49,42 +48,55 @@ There are five main components to this project:
 \end{itemize}
 
 \section*{Simulation}
-
+The simulation is required as it will be how the reinforcement learning is both trained and evaluated. It will be responsilbe for the state management and local observations of each agent. Interactions will be handled through discrete timesteps, where agents produce actions informed by their policy and their communication inputs.  As training multi agent systems will require a lot of runs, the simulation must be optimised highly. It will be written in Rust for this reason and mainly function as a headless program (only providing a simple graphical UI when demoing single runs).
 
 \section*{Value Decomposition Network}
+The reinforcement learning will optimise the agents policy (the agents mapping from state space to action space). I have chosen to use Value Decomposition Network to facilitate decentralised policy learning as well as simultaneously optimising for a joint reward. Each agent will maintain its own Q function. TODO
 
 \section*{Communication Protocols}
+This is the core of the project. I will primarily produce two distinct communication protocols. A simple protocol which has the goal of providing a baseline to the next protocol. It will emit raw continuous vectors. Our other protocol will emit symbols. These will be produced from a VQ-VAE (Vector Quantised - Variational Autoencoders), providing a discrete alphabet for agents to communicate via. Both of the protocols will initially broadcast every message to every other agent, unless the GNN extension is reached. This will allow a GNN to learn  an optimal message passing structure.
 
 \section*{Training}
-
+The training will manage the model's optimisation process. It will use the simulation to collect data and update both the agents' Q functions and, when required, the VQ-VAE. I will add a simple logging and checkpointing framework to prevent loss of results.
 
 \section{Evaluation}
 
-\subsection*{Quantitive}
+\section*{Quantitive}
+I will gather a small subset of environments not yet seen by the training, and run each model with the different communication protocols on each. I will then compare the average output of each model.
 
-
-\subsection*{Qualitive}
-
+\section*{Qualitive}
+I will observe the evaluation runs and note down strategies I see the agents come up with. I will then compare the two model's strategies.
 
 
 \section{Starting Point}
-
-
-
+I have limited experience in using reinforcement learning. However I have previously built an autoencoder when analysing the stock market which will help my developing of the variational autoencoder. Furthermore I have a small amount of experience using Rust from a three month internship I completed, but I have a strong fluency in Python. This will help my development of a high performence backend (Rust) and the ML (Python).
 
 
 \section{Success Criteria}
 
+For this project to be deemed a success, the following must be successfully completed:
+
+\begin{enumerate}
+\item Design and implement a simulation to train and demo multi agent interactions. The simulation should be able to have single runs visualised. The simulation should control the state of every agent and collect data.
+\item The training and evaluation pipeline should be automated end-to-end and only require a single config file as input. The pipeline should record checkpoints in training and log relevant output.
+\item The training and evaluation pipeline should be able to interchangeably use both communication protocols as described earlier.
+\end{enumerate}
 
 
 
 \section{Possible Extensions}
 
-\subsection{HQ-VAE}
+\begin{itemize}
+\item Implement a third communication protocol using HQ-VAE. 
+\item Add a GNN to the simulation to improve message passing between agents.
+\item Analyse quantised vectors for meaning
+\end{itemize}
 
-\subsection{GAT}
+\pagebreak
 
 \section{Timetable and Milestones}
+
+TODO
 
 \subsection*{Weeks 1 to 2}
 Proposal submitted
