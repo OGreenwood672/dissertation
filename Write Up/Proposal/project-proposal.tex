@@ -2,6 +2,9 @@
 
 \usepackage{sectsty}
 \usepackage{graphicx}
+\usepackage[backend=biber,style=numeric]{biblatex}
+\addbibresource{references.bib} % or any .bib filename
+
 
 % Margins
 \topmargin=-0.45in
@@ -12,15 +15,23 @@
 \headsep=0.25in
 
 
-% \title{\fontsize{15}{5}\selectfont MARLo Polo: Emergent Communication in Multi-Agent Reinforcement Learning for Complex Tasks}
-
-\title{MARLo Polo: Emergent Communication in Multi-Agent Reinforcement Learning for Complex Tasks}
-\author{Oliver Greenwood}
-\date{\today}
 
 \begin{document}
 
-\maketitle
+\begin{center}
+  \Huge
+  \textbf{Emergent Communication in Multi-Agent Reinforcement Learning for Complex Tasks} \\[4mm]
+  \Large
+  Part II Computer Science Project Proposal \\[2mm]
+  \today \\[8mm]
+\end{center}
+
+{\large
+\begin{tabular}{ll}
+  Project Supervisor:  & \bf Ian Lewis                \\
+  Director of Studies: & \bf Ramsey Faragher                   \\
+\end{tabular}
+}
 
 %--Paper--
 \section*{\fontsize{30}{36}\selectfont Proposal}
@@ -29,32 +40,53 @@
 \section{Introduction}
 
 \large
-Since Google Deepmind released AlphaGo in 2016, there has been a steady increase of interest into the field of reinforcement learning. This has led to breakthroughs in areas of finance, trading, robotics and even video games. A clear next step for reinforcement learning is multi-agent reinforcement learning where multiple agents are placed into the same environment and have to learn to interact with one another efficiently. This area of research has potential to improve surgery robots, traffic optimisations and search and rescue operations. However, there exist a range of challenges which make multi-agent reinforcement learning more difficult in practice such as: non-stationary problem, credit assignment issues, and the one I will focus on in this project, communication problems. Unlike single-agent reinforcement learning, multi-agent reinformcent learning has the ability to communicate to improve the agent's knowledge on the environment and/or teach them the optimal next step. A very common issue with communication is the "Joint Exploration Problem", this is a struggle for agents to communicate effectivly in novel environments. A recent paper[1] described a technique which is able to counter this issue was suggested.
+Since Google DeepMind released AlphaGo in 2016, there has been a steady increase in interest in the field of reinforcement learning. This has led to breakthroughs in areas of finance, trading, robotics and even video games. A clear next step for reinforcement learning is multi-agent reinforcement learning, where multiple agents are placed into the same environment and have to learn to interact with one another efficiently. This area of research has the potential to improve surgery robots, traffic optimisations and search and rescue operations. However, there exists a range of challenges which make multi-agent reinforcement learning more difficult in practice, such as: non-stationary problem, credit assignment issues, and the one I will focus on in this project, communication problems. Unlike single-agent reinforcement learning, multi-agent reinforcement learning can communicate to improve the agent's knowledge of the environment and/or teach them the optimal next step. A widespread issue with communication is the "Joint Exploration Problem", which is a struggle for agents to communicate effectively in novel environments. A recent paper\cite{AIMotherTongue} described a technique that can counter this issue.
 
-In this project, I propose to extend AI Mother Tongue to a realistic situation for a more rigourous evaluation of the paper's proposed method. I will simulate an area for mulptiple agents with the goal of exploration. I will train the agents using a VDN (Value Decomposition Network) to work together to explore the area. I will have a continuous communication protocol which broadcasts raw information from agent to agent and use this as a baseline to compare to my emergent communication protocol. This other protocol will use a vector quanitsed variational autoencoder (VQ-VAE) to generate discrete symbols to broadcast from agent to agent.
+I propose to extend AI Mother Tongue to a realistic situation for a more rigorous evaluation of the paper's proposed method. I will simulate an area for multiple agents with the goal of exploration. I will train the agents using a Value Decomposition Network to work together to explore the area. I will have a continuous communication protocol which broadcasts raw information from agent to agent and use this as a baseline to compare to my emergent communication protocol. This other protocol will use a vector quantised variational autoencoder (VQ-VAE) to generate discrete symbols to broadcast from agent to agent.
 
-This new method using a VQ-VAE allows communication protocols to emerge naturally rather than relying on manually designed rules or incentives. The limited alphabet forces agents to communicate with more compact, informative, and interpretable message that prioritize essential information sharing to achieve coordination. Hence we expect a improvement over the baseline communication protocol.
+This new method, using a VQ-VAE, allows communication protocols to emerge naturally rather than relying on manually designed rules or incentives. The limited alphabet forces agents to communicate with more compact, informative, and interpretable messages that prioritise essential information sharing to achieve coordination. Hence, we expect an improvement over the baseline communication protocol in the time taken to explore a given environment.
 
 \pagebreak
 \section{Structure of the Project}
 There are five main components to this project:
 
 \begin{itemize}
-\item Simulation: Building 
+\item Simulation
 \item Value Decomposition Network
 \item Communication Protocols
 \item Training
-\item Evaluation: refer to Evaluation section
+\item Evaluation: refer to the Evaluation section
 \end{itemize}
 
 \section*{Simulation}
-The simulation is required as it will be how the reinforcement learning is both trained and evaluated. It will be responsilbe for the state management and local observations of each agent. Interactions will be handled through discrete timesteps, where agents produce actions informed by their policy and their communication inputs.  As training multi agent systems will require a lot of runs, the simulation must be optimised highly. It will be written in Rust for this reason and mainly function as a headless program (only providing a simple graphical UI when demoing single runs).
+The simulation is required as it will be how the reinforcement learning algorithm is both trained and evaluated. It will be responsible for the state management and local observations of each agent. Interactions will be handled through discrete timesteps, where agents produce actions informed by their policy and their communication inputs.  As training multi-agent systems will require a lot of runs, the simulation must be optimised highly. It will be written in Rust for this reason and mainly function as a headless program (only providing a simple graphical UI when demoing single runs).
 
 \section*{Value Decomposition Network}
-The reinforcement learning will optimise the agents policy (the agents mapping from state space to action space). I have chosen to use Value Decomposition Network to facilitate decentralised policy learning as well as simultaneously optimising for a joint reward. Each agent will maintain its own Q function. TODO
+The reinforcement learning will optimise the agent's policy (the agent's mapping from state space to action space). I have chosen to use a Value Decomposition Network to facilitate decentralised policy learning, as well as simultaneously optimising for a joint reward. Each agent will maintain its own Q function.
+
+We want the agents to learn coordinated behaviour but maintain their own local observations and local policy. We also want to use a global reward function (area of environment explored). Due to these factors, I have chosen to use a Value Decomposition Network (VDN).
+In VDN, the value function of the entire team, $Q_{tot}$, is factorised as the sum of the individual agents' value functions:
+\[
+Q_{\mathrm{tot}}(\tau, a) \;=\; \sum_{i} Q_{i}(\tau_{i}, a_{i})
+\]
+where $Q_i$ is the action-value function for agent $i$, based only on its own action $a_i$ and local action-observation history $\tau_i$.
+
+The VDN framework is particularly suitable for my project’s cooperative multi-agent tasks:
+\begin{itemize}
+\item It naturally encourages cooperation by tying all agents’ learning to the same joint reward.
+\item It is lightweight and efficient compared to more complex mixing architectures (like QMIX), allowing me more time to focus on other parts of the project.
+\item The decomposition aids in the interpretability of learned policies, as each agent’s value estimates can be analysed independently.
+\end{itemize}
+
+Planned Implementation:
+\begin{itemize}
+\item Each agent will be equipped with its own Q-network, parameterised by a deep neural network, receiving as input both its local observations and any messages broadcast by other agents.
+\item The value decomposition will be enforced in the training loss, aligning each agent’s updates to the global objective.
+\item This setup will also allow for seamless integration and fair comparison of different communication protocols, as the underlying learning dynamics for coordination are held constant.
+\end{itemize}
 
 \section*{Communication Protocols}
-This is the core of the project. I will primarily produce two distinct communication protocols. A simple protocol which has the goal of providing a baseline to the next protocol. It will emit raw continuous vectors. Our other protocol will emit symbols. These will be produced from a VQ-VAE (Vector Quantised - Variational Autoencoders), providing a discrete alphabet for agents to communicate via. Both of the protocols will initially broadcast every message to every other agent, unless the GNN extension is reached. This will allow a GNN to learn  an optimal message passing structure.
+This is the core of the project. I will primarily produce two distinct communication protocols. A simple protocol which has the goal of providing a baseline for the next protocol. It will emit raw continuous vectors. Our other protocol will emit symbols. These will be produced from a VQ-VAE (Vector Quantised - Variational Autoencoders), providing a discrete alphabet for agents to communicate via. Both of the protocols will initially broadcast every message to every other agent.
 
 \section*{Training}
 The training will manage the model's optimisation process. It will use the simulation to collect data and update both the agents' Q functions and, when required, the VQ-VAE. I will add a simple logging and checkpointing framework to prevent loss of results.
@@ -62,73 +94,149 @@ The training will manage the model's optimisation process. It will use the simul
 \section{Evaluation}
 
 \section*{Quantitive}
-I will gather a small subset of environments not yet seen by the training, and run each model with the different communication protocols on each. I will then compare the average output of each model.
+I will gather a small subset of environments not yet seen by the training, and run each model with the different communication protocols on each. I will then compare the average time for the agents to explore the given environment for each model.
 
-\section*{Qualitive}
-I will observe the evaluation runs and note down strategies I see the agents come up with. I will then compare the two model's strategies.
+\section*{Qualitative}
+I will generate graphs of the distribution of the messages passed between agents. I will also observe the evaluation runs and note down strategies I see the agents come up with. I will then compare the two models' strategies.
 
 
 \section{Starting Point}
-I have limited experience in using reinforcement learning. However I have previously built an autoencoder when analysing the stock market which will help my developing of the variational autoencoder. Furthermore I have a small amount of experience using Rust from a three month internship I completed, but I have a strong fluency in Python. This will help my development of a high performence backend (Rust) and the ML (Python).
+I have limited experience in using reinforcement learning. However, I have previously built an autoencoder when analysing the stock market, which will help me develop the variational autoencoder. Furthermore, I have a small amount of experience using Rust from a three month internship I completed, but I have strong fluency in Python. This will help my development of a high-performance backend (Rust) and the ML (Python).
 
 
 \section{Success Criteria}
 
-For this project to be deemed a success, the following must be successfully completed:
-
 \begin{enumerate}
-\item Design and implement a simulation to train and demo multi agent interactions. The simulation should be able to have single runs visualised. The simulation should control the state of every agent and collect data.
-\item The training and evaluation pipeline should be automated end-to-end and only require a single config file as input. The pipeline should record checkpoints in training and log relevant output.
-\item The training and evaluation pipeline should be able to interchangeably use both communication protocols as described earlier.
+\item Design and implement a simulation to train and demo multi-agent interactions. The simulation should be able to have single runs visualised. The simulation should control the state of every agent and collect data.
+\item Implement a functional VDN-based multi-agent reinforcement learning (MARL) system capable of learning, given a simulation program with set methods.
+\item Develop a communication protocol that allows agents to transmit raw data between each other.
+\item Similarly, develop another communication protocol that uses a VQ-VAE  to transmit vectors between agents.
+\item The training and evaluation pipeline should be able to train and evaluate models automatically and allow interchangeably using both communication protocols.
 \end{enumerate}
-
 
 
 \section{Possible Extensions}
 
 \begin{itemize}
-\item Implement a third communication protocol using HQ-VAE. 
-\item Add a GNN to the simulation to improve message passing between agents.
-\item Analyse quantised vectors for meaning
+\item Implement a third communication protocol using a hierarchically quantised variational autoencoder (HQ-VAE). This method was suggested by the AI Mother Tongue paper as a possible future work.
+\item Add hyperparameter tuning for my discrete communication protocol. This can involve the language size, quantisation levels, and message frequency to optimise agent coordination and learning efficiency.
+\item Add a new task where agents must solve for objectives other than exploration (e.g., coordinated navigation, resource gathering, or adversarial avoidance), enabling analysis of communication protocol effectiveness in more diverse MARL settings.
 \end{itemize}
 
 \pagebreak
 
 \section{Timetable and Milestones}
 
-TODO
+\begin{list}{}{\leftmargin=0cm \itemindent=0cm}
 
-\subsection*{Weeks 1 to 2}
-Proposal submitted
+\item \textbf{Weeks 1--2 (20 Oct 2025 -- 2 Nov 2025)}
+\begin{itemize}
+\item Set up Rust-based simulation environment using PyO3 to integrate with PyTorch.
+\item Prepare PyTorch environment for VDN.
+\end{itemize}
 
-\subsection*{Weeks 3 to 4}
+\item \textbf{Weeks 3--4 (3 Nov 2025 -- 16 Nov 2025)}
+\begin{itemize}
+\item Implement simulation code for tasks involving exploration of dynamically generated areas.
+\item Develop a wrapper for the simulation in Rust with py03 using an abstract class (to help potential later extension of using other tasks).
+\end{itemize}
 
-\subsection*{Weeks 5 to 6}
+\item \textbf{Weeks 5--6 (17 Nov 2025 -- 30 Nov 2025): Core VDN Build}
+\begin{itemize}
+\item Implement basic value decomposition networks (VDN).
+\item Develop basic training loop and agent coordination.
+\item \textit{Milestone:} VDN architecture operational and agents learning basic tasks.
+\end{itemize}
 
-\subsection*{Weeks 7 to 8}
+\item \textbf{Weeks 7--8 (1 Dec 2025 -- 14 Dec 2025)}
+\begin{itemize}
+\item Integrate a continuous communication channel into the agent architecture using a modular design.
+\item Determine which data each agent should communicate.
+\item \textit{Milestone:} Continuous communication protocol up and running.
+\end{itemize}
 
-\subsection*{Weeks 9 to 11}
+\item \textbf{Weeks 9--10 (15 Dec 2025 -- 28 Dec 2025)}
+\begin{itemize}
+\item Develop a variational autoencoder which quantises the latent space (VQ-VAE)
+\item Integrate the VQ-VAE into a discrete communication protocol for the agents.
+\item \textit{Milestone:} Discrete communication protocol up and running.
+\end{itemize}
 
-\subsection*{Weeks 12 to 13}
+\item \textbf{Weeks 11--12 (29 Dec 2025 -- 11 Jan 2026)}
+\begin{itemize}
+\item Build a training pipeline supporting both communication protocols.
+\item Implement regular model checkpoints and experiment tracking.
+\item Automate logging and result collection for training runs.
+\item \textit{Milestone:} Training pipeline working.
+\end{itemize}
 
-\subsection*{Weeks 13 to 15}
+\item \textbf{Weeks 13--14 (12 Jan 2026 -- 25 Jan 2026)}
+\begin{itemize}
+\item Run training on agents using both discrete and continuous communication protocols.
+\item Collate performance logs and monitor checkpointed models.
+\item \textit{Milestone:} Complete initial fully trained models for both communication types.
+\end{itemize}
 
-\subsection*{Weeks 16 to 17}
+\item \textbf{Weeks 15--16 (26 Jan 2026 -- 8 Feb 2026)}
+\begin{itemize}
+\item Implement scripts to calculate key metrics: learning efficiency, coordination, bandwidth use.
+\item Automate model evaluation and result logging.
+\end{itemize}
 
-\subsection*{Weeks 18 to 19}
+\item \textbf{Weeks 17--18 (9 Feb 2026 -- 22 Feb 2026)}
+\begin{itemize}
+\item Start on extensions, focusing initially on implementing the alternative discrete communication protocol with an HQ-VAE.
+\end{itemize}
 
-\subsection*{Weeks 20 to 21}
 
-\subsection*{Weeks 22 to 23}
-\subsection*{Weeks 24 to 25}
+\item \textbf{Weeks 19--20 (23 Feb 2026 -- 8 Mar 2026)}
+\begin{itemize}
+\item Catch up on any uncompleted work or drafts.
+\item Any remaining time can be used to work on extensions.
+\end{itemize}
 
-\subsection*{Weeks 26 to 27}
-\subsection*{Weeks 28 to 29}
+
+\item \textbf{Weeks 21--22 (9 Mar 2026 -- 22 Mar 2026)}
+\begin{itemize}
+\item Evaluate all models (continuous, discrete) and tested extensions on chosen environments.
+\item Collect and analyse results: success rate, sample efficiency, agent coordination, communication cost.
+\end{itemize}
+
+\item \textbf{Weeks 23--24 (23 Mar 2026 -- 5 Apr 2026)}
+\begin{itemize}
+\item Catch up on any uncompleted work or drafts.
+\item Any remaining time can be used to work on extensions.
+\end{itemize}
+
+\item \textbf{Weeks 25--26 (6 Apr 2026 -- 19 Apr 2026)}
+\begin{itemize}
+\item Write detailed chapters on implementation and evaluation.
+\item Create figures, tables, and result summaries.
+\end{itemize}
+
+\item \textbf{Weeks 27--28 (20 Apr 2026 -- 3 May 2026)}
+\begin{itemize}
+\item Revise dissertation draft and submit for supervisor feedback.
+\item Edit dissertation based on feedback.
+\end{itemize}
+
+\item \textbf{Week 29 (4 May 2026 -- 17 May 2026)}
+\begin{itemize}
+\item Final proofreading and formatting.
+\item Submit dissertation.
+\item Reserve leftover time for contingency: extra tests, additional evaluation, or further analysis if needed.
+\item \textit{Milestone:} Submit dissertation and project code.
+\end{itemize}
+
+\end{list}
 
 \section{Resource Declaration}
 
- I will be using my personal desktop computer (AMD Ryzen 7 3700X, 32GB RAM, NVIDIA RTX 5060 Ti) as my primary
- machine for software development. As a backup, I will use my personal laptop and resources provided by SRCF (student run computing facility). I will continuously backup my code and dissertation with Git version control onto GitHub.
+I will be using my personal desktop computer (AMD Ryzen 7 3700X, 32GB RAM, NVIDIA RTX 5060 Ti) as my primary
+machine for software development. As a backup, I will use my personal laptop and resources provided by SRCF (student-run computing facility). I will continuously back up my code and dissertation with Git version control on GitHub.
 
 \pagebreak
+
+\printbibliography
+
 \end{document}
