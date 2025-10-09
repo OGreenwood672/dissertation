@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 23.5) (preloaded format=pdflatex 2023.6.25)  9 OCT 2025 01:01
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 23.5) (preloaded format=pdflatex 2023.6.25)  9 OCT 2025 14:30
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -412,15 +412,10 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <8> on input line 30.
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <6> on input line 30.
+ [1
 
-
-LaTeX Font Warning: Font shape `OT1/cmr/bx/n' in size <30> not available
-(Font)              size <24.88> substituted on input line 37.
-
-[1
-
-{C:/Users/green/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}] [2]
-[3] [4] [5] [6]
+{C:/Users/green/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}] [2] [3] [4] 
+[5] [6]
 LaTeX Font Info:    External font `cmex10' loaded for size
 (Font)              <7> on input line 240.
 LaTeX Font Info:    External font `cmex10' loaded for size
@@ -430,20 +425,15 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 LaTeX2e <2023-06-01> patch level 1
 L3 programming layer <2023-06-16>
  ***********
-
-
-LaTeX Font Warning: Size substitutions with differences
-(Font)              up to 5.12pt have occurred.
-
 Package logreq Info: Writing requests to 'project-proposal.run.xml'.
 \openout1 = `project-proposal.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 9500 strings out of 476036
- 183551 string characters out of 5779824
+ 9499 strings out of 476036
+ 183536 string characters out of 5779824
  1864763 words of memory out of 5000000
- 30178 multiletter control sequences out of 15000+600000
+ 30177 multiletter control sequences out of 15000+600000
  519140 words of font info for 53 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  66i,6n,81p,1302b,1293s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -461,7 +451,7 @@ green/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:
 0.pfb><C:/Users/green/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts
 /cm/cmti12.pfb><C:/Users/green/AppData/Local/Programs/MiKTeX/fonts/type1/public
 /amsfonts/cm/cmtt10.pfb>
-Output written on project-proposal.pdf (7 pages, 158476 bytes).
+Output written on project-proposal.pdf (7 pages, 158481 bytes).
 PDF statistics:
  86 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
