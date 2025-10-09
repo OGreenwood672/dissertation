@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 23.5) (preloaded format=pdflatex 2023.6.25)  9 OCT 2025 14:30
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (MiKTeX 23.5) (preloaded format=pdflatex 2023.6.25)  10 OCT 2025 00:10
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -417,9 +417,9 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 {C:/Users/green/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}] [2] [3] [4] 
 [5] [6]
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <7> on input line 240.
+(Font)              <7> on input line 242.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <5> on input line 240.
+(Font)              <5> on input line 242.
  [7] (project-proposal.aux)
  ***********
 LaTeX2e <2023-06-01> patch level 1
@@ -436,7 +436,7 @@ Here is how much of TeX's memory you used:
  30177 multiletter control sequences out of 15000+600000
  519140 words of font info for 53 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 66i,6n,81p,1302b,1293s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 66i,6n,81p,1182b,1293s stack positions out of 10000i,1000n,20000p,200000b,200000s
  <C:\Users\green\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\tcrm
 1200.pk><C:/Users/green/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfon
 ts/cm/cmbx12.pfb><C:/Users/green/AppData/Local/Programs/MiKTeX/fonts/type1/publ
@@ -451,7 +451,7 @@ green/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmr8.pfb><C:
 0.pfb><C:/Users/green/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts
 /cm/cmti12.pfb><C:/Users/green/AppData/Local/Programs/MiKTeX/fonts/type1/public
 /amsfonts/cm/cmtt10.pfb>
-Output written on project-proposal.pdf (7 pages, 158481 bytes).
+Output written on project-proposal.pdf (7 pages, 158226 bytes).
 PDF statistics:
  86 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
