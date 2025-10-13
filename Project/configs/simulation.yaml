@@ -1,0 +1,47 @@
+width: 400
+height: 400
+
+headless: false
+
+agent_size: 2
+station_size: 5
+
+initial_agent_layout: random
+station_layout: circle
+
+agents:
+  - id: 1
+    inputs: [lettuce]
+    output: choppedlettuce
+  - id: 2
+    inputs: [tomato]
+    output: slicedtomato
+  - id: 3
+    inputs: [bun, patty]
+    output: plainburger
+  - id: 4
+    inputs: [choppedlettuce, slicedtomato]
+    output: salad
+  - id: 5
+    inputs: [salad, plainburger]
+    output: burger
+
+stations:
+  - id: 1
+    type: pickup
+    resource: bun
+  - id: 2
+    type: pickup
+    resource: patty
+  - id: 3
+    type: pickup
+    resource: lettuce
+  - id: 4
+    type: pickup
+    resource: tomato
+  - id: 5
+    type: dropoff
+    resource: burger
+  - id: 6
+    type: dropoff
+    resource: plainburger
