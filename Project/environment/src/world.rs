@@ -1,9 +1,18 @@
 use std::vec::Vec;
 
-use crate::agent::{Agent};
-use crate::station::Station;
+use serde::{Deserialize, Serialize};
+
+use crate::agent::{Agent, AgentState};
+use crate::station::{Station, StationState};
 use crate::config::{AgentConfig, Config, StationConfig};
 use crate::location::{get_location};
+
+
+#[derive(Serialize)]
+pub struct WorldState {
+    agents: Vec<AgentState>,
+    stations: Vec<StationState>
+}
 
 
 pub struct World {
@@ -16,8 +25,8 @@ pub struct World {
 impl World {
     pub fn new(config: Config) -> Self {
 
-        let width = config.width;
-        let height = config.height;
+        let width = config.arena_width;
+        let height = config.arena_height;
 
         let mut station_locations = get_location(
             config.station_layout,
@@ -54,6 +63,13 @@ impl World {
             height,
             agents,
             stations
+        }
+    }
+
+    pub fn get_state(&self) -> WorldState {
+        WorldState {
+            agents: self.agents.iter().map(|agent| agent.into()).collect(),
+            stations: self.stations.iter().map(|station| station.into()).collect(),
         }
     }
 }

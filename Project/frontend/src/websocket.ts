@@ -1,6 +1,16 @@
+import { Message } from "./types";
 
 
-export const setupWebSocket = (url: string): WebSocket => {
+
+const serialize_agents = (data: string) => {
+
+    let agents: Message = JSON.parse(data) as Message;
+
+    return agents;
+
+}
+
+export const setupWebSocket = (url: string, process_data: (data: any) => void): WebSocket => {
     const ws = new WebSocket(url);
 
     ws.onopen = () => {
@@ -9,6 +19,7 @@ export const setupWebSocket = (url: string): WebSocket => {
 
     ws.onmessage = (event) => {
         console.log("Received:", event.data);
+        process_data(serialize_agents(event.data));
     };
 
     ws.onclose = () => {

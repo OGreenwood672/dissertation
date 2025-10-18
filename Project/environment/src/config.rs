@@ -9,8 +9,8 @@ use crate::station::StationType;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub width: u32,
-    pub height: u32,
+    pub arena_width: u32,
+    pub arena_height: u32,
     pub headless: bool,
     pub agent_size: u32,
     pub station_size: u32,
@@ -61,8 +61,8 @@ mod tests {
     #[test]
     fn test_load_config() {
         let yaml_content = r#"
-            width: 400
-            height: 400
+            arena_width: 400
+            arena_height: 400
             headless: true
             agent_size: 2
             station_size: 5
@@ -78,7 +78,7 @@ mod tests {
                 resource: bun
         "#;
         let config: Config = serde_yaml::from_str(yaml_content).expect("Failed to parse test YAML");
-        assert_eq!(config.width, 400);
+        assert_eq!(config.arena_width, 400);
         assert_eq!(config.agents.len(), 1);
         assert_eq!(config.stations.len(), 1);
         assert_eq!(config.agents[0].inputs[0], ResourceType::Lettuce);
