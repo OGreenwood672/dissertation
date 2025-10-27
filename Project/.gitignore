@@ -1,6 +1,7 @@
 venv/
 
 target/
+cargo.lock
 
 node_modules/
 dist/
@@ -9,3 +10,5 @@ dist/
 package-lock.json
 
 __pycache__/
+
+emerging_communication.egg-info/

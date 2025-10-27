@@ -9,7 +9,7 @@ pub mod station;
 pub mod world;
 pub mod websocket;
 
-use crate::sim::run_sim_blocking;
+use crate::sim::Simulation;
 
 #[pyfunction]
 pub fn print_test() {
@@ -18,7 +18,7 @@ pub fn print_test() {
 
 #[pymodule]
 fn environment(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(run_sim_blocking, m)?)?;
+    m.add_class::<Simulation>()?;
     m.add_function(wrap_pyfunction!(print_test, m)?)?;
     Ok(())
 }

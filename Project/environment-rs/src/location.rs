@@ -70,13 +70,13 @@ fn get_equidistant_points_on_line(min_value: i32, max_value: i32, num_points: i3
 }
 
 
-fn get_circle_points(center_x: u32, center_y: u32, radius: u32, num_points: u32) -> Vec<Location> {
+fn get_circle_points(center_x: u32, center_y: u32, radius: f32, num_points: u32) -> Vec<Location> {
     let mut points = Vec::new();
 
     for i in 0..num_points {
         let angle = 2.0 * std::f64::consts::PI * i as f64 / num_points as f64;
-        let x = center_x + (radius as f64 * angle.cos()) as u32;
-        let y = center_y + (radius as f64 * angle.sin()) as u32;
+        let x = center_x as f64 + radius as f64 * angle.cos();
+        let y = center_y as f64 + radius as f64 * angle.sin();
         points.push(Location{ x: x as i32, y: y as i32 });
     }
 
@@ -87,7 +87,7 @@ pub fn get_location(layout: Layout, width: u32, height: u32, entity_count: u32, 
 
     match layout {
         Layout::Circle => {
-            get_circle_points(width / 2, height / 2, width / 2 * 0.8 as u32, entity_count)
+            get_circle_points(width / 2, height / 2, width as f32 / 2.0 * 0.8, entity_count)
         }
         Layout::Line => {
             get_equidistant_points_on_line(0, width as i32, entity_count as i32).into_iter().map(|x| Location{ x, y: (height / 2) as i32 }).collect()

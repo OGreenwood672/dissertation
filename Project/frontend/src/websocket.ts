@@ -4,9 +4,10 @@ import { Message } from "./types";
 
 const serialize_agents = (data: string) => {
 
-    let agents: Message = JSON.parse(data) as Message;
 
-    return agents;
+    let msg: Message = JSON.parse(data) as Message;
+
+    return msg;
 
 }
 
