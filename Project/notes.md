@@ -13,5 +13,8 @@ Pick up and drop off stations
 
 Server/client for visualisation vs websockets.
 Websockets maintains a connection, can just setup a rust thread to send the data every tick.
+p5.js could not run correctly when simply importing, instead attached via script in html
 
 ## Agents
+RNN vs LSTM
+Learning VDN - make sure this is usable

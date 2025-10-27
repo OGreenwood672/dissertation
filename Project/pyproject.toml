@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-rust>=1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emerging-communication"
+version = "0.1.0"
+description = "Emerging Communication in MARL for Complex Tasks"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Oliver Greenwood", email = "mail@ogwood.dev" },
+]
+dependencies = [
+]
+
+[project.optional-dependencies]
+test = [
+    "maturin",
+    "pytest",
+]
+
+dev = [
+    "pytest",
+    "ruff",
+    "black",
+]
+
+[tool.setuptools.packages]
+find = { include = ["controller", "controller.*", "logging_utils", "logging_utils.*", "environment", "environment.*"] }
+
+[[tool.setuptools-rust.ext-modules]]
+# Private Rust extension module to be nested into the Python package
+target = "environment-rs.environment"  # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml,
+# "environment" = { path = "environment-rs/Cargo.toml", optional = false, debug = true }
+path = "environment-rs/Cargo.toml"
+debug = true
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+    "marl/tests",
+]
+pythonpath = ["."]
+
+# [tool.ruff]
+
+
+# [tool.ruff.lint]
+# # rules: F (Pyflakes), E (pycodestyle errors), W (pycodestyle warnings), I (isort)
+# select = ["E", "F", "W", "I"]
+# line-length = 88
+# ignore = []
+
+# [tool.ruff.format]
+# quote-style = "double"
+# line-length = 88
+
+# [tool.black]
+# line-length = 88

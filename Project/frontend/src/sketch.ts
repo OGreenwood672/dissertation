@@ -1,7 +1,7 @@
 // import p5 from "p5";
 import { setupWebSocket } from "./websocket";
 import { AgentConfig, loadConfig, SimulationConfig, StationConfig } from "./config";
-import { AgentState, StationState } from "./types";
+import { AgentState, Message, StationState } from "./types";
 
 const CONFIG_PATH = "http://localhost:5173/simulation.yaml"
 
@@ -12,10 +12,8 @@ export const sketch = (p: p5) => {
     let ws: WebSocket;
 
     let agents: StationState[] = [];
-    let stations: StationConfig[] = [];
+    let stations: StationState[] = [];
 
-
-    console.log("4. The sketch function is running.");
 
     p.preload = () => {
         console.log("PRELOAD");
@@ -32,11 +30,14 @@ export const sketch = (p: p5) => {
 
         config = loadConfig(configText.join("\n"));
 
-        stations = config.stations;
+        stations = [];
         agents = [];
 
         const ws_url = [config.websocket_url, config.websocket_path].join("/");
-        ws = setupWebSocket(ws_url, (data) => agents = data);
+        ws = setupWebSocket(ws_url, (data: Message) => {
+            agents = data.agents;
+            stations = data.stations
+        });
 
         p.createCanvas(config.arena_width, config.arena_height);
         p.background(0);

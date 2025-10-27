@@ -1,2 +1,2 @@
 source venv/bin/activate
-python -m controller.main
+python3 -m controller.marl.main
