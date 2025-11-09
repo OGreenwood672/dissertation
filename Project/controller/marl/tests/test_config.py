@@ -1,6 +1,6 @@
 import pytest
 import yaml
-from marl.config import load_config
+from controller.marl.config import load_config
 
 def test_load_config_success(tmp_path):
     """
@@ -9,7 +9,7 @@ def test_load_config_success(tmp_path):
     config_data = {
         'hyperparameters': {
             'learning_rate': 0.001,
-            'gamme': 0.9
+            'gamma': 0.9
         },
     }
     config_file = tmp_path / "config.yaml"

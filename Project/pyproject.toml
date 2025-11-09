@@ -12,11 +12,13 @@ authors = [
     { name = "Oliver Greenwood", email = "mail@ogwood.dev" },
 ]
 dependencies = [
+    "PyYaml",
+    "torch",
+    "numpy"
 ]
 
 [project.optional-dependencies]
 test = [
-    "maturin",
     "pytest",
 ]
 
@@ -39,7 +41,7 @@ debug = true
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
-    "marl/tests",
+    "controller/marl/tests",
 ]
 pythonpath = ["."]
 

@@ -18,3 +18,14 @@ p5.js could not run correctly when simply importing, instead attached via script
 ## Agents
 RNN vs LSTM
 Learning VDN - make sure this is usable
+
+
+variable items as input to neural net
+- use padding
+- use attention
+
+Currently only looking at closest entity.
+Maybe try and use attention later on
+
+Max two items to to make one item in each agents processing.
+This forces inventory to be max size one (as when second item picked up, immediately converted to output)
