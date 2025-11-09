@@ -8,6 +8,14 @@ pub struct Location {
     pub y: i32,
 }
 
+impl Location {
+    pub fn distance_squared(&self, other: Location) -> u64 {
+        let dx = self.x.abs_diff(other.x) as u64;
+        let dy = self.y.abs_diff(other.y) as u64;
+        dx.pow(2) + dy.pow(2)
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum Layout {
