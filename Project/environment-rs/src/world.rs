@@ -113,7 +113,7 @@ impl World {
 
         let mut rewards = Vec::new();
         for (index, action) in actions.into_iter().enumerate() {
-            rewards.push(match action {
+            let mut reward = match action {
                 Action::MoveUp => {
                     self.agents[index].move_north();
                     0.0
@@ -131,11 +131,15 @@ impl World {
                     0.0
                 }
                 Action::Interact => self.interact(index),
-            });
+            };
+            reward += self.position_reward(index);
+            rewards.push(reward);
         }
 
         rewards
     }
+
+    // add rewards on movement towards correct station/aghent
 
     fn interact(&mut self, agent_index: usize) -> f32 { // Returns reward
 
@@ -154,59 +158,72 @@ impl World {
         }
     }
 
-fn get_nearest_visible_entity(&self, agent: &Agent) -> Option<Entity> {
-
-    let nearest_station = self.stations.iter().enumerate()
-        .filter_map(|(index, t_station)| {
-            let dist_sq = agent.location.distance_squared(t_station.location);
-            if dist_sq <= self.context.agent_visibility as u64 {
-                Some((index, dist_sq))
-            } else {
-                None
-            }
-        })
-        .min_by_key(|(_, dist_sq)| *dist_sq);
-        
-    let nearest_agent = self.agents.iter().enumerate()
-        .filter(|(_, t_agent)| t_agent.id != agent.id) // Filter out self
-        .filter_map(|(index, t_agent)| {
-            let dist_sq = agent.location.distance_squared(t_agent.location);
-            if dist_sq <= self.context.agent_visibility as u64 {
-                Some((index, dist_sq))
-            } else {
-                None
-            }
-        })
-        .min_by_key(|(_, dist_sq)| *dist_sq);
-
-    match (nearest_station, nearest_agent) {
-        // Both exist, we must compare them
-        (Some((station_index, station_dist)), Some((agent_index, agent_dist))) => {
-            if station_dist < agent_dist {
-                // Station is closest
-                Some(Entity::Station(station_index))
-            } else {
-                // Agent is closest (or equal)
-                Some(Entity::Agent(agent_index))
-            }
-        },
-        // Only station exists
-        (Some((station_index, _)), None) => {
-            // Station is closest
-            Some(Entity::Station(station_index))
-        },
-        // Only agent exists
-        (None, Some((agent_index, _))) => {
-            // Agent is closest
-            Some(Entity::Agent(agent_index))
-        },
-        // Neither exists
-        (None, None) => {
-            // No entity visible
-            None
+    fn position_reward(&self, agent_index: usize) -> f32 {
+        let agent = &self.agents[agent_index];
+        let x = agent.location.x;
+        let y = agent.location.y;
+        if x > 0 && x < self.context.width as i32 && y > 0 && y < self.context.height as i32 {
+            0.0
+        } else {
+            -50.0
         }
     }
-}
+
+
+    fn get_nearest_visible_entity(&self, agent: &Agent) -> Option<Entity> {
+
+        let nearest_station = self.stations.iter().enumerate()
+            .filter_map(|(index, t_station)| {
+                let dist_sq = agent.location.distance_squared(t_station.location);
+                if dist_sq <= self.context.agent_visibility as u64 {
+                    Some((index, dist_sq))
+                } else {
+                    None
+                }
+            })
+            .min_by_key(|(_, dist_sq)| *dist_sq);
+            
+        let nearest_agent = self.agents.iter().enumerate()
+            .filter(|(_, t_agent)| t_agent.id != agent.id) // Filter out self
+            .filter_map(|(index, t_agent)| {
+                let dist_sq = agent.location.distance_squared(t_agent.location);
+                if dist_sq <= self.context.agent_visibility as u64 {
+                    Some((index, dist_sq))
+                } else {
+                    None
+                }
+            })
+            .min_by_key(|(_, dist_sq)| *dist_sq);
+
+        match (nearest_station, nearest_agent) {
+            // Both exist, we must compare them
+            (Some((station_index, station_dist)), Some((agent_index, agent_dist))) => {
+                if station_dist < agent_dist {
+                    // Station is closest
+                    Some(Entity::Station(station_index))
+                } else {
+                    // Agent is closest (or equal)
+                    Some(Entity::Agent(agent_index))
+                }
+            },
+            // Only station exists
+            (Some((station_index, _)), None) => {
+                // Station is closest
+                Some(Entity::Station(station_index))
+            },
+            // Only agent exists
+            (None, Some((agent_index, _))) => {
+                // Agent is closest
+                Some(Entity::Agent(agent_index))
+            },
+            // Neither exists
+            (None, None) => {
+                // No entity visible
+                None
+            }
+        }
+    }
+
     fn get_agent_observation(&self, agent: &Agent) -> Vec<f32> {
 
         let mut obs = Vec::new();

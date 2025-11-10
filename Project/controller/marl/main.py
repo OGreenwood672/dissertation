@@ -15,12 +15,12 @@ def main():
 
     env = environment.Simulation('./configs/simulation.yaml')
     
-    buffer_size = 3
-    num_agents = 5
+    buffer_size = 5
+    num_agents = 1
     obs_shape = (9,)
     act_shape = (5,)
     training_timesteps = 1000
-    simulation_timesteps = 1000
+    simulation_timesteps = 4000
     ppo_epochs = 10
     lstm_hidden_size = 64
     gamma = 0.99
