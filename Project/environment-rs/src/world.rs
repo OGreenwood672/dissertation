@@ -1,11 +1,12 @@
+use std::collections::HashSet;
 use std::vec::Vec;
 
 use serde::{Serialize};
 
 use crate::agent::{Action, Agent, AgentState};
-use crate::station::{Station, StationState};
+use crate::station::{Station, StationState, StationType};
 use crate::config::{AgentConfig, Config, StationConfig};
-use crate::location::{Layout, get_location};
+use crate::location::{Layout, Location, get_location};
 
 
 #[derive(Serialize)]
@@ -56,7 +57,7 @@ impl World {
                 station_layout: config.station_layout,
                 agent_configs: config.agents,
                 station_configs: config.stations,
-                agent_visibility: config.agent_size * 5,
+                agent_visibility: config.agent_size * 25,
             }
         };
 
@@ -113,6 +114,7 @@ impl World {
 
         let mut rewards = Vec::new();
         for (index, action) in actions.into_iter().enumerate() {
+            let original_location = self.agents[index].location.clone();
             let mut reward = match action {
                 Action::MoveUp => {
                     self.agents[index].move_north();
@@ -132,6 +134,9 @@ impl World {
                 }
                 Action::Interact => self.interact(index),
             };
+            if let Some(desired_location) = self.get_desired_target(index) {
+                reward += self.direction_reward(original_location, self.agents[index].location, desired_location);
+            }
             reward += self.position_reward(index);
             rewards.push(reward);
         }
@@ -139,23 +144,82 @@ impl World {
         rewards
     }
 
-    // add rewards on movement towards correct station/aghent
-
     fn interact(&mut self, agent_index: usize) -> f32 { // Returns reward
 
-        let mut agent = self.agents[agent_index].clone();
-        let nearest_entity = self.get_nearest_visible_entity(&agent);
+        let nearest_entity = self.get_nearest_visible_entity(&self.agents[agent_index]);
         match nearest_entity {
             Some(Entity::Station(station_index)) => {
+                let agent = &mut self.agents[agent_index];
                 let station = &self.stations[station_index];
                 agent.interact_with_station(station)
             }
-            Some(Entity::Agent(agent_index)) => {
-                let t_agent = &mut self.agents[agent_index];
-                agent.interact_with_agent(t_agent)
+            Some(Entity::Agent(other_agent_index)) => {
+                assert_ne!(agent_index, other_agent_index); // Should never be returned by nearest_entity
+
+                // Splitting the agent array to borrow both required agents mutably
+                let (agent, other_agent) = if agent_index < other_agent_index {
+                    let (left, right) = self.agents.split_at_mut(other_agent_index);
+                    (&mut left[agent_index], &mut right[0])
+                } else {
+                    let (left, right) = self.agents.split_at_mut(agent_index);
+                    (&mut right[0], &mut left[other_agent_index])
+                };
+
+                agent.interact_with_agent(other_agent)
             }
-            None => 0.0,
+            None => 0.0
         }
+    }
+
+    fn get_desired_target(&self, agent_index: usize) -> Option<Location> {
+        let agent = &self.agents[agent_index];
+
+        // Dropoff an Item
+        if let Some(agent_inventory) = agent.inventory {
+            if agent_inventory == agent.output {
+                for station in &self.stations {
+                    if station.station_type == StationType::DropOff && station.resource == agent.output {
+                        return Some(station.location);
+                    }
+                }
+                for other_agent in &self.agents {
+                    if other_agent.id != agent.id {
+                        if let Some(other_inventory) = other_agent.inventory {   
+                            if other_inventory == agent.output {
+                                return Some(other_agent.location);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            let inventory_set = match agent.inventory {
+                Some(inventory) => HashSet::from([inventory]),
+                None => HashSet::new(),
+            };
+            let inputs_required: HashSet<_> = agent.input
+                .difference(&inventory_set)
+                .copied() 
+                .collect();
+            for station in &self.stations {
+                if station.station_type == StationType::PickUp && inputs_required.contains(&station.resource) {
+                    return Some(station.location);
+                }
+            }
+            for other_agent in &self.agents {
+                if other_agent.id != agent.id {
+                    if let Some(other_inventory) = other_agent.inventory {
+                        if inputs_required.contains(&other_inventory) {
+                            return Some(other_agent.location);
+                        }
+                    }
+                }
+            }
+        
+        }
+
+        None
+
     }
 
     fn position_reward(&self, agent_index: usize) -> f32 {
@@ -165,10 +229,23 @@ impl World {
         if x > 0 && x < self.context.width as i32 && y > 0 && y < self.context.height as i32 {
             0.0
         } else {
-            -50.0
+            -5000.0
         }
     }
 
+    fn direction_reward(&self, original_location: Location, new_location: Location, desired_target: Location) -> f32 {
+
+        if (desired_target - new_location).magnitude() <= self.context.agent_visibility as f32 {
+            return 0.0;
+        }
+
+        // Use cosine similarity - [-1, 1]
+        let cosine_similarity = Location::cosine_similarity(original_location, new_location, desired_target);
+
+        // Near 1 is the right direction
+        cosine_similarity * 10.0
+ 
+    }
 
     fn get_nearest_visible_entity(&self, agent: &Agent) -> Option<Entity> {
 

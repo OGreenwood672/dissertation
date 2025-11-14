@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -24,7 +25,7 @@ pub struct Config {
 #[derive(Debug, Deserialize)]
 pub struct AgentConfig {
     pub id: u32,
-    pub inputs: Vec<ResourceType>,
+    pub inputs: HashSet<ResourceType>,
     pub output: ResourceType,
 }
 
@@ -81,7 +82,7 @@ mod tests {
         assert_eq!(config.arena_width, 400);
         assert_eq!(config.agents.len(), 1);
         assert_eq!(config.stations.len(), 1);
-        assert_eq!(config.agents[0].inputs[0], ResourceType::Lettuce);
+        assert!(config.agents[0].inputs.contains(&ResourceType::Lettuce));
         assert_eq!(config.stations[0].resource, ResourceType::Bun);
     }
 }

@@ -15,12 +15,12 @@ def main():
 
     env = environment.Simulation('./configs/simulation.yaml')
     
-    buffer_size = 5
+    buffer_size = 20
     num_agents = 1
     obs_shape = (9,)
     act_shape = (5,)
     training_timesteps = 1000
-    simulation_timesteps = 4000
+    simulation_timesteps = 900
     ppo_epochs = 10
     lstm_hidden_size = 64
     gamma = 0.99
@@ -75,6 +75,7 @@ def main():
                 # Use chosen actions in env
                 action_choice = [action.cpu().numpy() for action in actions]
                 next_obs, rewards = env.step(action_choice)
+                # sleep(0.5);
 
                 # Save to current episode
                 current_episode_data["obs"].append(curr_obs)

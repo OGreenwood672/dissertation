@@ -86,8 +86,8 @@ impl Simulation {
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("failed to serialize world state: {}", e)))?;
 
         if !self.headless {
-            if let Err(e) = self.bcast_tx.send(json_state) {
-                println!("[DEBUG] Broadcast error: {}", e);
+            if let Err(_) = self.bcast_tx.send(json_state) {
+                // println!("[DEBUG] Broadcast error: {}", e);
             }
         }
         Ok((obs, rewards))

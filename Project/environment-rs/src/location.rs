@@ -1,3 +1,5 @@
+use std::ops::Sub;
+
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -13,6 +15,43 @@ impl Location {
         let dx = self.x.abs_diff(other.x) as u64;
         let dy = self.y.abs_diff(other.y) as u64;
         dx.pow(2) + dy.pow(2)
+    }
+
+    pub fn dot(self, other: Location) -> f32 {
+        (self.x * other.x + self.y * other.y) as f32
+    }
+
+    pub fn magnitude(self) -> f32 {
+        ((self.x.pow(2) + self.y.pow(2)) as f32).sqrt()
+    }
+
+    pub fn cosine_similarity(a: Location, b: Location, c: Location) -> f32 {
+        let v1 = b - a;
+        let v2 = c - a;
+
+        let dot_product = v1.dot(v2);
+        let mag_v1 = v1.magnitude();
+        let mag_v2 = v2.magnitude();
+
+        // Avoid division by zero
+        if mag_v1 == 0.0 || mag_v2 == 0.0 {
+            0.0
+        } else {
+            // (v1 . v2) / (||v1|| * ||v2||)
+            dot_product / (mag_v1 * mag_v2)
+        }
+    }
+
+}
+
+impl Sub for Location {
+    type Output = Location;
+
+    fn sub(self, other: Location) -> Self::Output {
+        Location {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        }
     }
 }
 

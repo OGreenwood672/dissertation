@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::convert::From;
 use std::vec::Vec;
 use serde::Serialize;
@@ -16,9 +17,9 @@ pub struct AgentState {
 pub struct Agent {
     pub id: i32,
     pub location: Location,
-    inventory: Option<ResourceType>,
-    input: Vec<ResourceType>,
-    output: ResourceType,
+    pub inventory: Option<ResourceType>,
+    pub input: HashSet<ResourceType>,
+    pub output: ResourceType,
 }
 
 // actions: move up, down, left, right, interact, 
@@ -55,7 +56,7 @@ impl ToActions for Vec<i32> {
 
 impl Agent {
     /// Creates a new Agent instance.
-    pub fn new(id: i32, location: Location, input: Vec<ResourceType>, output: ResourceType) -> Self {
+    pub fn new(id: i32, location: Location, input: HashSet<ResourceType>, output: ResourceType) -> Self {
 
         assert!(input.len() <= 2);
 
@@ -98,13 +99,15 @@ impl Agent {
         obs.push(self.location.x as f32 / width as f32);
         obs.push(self.location.y as f32 / height as f32);
 
-        // Input
-        obs.push(f32::from(&self.input[0]));
+        // Input - assuming max input of 2
+        let inputs: Vec<&ResourceType> = self.input.iter().collect();
+        obs.push(f32::from(inputs[0]));
         if self.input.len() > 1 {
-            obs.push(f32::from(&self.input[1]));
+            obs.push(f32::from(inputs[1]));
         } else {
             obs.push(0.0);
         }
+
 
         // Output
         obs.push(f32::from(&self.output));
@@ -125,14 +128,14 @@ impl Agent {
     // agent back
     pub fn interact_with_station(&mut self, station: &Station) -> f32 {
 
-        const COMBINE_REWARD: f32 = 10.0;
-        const PICKUP_REWARD: f32 = 2.0;
-        const DROP_OFF_REWARD: f32 = 25.0;
+        const COMBINE_REWARD: f32 = 7000.0;
+        const PICKUP_REWARD: f32 = 5000.0;
+        const DROP_OFF_REWARD: f32 = 10000.0;
 
         if station.station_type == StationType::PickUp {
             if self.input.len() == 2 {
                 if let Some(inventory) = self.inventory { // item in inventory
-                    if self.input.contains(&station.resource) && self.input.contains(&inventory) && inventory != station.resource {
+                    if self.input.contains(&station.resource) && inventory != station.resource {
                         // inputs are our current inventory and whats at the station
                         self.inventory = Some(self.output);
                         COMBINE_REWARD
@@ -146,8 +149,11 @@ impl Agent {
                     0.0
                 }
             } else if self.input.len() == 1 {
-                if self.input.contains(&station.resource) { // Items needed is at this station
+                if let Some(_) = self.inventory { // useful item already in inventory
+                    0.0
+                } else if self.input.contains(&station.resource) { // Items needed is at this station
                     self.inventory = Some(self.output);
+                    println!("COMBINE, PICKUP");
                     COMBINE_REWARD
                 } else {
                     0.0
@@ -161,6 +167,7 @@ impl Agent {
             if let Some(inventory) = self.inventory { // item in inventory
                 if inventory == station.resource { // item needed at station is the one we have
                     self.inventory = None;
+                    println!("DROP OFF");
                     DROP_OFF_REWARD
                 } else {
                     0.0
@@ -176,7 +183,7 @@ impl Agent {
     // Only allow progression
     pub fn interact_with_agent(&mut self, agent: &mut Agent) -> f32 {
 
-        const COLLECT_REWARD: f32 = 10.0;
+        const COLLECT_REWARD: f32 = 10000.0;
 
         if let Some(other_inventory) = agent.inventory { // Other's inventory
             if let Some(inventory) = self.inventory { // Our inventory
