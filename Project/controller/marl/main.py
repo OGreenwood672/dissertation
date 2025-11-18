@@ -17,7 +17,7 @@ def main():
     
     buffer_size = 20
     num_agents = 1
-    obs_shape = (9,)
+    obs_shape = (25,)
     act_shape = (5,)
     training_timesteps = 1000
     simulation_timesteps = 900
@@ -26,18 +26,26 @@ def main():
     gamma = 0.99
     gae_lambda = 0.95
 
+    clip_coef = 0.2
+    vf_coef = 0.5
+    ent_coef = 0.01
 
-    actor = PPO_Actor(num_agents, obs_shape[0], act_shape[0], lstm_hidden_size)
-    critic = PPO_Critic(num_agents, obs_shape[0], lstm_hidden_size)
+    # Set device to GPU if available, otherwise CPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    actor = PPO_Actor(num_agents, obs_shape[0], act_shape[0], lstm_hidden_size).to(device)
+    critic = PPO_Critic(num_agents, obs_shape[0], lstm_hidden_size).to(device)
 
     actor_optimizer = torch.optim.Adam(actor.parameters(), lr=0.001)
     critic_optimizer = torch.optim.Adam(critic.parameters(), lr=0.001)
 
     buffer = RolloutBuffer(
-        buffer_size=buffer_size, 
-        num_agents=num_agents, 
-        obs_space_shape=obs_shape, 
-        action_space_shape=act_shape
+        buffer_size=buffer_size,
+        num_agents=num_agents,
+        obs_space_shape=obs_shape,
+        action_space_shape=act_shape,
+        device=device
     )
 
     for i in range(training_timesteps):
@@ -56,10 +64,11 @@ def main():
             
             for j in range(simulation_timesteps):
 
-                current_episode_data["a_hidden_states"].append(actor_hidden_states)
+                # Move hidden states to CPU for storage
+                current_episode_data["a_hidden_states"].append([(h.cpu(), c.cpu()) for h, c in actor_hidden_states])
                 
                 # Get action logits from the model and update memory
-                obs_tensor = torch.tensor(np.stack(curr_obs)).unsqueeze(0).float()
+                obs_tensor = torch.tensor(np.stack(curr_obs)).unsqueeze(0).float().to(device)
                 with torch.no_grad():
                     action_logits, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                     value, critic_hidden_states = critic(obs_tensor, critic_hidden_states)
@@ -82,8 +91,8 @@ def main():
                 current_episode_data["actions"].append(actions.cpu().numpy())
                 current_episode_data["log_probs"].append(log_probs.cpu().numpy())
                 current_episode_data["rewards"].append(rewards)
-                current_episode_data["c_values"].append(value.squeeze(0))
-                current_episode_data["c_hidden_states"].append(critic_hidden_states)
+                current_episode_data["c_values"].append(value.squeeze(0).cpu())
+                current_episode_data["c_hidden_states"].append([(h.cpu(), c.cpu()) for h, c in critic_hidden_states])
 
                 curr_obs = next_obs
 
@@ -95,10 +104,6 @@ def main():
 
         buffer.flatten_episodes_to_batch()
         buffer.compute_advantages(0, gamma, gae_lambda)
-
-        clip_coef = 0.2
-        vf_coef = 0.5
-        ent_coef = 0.0
         
         for _ in range(ppo_epochs):
             for batch in buffer.get_minibatches():

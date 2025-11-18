@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::location::Location;
 use crate::resource::ResourceType;
 
-#[derive(Debug, Deserialize, PartialEq, Copy, Clone)]
+#[derive(Debug, Deserialize, PartialEq, Copy, Clone, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 pub enum StationType {
     PickUp,
@@ -54,8 +54,6 @@ impl Station {
         // Resource
         obs.push(f32::from(&self.resource));
 
-        obs.push(0.0);
-        obs.push(0.0);
 
         obs
     }
