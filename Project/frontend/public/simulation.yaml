@@ -11,6 +11,15 @@ agents:
   - id: 1
     inputs: [bun]
     output: burger
+  # - id: 2
+  #   inputs: [bun]
+  #   output: burger
+  # - id: 3
+  #   inputs: [bun]
+  #   output: burger
+  # - id: 4
+  #   inputs: [bun]
+  #   output: burger
   # - id: 1
   #   inputs: [lettuce]
   #   output: choppedlettuce
@@ -28,7 +37,7 @@ agents:
   #   output: burger
 
 station_size: 5
-station_layout: circle
+station_layout: random
 stations:
   - id: 1
     type: pickup

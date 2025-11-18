@@ -1,10 +1,9 @@
-use std::collections::HashSet;
 use std::vec::Vec;
 
 use serde::{Serialize};
 
 use crate::agent::{Action, Agent, AgentState};
-use crate::station::{Station, StationState, StationType};
+use crate::station::{Station, StationState};
 use crate::config::{AgentConfig, Config, StationConfig};
 use crate::location::{Layout, Location, get_location};
 
@@ -25,6 +24,8 @@ struct WorldContext {
     agent_configs: Vec<AgentConfig>,
     station_configs: Vec<StationConfig>,
     agent_visibility: u32,
+    max_inputs: u32,
+    max_outputs: u32,
 }
 
 
@@ -45,6 +46,8 @@ impl World {
         let width = config.arena_width;
         let height = config.arena_height;
 
+        let max_inputs = config.agents.iter().map(|agent| agent.inputs.len()).max().unwrap_or(0);
+
         let mut world = World {
             agents: Vec::new(),
             stations: Vec::new(),
@@ -58,6 +61,8 @@ impl World {
                 agent_configs: config.agents,
                 station_configs: config.stations,
                 agent_visibility: config.agent_size * 25,
+                max_inputs: max_inputs as u32,
+                max_outputs: 1
             }
         };
 
@@ -115,7 +120,8 @@ impl World {
         let mut rewards = Vec::new();
         for (index, action) in actions.into_iter().enumerate() {
             let original_location = self.agents[index].location.clone();
-            let mut reward = match action {
+            let mut reward = -0.01; // Punishment for existing
+            reward += match action {
                 Action::MoveUp => {
                     self.agents[index].move_north();
                     0.0
@@ -138,6 +144,7 @@ impl World {
                 reward += self.direction_reward(original_location, self.agents[index].location, desired_location);
             }
             reward += self.position_reward(index);
+
             rewards.push(reward);
         }
 
@@ -174,51 +181,10 @@ impl World {
     fn get_desired_target(&self, agent_index: usize) -> Option<Location> {
         let agent = &self.agents[agent_index];
 
-        // Dropoff an Item
-        if let Some(agent_inventory) = agent.inventory {
-            if agent_inventory == agent.output {
-                for station in &self.stations {
-                    if station.station_type == StationType::DropOff && station.resource == agent.output {
-                        return Some(station.location);
-                    }
-                }
-                for other_agent in &self.agents {
-                    if other_agent.id != agent.id {
-                        if let Some(other_inventory) = other_agent.inventory {   
-                            if other_inventory == agent.output {
-                                return Some(other_agent.location);
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            let inventory_set = match agent.inventory {
-                Some(inventory) => HashSet::from([inventory]),
-                None => HashSet::new(),
-            };
-            let inputs_required: HashSet<_> = agent.input
-                .difference(&inventory_set)
-                .copied() 
-                .collect();
-            for station in &self.stations {
-                if station.station_type == StationType::PickUp && inputs_required.contains(&station.resource) {
-                    return Some(station.location);
-                }
-            }
-            for other_agent in &self.agents {
-                if other_agent.id != agent.id {
-                    if let Some(other_inventory) = other_agent.inventory {
-                        if inputs_required.contains(&other_inventory) {
-                            return Some(other_agent.location);
-                        }
-                    }
-                }
-            }
-        
-        }
-
-        None
+        // Get location closest to agent.location
+        agent.get_current_target_locations().into_iter().min_by_key(|location| {
+            agent.location.distance_squared(*location)
+        })
 
     }
 
@@ -243,7 +209,7 @@ impl World {
         let cosine_similarity = Location::cosine_similarity(original_location, new_location, desired_target);
 
         // Near 1 is the right direction
-        cosine_similarity * 10.0
+        cosine_similarity
  
     }
 
@@ -303,28 +269,66 @@ impl World {
 
     fn get_agent_observation(&self, agent: &Agent) -> Vec<f32> {
 
+        const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
+        const OBS_PER_INVENTORY_PIECE: u32 = 3;
+        let target_size = self.context.max_inputs + self.context.max_outputs;
+        let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
+
         let mut obs = Vec::new();
         
         // Agent Location (0-1)
         obs.push(agent.location.x as f32 / self.context.width as f32);
         obs.push(agent.location.y as f32 / self.context.height as f32);
 
+        // Agent's own hardcoded memory of the world
+        for i in 0..target_size as usize {
+            if i < agent.agent_targets.len() {
+                // Target's resource
+                obs.push(f32::from(&agent.agent_targets[i].resource));
+
+                // Has the agent come across this station/agent
+                obs.push(agent.agent_targets[i].is_found as i32 as f32);
+
+                // station/agent last known location - relative
+                obs.push((agent.agent_targets[i].location.x - agent.location.x) as f32 / self.context.width as f32);
+                obs.push((agent.agent_targets[i].location.y - agent.location.y) as f32 / self.context.height as f32);
+                // If we have it, was it a static station or a moving agent
+                obs.push(f32::from(&agent.agent_targets[i].station_type));
+                
+                // Do we currently need the resource
+                obs.push(agent.agent_targets[i].is_current_target as i32 as f32);
+
+                // Does agent have the resource
+                obs.push(agent.agent_targets[i].is_collected as i32 as f32);
+            } else {
+                obs.push(0.0);
+                obs.push(0.0);
+                obs.push(0.0);
+                obs.push(0.0);
+                obs.push(0.0);
+                obs.push(0.0);
+                obs.push(0.0);
+            }
+        }
 
         // Next to which station/agent if any
         let nearest_entity = self.get_nearest_visible_entity(agent);
         let entity_obs = match nearest_entity {
             Some(Entity::Station(station_index)) => {
                 let t_station = &self.stations[station_index];
-                t_station.get_self_observations(self.context.width, self.context.height)
+                let mut station_obs = t_station.get_self_observations(self.context.width, self.context.height);
+                // Add padding
+                station_obs.resize(obs_size as usize, 0.0);
+                station_obs
             }
             Some(Entity::Agent(agent_index)) => {
                 let t_agent = &self.agents[agent_index];
-                t_agent.get_self_observations(self.context.width, self.context.height)
+                t_agent.get_self_observations(self.context.width, self.context.height, target_size)
             }
-            None => vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            None => vec![0.0; obs_size as usize]
         };
 
-        assert!(entity_obs.len() == 7);
+        assert!(entity_obs.len() as u32 == obs_size);
 
         obs.extend(entity_obs);
 
