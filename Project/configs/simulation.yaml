@@ -1,5 +1,5 @@
-arena_width: 200
-arena_height: 200
+arena_width: 50
+arena_height: 50
 
 headless: false
 websocket_url: ws://127.0.0.1:3000
@@ -36,7 +36,7 @@ agents:
   #   inputs: [salad, plainburger]
   #   output: burger
 
-station_size: 5
+station_size: 4
 station_layout: random
 stations:
   - id: 1
