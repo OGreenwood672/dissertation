@@ -60,7 +60,7 @@ impl World {
                 station_layout: config.station_layout,
                 agent_configs: config.agents,
                 station_configs: config.stations,
-                agent_visibility: config.agent_size * 25,
+                agent_visibility: config.agent_size * 6,
                 max_inputs: max_inputs as u32,
                 max_outputs: 1
             }
@@ -124,26 +124,41 @@ impl World {
             reward += match action {
                 Action::MoveUp => {
                     self.agents[index].move_north();
-                    0.0
+                    if original_location == self.agents[index].location {
+                        -5.0
+                    } else {
+                        0.0
+                    }
                 }
                 Action::MoveDown => {
-                    self.agents[index].move_south();
-                    0.0
+                    self.agents[index].move_south(self.context.height);
+                    if original_location == self.agents[index].location {
+                        -5.0
+                    } else {
+                        0.0
+                    }
                 }
                 Action::MoveLeft => {
                     self.agents[index].move_west();
-                    0.0
+                    if original_location == self.agents[index].location {
+                        -5.0
+                    } else {
+                        0.0
+                    }
                 }
                 Action::MoveRight => {
-                    self.agents[index].move_east();
-                    0.0
+                    self.agents[index].move_east(self.context.width);
+                    if original_location == self.agents[index].location {
+                        -5.0
+                    } else {
+                        0.0
+                    }
                 }
                 Action::Interact => self.interact(index),
             };
             if let Some(desired_location) = self.get_desired_target(index) {
                 reward += self.direction_reward(original_location, self.agents[index].location, desired_location);
             }
-            reward += self.position_reward(index);
 
             rewards.push(reward);
         }
@@ -188,16 +203,16 @@ impl World {
 
     }
 
-    fn position_reward(&self, agent_index: usize) -> f32 {
-        let agent = &self.agents[agent_index];
-        let x = agent.location.x;
-        let y = agent.location.y;
-        if x > 0 && x < self.context.width as i32 && y > 0 && y < self.context.height as i32 {
-            0.0
-        } else {
-            -5000.0
-        }
-    }
+    // fn position_reward(&self, agent_index: usize) -> f32 {
+    //     let agent = &self.agents[agent_index];
+    //     let x = agent.location.x;
+    //     let y = agent.location.y;
+    //     if x >= 0 && x <= self.context.width as i32 && y > 0 && y < self.context.height as i32 {
+    //         0.0
+    //     } else {
+    //         -5000.0
+    //     }
+    // }
 
     fn direction_reward(&self, original_location: Location, new_location: Location, desired_target: Location) -> f32 {
 
@@ -218,7 +233,7 @@ impl World {
         let nearest_station = self.stations.iter().enumerate()
             .filter_map(|(index, t_station)| {
                 let dist_sq = agent.location.distance_squared(t_station.location);
-                if dist_sq <= self.context.agent_visibility as u64 {
+                if dist_sq <= (self.context.agent_visibility as u64).pow(2) {
                     Some((index, dist_sq))
                 } else {
                     None

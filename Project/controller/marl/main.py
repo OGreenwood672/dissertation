@@ -20,7 +20,7 @@ def main():
     obs_shape = (25,)
     act_shape = (5,)
     training_timesteps = 1000
-    simulation_timesteps = 900
+    simulation_timesteps = 3000
     ppo_epochs = 10
     lstm_hidden_size = 64
     gamma = 0.99
@@ -28,7 +28,7 @@ def main():
 
     clip_coef = 0.2
     vf_coef = 0.5
-    ent_coef = 0.01
+    ent_coef = 0.04
 
     # Set device to GPU if available, otherwise CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -84,7 +84,7 @@ def main():
                 # Use chosen actions in env
                 action_choice = [action.cpu().numpy() for action in actions]
                 next_obs, rewards = env.step(action_choice)
-                # sleep(0.5);
+                # sleep(0.5)
 
                 # Save to current episode
                 current_episode_data["obs"].append(curr_obs)

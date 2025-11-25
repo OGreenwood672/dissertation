@@ -41,9 +41,14 @@ impl AgentTarget {
         self.is_current_target = true;
     }
 
-    pub fn interact(&mut self) {
+    pub fn collect(&mut self) {
         self.is_current_target = false;
         self.is_collected = true;
+    }
+
+    pub fn dropoff(&mut self) {
+        self.is_collected = false;
+        self.is_current_target = false;
     }
 
 }
@@ -114,22 +119,30 @@ impl Agent {
 
     /// Moves the agent one unit north.
     pub fn move_north(&mut self) {
-        self.location.y = self.location.y.saturating_sub(1);
+        if self.location.y > 0 as i32 {
+            self.location.y = self.location.y - 1;
+        }
     }
 
     /// Moves the agent one unit south.
-    pub fn move_south(&mut self) {
-        self.location.y = self.location.y.saturating_add(1);
+    pub fn move_south(&mut self, height: u32) {
+        if self.location.y < height as i32 - 1 {
+            self.location.y = self.location.y + 1;
+        }
     }
 
     /// Moves the agent one unit west.
     pub fn move_west(&mut self) {
-        self.location.x = self.location.x.saturating_sub(1);
+        if self.location.x > 0 {
+            self.location.x = self.location.x - 1;
+        }
     }
 
     /// Moves the agent one unit east.
-    pub fn move_east(&mut self) {
-        self.location.x = self.location.x.saturating_add(1);
+    pub fn move_east(&mut self, width: u32) {
+        if self.location.x < width as i32 - 1 {
+            self.location.x = self.location.x + 1;
+        }
     }
 
     pub fn get_output(&self) -> ResourceType {
@@ -173,18 +186,15 @@ impl Agent {
         
         // Guard clause
         if !self.agent_targets.iter().all(|target| {
-            if target.is_collected {
-                true
-            } else if target.station_type == StationType::PickUp {
-                false
-            } else {
-                true
-            }
+            (target.is_collected && target.station_type == StationType::PickUp) || (target.station_type == StationType::DropOff && !target.is_collected)
         }) { return false }
 
+        println!("Combining inputs...");
+
         self.agent_targets.iter_mut().for_each(|target| {
-            if target.is_collected {
+            if target.is_collected && target.station_type == StationType::PickUp {
                 target.is_collected = false;
+                target.is_current_target = false;
             }
             if target.station_type == StationType::DropOff {
                 target.is_collected = true;
@@ -232,9 +242,9 @@ impl Agent {
     // agent back
     pub fn interact_with_station(&mut self, station: &Station) -> f32 {
 
-        const COMBINE_REWARD: f32 = 70.0;
-        const BASIC_REWARD: f32 = 50.0;
-        const FOUND_REWARD: f32 = 20.0;
+        const COMBINE_REWARD: f32 = 700.0;
+        const BASIC_REWARD: f32 = 500.0;
+        const FOUND_REWARD: f32 = 200.0;
 
         let mut successful_interaction = false;
         let mut reward = 0.0;
@@ -244,9 +254,21 @@ impl Agent {
                 if !target.is_found { // Hard code in memory of the agent
                     target.set_found(station.location, true);
                     reward += FOUND_REWARD;
+                    if station.station_type == StationType::PickUp {
+                        target.set_current_target();
+                        println!("FOUND: PICKUP")
+                    } else {
+                        println!("FOUND: DROPOFF")
+                    }
                 }
                 if target.is_current_target {
-                    target.interact();
+                    if target.station_type == StationType::PickUp {
+                        target.collect();
+                        println!("COLLECTED: PICKUP")
+                    } else {
+                        target.dropoff();
+                        println!("DROPPED: DROPOFF")
+                    }
                     successful_interaction = true;
                 }
             }
@@ -268,9 +290,9 @@ impl Agent {
     // Only allow progression
     pub fn interact_with_agent(&mut self, agent: &mut Agent) -> f32 {
 
-        const COMBINE_REWARD: f32 = 70.0;
-        const BASIC_REWARD: f32 = 50.0;
-        const FOUND_REWARD: f32 = 20.0;
+        const COMBINE_REWARD: f32 = 700.0;
+        const BASIC_REWARD: f32 = 500.0;
+        const FOUND_REWARD: f32 = 200.0;
 
 
         let mut successful_interaction = false;
@@ -282,10 +304,10 @@ impl Agent {
                     target.set_found(agent.location, false);
                     reward += FOUND_REWARD;
                 }
-                if target.is_current_target {
-                    target.interact();
+                if target.is_current_target && target.station_type == StationType::PickUp {
                     agent.take_resource(target.resource);
                     successful_interaction = true;
+                    todo!("Actually take resource");
                 }
             }
         }
