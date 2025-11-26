@@ -4,6 +4,7 @@ arena_height: 50
 headless: false
 websocket_url: ws://127.0.0.1:3000
 websocket_path: ws
+worlds_parellised: 4
 
 agent_size: 2
 initial_agent_layout: random
@@ -37,7 +38,7 @@ agents:
   #   output: burger
 
 station_size: 4
-station_layout: circle
+station_layout: random
 stations:
   - id: 1
     type: pickup

@@ -4,6 +4,8 @@ import environment.environment as environment
 import torch
 import torch.nn.functional as F
 import numpy as np
+import concurrent.futures
+
 from .buffer import RolloutBuffer
 from .models import PPO_Actor, PPO_Critic
 
@@ -30,6 +32,9 @@ def main():
     vf_coef = 0.5
     ent_coef = 0.04
 
+    worlds_parallised = 4
+    batch_runs = buffer_size // worlds_parallised
+
     # Set device to GPU if available, otherwise CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -48,33 +53,59 @@ def main():
         device=device
     )
 
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=worlds_parallised)
+
+    def parallel_step(args):
+        world_id, action = args
+        return env.step(world_id, action)
+
+    def parallel_reset(world_id):
+        return env.reset(world_id)
+
     for i in range(training_timesteps):
 
-        for ep in range(buffer_size):
+        for batch_run in range(batch_runs):
             
-            current_episode_data = {
+            current_episodes_data = [{
                 "obs": [], "actions": [], "log_probs": [], "rewards": [], "c_values": [], "a_hidden_states": [], "c_hidden_states": []
-            }
+            } for _ in range(worlds_parallised)]
             
-            curr_obs = env.reset()
+            curr_obs_for_batch = list(executor.map(parallel_reset, range(worlds_parallised)))
             
             # Reset hidden states for the recurrent model
-            actor_hidden_states = actor.init_hidden()
-            critic_hidden_states = critic.init_hidden()
+            actor_hidden_states = actor.init_hidden(batch_size=worlds_parallised)
+            critic_hidden_states = critic.init_hidden(batch_size=worlds_parallised)
             
             for j in range(simulation_timesteps):
 
                 # Move hidden states to CPU for storage
-                current_episode_data["a_hidden_states"].append([(h.cpu(), c.cpu()) for h, c in actor_hidden_states])
-                
+                for w in range(worlds_parallised):
+                        
+                    world_agents_states = []
+                    for agent in range(num_agents):
+                        h_batch, c_batch = actor_hidden_states[agent]
+                        world_agents_states.append(
+                            (h_batch[w].detach().cpu(), c_batch[w].detach().cpu())
+                        )
+
+                    current_episodes_data[w]["a_hidden_states"].append(world_agents_states)
+
+                    world_critic_states = []
+                    for agent in range(num_agents):
+                        h_batch, c_batch = critic_hidden_states[agent]
+                        world_critic_states.append(
+                            (h_batch[w].detach().cpu(), c_batch[w].detach().cpu())
+                        )
+                        
+                    current_episodes_data[w]["c_hidden_states"].append(world_critic_states)
+
                 # Get action logits from the model and update memory
-                obs_tensor = torch.tensor(np.stack(curr_obs)).unsqueeze(0).float().to(device)
+                obs_tensor = torch.tensor(np.stack(curr_obs_for_batch)).float().to(device)
                 with torch.no_grad():
                     action_logits, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                     value, critic_hidden_states = critic(obs_tensor, critic_hidden_states)
                 
-
-                action_logits = action_logits.squeeze(0)
+                # action_logits = action_logits.squeeze(0)
                 # Basically softmax to determine chosen action
                 dist = torch.distributions.Categorical(logits=action_logits)
                 actions = dist.sample()
@@ -82,23 +113,30 @@ def main():
                 log_probs = dist.log_prob(actions)
 
                 # Use chosen actions in env
-                action_choice = [action.cpu().numpy() for action in actions]
-                next_obs, rewards = env.step(action_choice)
+                action_choice = actions.cpu().numpy()
+                # Add world id to actions
+                step_args = zip(range(worlds_parallised), action_choice)
+                results = list(executor.map(parallel_step, step_args))
+                
+                next_obs = [r[0] for r in results]
+                rewards = [r[1] for r in results]
                 # sleep(0.5)
 
-                # Save to current episode
-                current_episode_data["obs"].append(curr_obs)
-                current_episode_data["actions"].append(actions.cpu().numpy())
-                current_episode_data["log_probs"].append(log_probs.cpu().numpy())
-                current_episode_data["rewards"].append(rewards)
-                current_episode_data["c_values"].append(value.squeeze(0).cpu())
-                current_episode_data["c_hidden_states"].append([(h.cpu(), c.cpu()) for h, c in critic_hidden_states])
+                # Save to current episodes
+                for w in range(worlds_parallised):
+                    current_episodes_data[w]["obs"].append(curr_obs_for_batch[w])
+                    current_episodes_data[w]["actions"].append(action_choice[w])
+                    current_episodes_data[w]["log_probs"].append(log_probs[w].cpu().numpy())
+                    current_episodes_data[w]["rewards"].append(rewards[w])
+                    current_episodes_data[w]["c_values"].append(value[w].cpu())
 
-                curr_obs = next_obs
+                curr_obs_for_batch = next_obs
 
             # Save to buffer
-            buffer.add_episode(current_episode_data)
-            print(f"Collected episode {ep+1}/{buffer_size}")
+            for w in range(worlds_parallised):
+                buffer.add_episode(current_episodes_data[w])
+            
+            print(f"Collected batch {batch_run+1}/{batch_runs} (Total {worlds_parallised * (batch_run+1)} episodes)")
 
         print("Buffer is full. Creating batch...")
 

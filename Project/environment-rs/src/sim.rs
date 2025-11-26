@@ -9,11 +9,12 @@ use crate::config::{load_config};
 use crate::world::World;
 use crate::websocket::websocket;
 use tokio::task::JoinHandle;
+use std::iter::repeat_with;
 
 
 #[pyclass]
 pub struct Simulation {
-    world: World,
+    worlds: Vec<World>,
     headless: bool,
     bcast_tx: broadcast::Sender<String>,
     _server_handle: JoinHandle<()>,
@@ -34,15 +35,16 @@ impl Simulation {
         })?;
 
         let is_headless = config.headless;
-
         if !is_headless {
             println!("Starting simulation with UI server...");
         } else {
             println!("Starting simulation without UI server...");
         }
 
-        let (world, bcast_tx, _server_handle, cancel_token) = rt.block_on(async {
-            let world = World::new(config);
+        let (worlds, bcast_tx, _server_handle, cancel_token) = rt.block_on(async {
+            let worlds = repeat_with(|| World::new(config.clone()))
+                            .take(config.worlds_parellised as usize)
+                            .collect();
 
             let (bcast_tx, _) = broadcast::channel::<String>(32);
             let cancel_token = CancellationToken::new();
@@ -61,11 +63,11 @@ impl Simulation {
                 })
             };
 
-            PyResult::Ok((world, bcast_tx, server_handle, cancel_token))
+            PyResult::Ok((worlds, bcast_tx, server_handle, cancel_token))
         })?;
 
         Ok(Simulation {
-            world,
+            worlds,
             headless: is_headless,
             bcast_tx,
             _server_handle,
@@ -74,15 +76,16 @@ impl Simulation {
         })
     }
 
-    pub fn step(&mut self, actions_i32: Vec<i32>) -> PyResult<(Vec<Vec<f32>>, Vec<f32>)> {
+    pub fn step(&mut self, world_id: i32, actions_i32: Vec<i32>) -> PyResult<(Vec<Vec<f32>>, Vec<f32>)> {
 
+        let world = &mut self.worlds[world_id as usize];
         let actions: Vec<Action> = ToActions::to_actions(actions_i32);
 
-        let rewards = self.world.apply_actions(actions);
-        let obs = self.world.get_agents_observations();
+        let rewards = world.apply_actions(actions);
+        let obs = world.get_agents_observations();
 
-        let world_state = self.world.get_state();
-        let json_state = serde_json::to_string(&world_state)
+        let world_state_with_id = serde_json::json!({ "world_id": world_id, "world_state": world.get_state() });
+        let json_state = serde_json::to_string(&world_state_with_id)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("failed to serialize world state: {}", e)))?;
 
         if !self.headless {
@@ -99,12 +102,14 @@ impl Simulation {
         Ok(())
     }
 
-    pub fn reset(&mut self) -> PyResult<Vec<Vec<f32>>> {
+    pub fn reset(&mut self, world_id: i32) -> PyResult<Vec<Vec<f32>>> {
         
-        self.world.reset_agents();
-        self.world.reset_stations();
+        let world = &mut self.worlds[world_id as usize];
 
-        let obs = self.world.get_agents_observations();
+        world.reset_agents();
+        world.reset_stations();
+
+        let obs = world.get_agents_observations();
 
         Ok(obs)
     }

@@ -14,7 +14,13 @@ export interface StationState {
     location: Location;
 }
 
-export interface Message {
+export interface WorldState {
     agents: AgentState[];
     stations: StationState[];
+}
+
+
+export interface Message {
+    world_id: number;
+    world_state: WorldState;
 }

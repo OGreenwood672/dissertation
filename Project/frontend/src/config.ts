@@ -18,6 +18,7 @@ export interface SimulationConfig {
   headless: boolean;
   websocket_url: string;
   websocket_path: string;
+  worlds_parellised: number;
   agent_size: number;
   initial_agent_layout: string;
   agents: AgentConfig[];

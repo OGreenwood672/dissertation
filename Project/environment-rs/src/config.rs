@@ -8,11 +8,14 @@ use crate::location::Layout;
 use crate::resource::ResourceType;
 use crate::station::StationType;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub arena_width: u32,
     pub arena_height: u32,
     pub headless: bool,
+    pub websocket_url: String,
+    pub websocket_path: String,
+    pub worlds_parellised: u32,
     pub agent_size: u32,
     pub station_size: u32,
     pub initial_agent_layout: Layout,
@@ -22,7 +25,7 @@ pub struct Config {
 }
 
 /// Represents an agent that can process resources.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct AgentConfig {
     pub id: u32,
     pub inputs: HashSet<ResourceType>,
@@ -30,7 +33,7 @@ pub struct AgentConfig {
 }
 
 /// Represents a station for picking up or dropping off resources.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StationConfig {
     pub id: u32,
     #[serde(rename = "type")]
@@ -65,6 +68,9 @@ mod tests {
             arena_width: 400
             arena_height: 400
             headless: true
+            websocket_url: ws://127.0.0.1:3000
+            websocket_path: ws
+            worlds_parellised: 4
             agent_size: 2
             station_size: 5
             initial_agent_layout: random
