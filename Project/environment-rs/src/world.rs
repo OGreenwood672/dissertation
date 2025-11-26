@@ -28,7 +28,6 @@ struct WorldContext {
     max_outputs: u32,
 }
 
-
 pub struct World {
     agents: Vec<Agent>,
     stations: Vec<Station>,

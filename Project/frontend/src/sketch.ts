@@ -1,9 +1,12 @@
 // import p5 from "p5";
 import { setupWebSocket } from "./websocket";
 import { AgentConfig, loadConfig, SimulationConfig, StationConfig } from "./config";
-import { AgentState, Message, StationState } from "./types";
+import { AgentState, Message, StationState, WorldState } from "./types";
 
 const CONFIG_PATH = "http://localhost:5173/simulation.yaml"
+
+const WIDTH = 600;
+const HEIGHT = 600;
 
 export const sketch = (p: p5) => {
 
@@ -11,9 +14,7 @@ export const sketch = (p: p5) => {
     let configText: string[];
     let ws: WebSocket;
 
-    let agents: StationState[] = [];
-    let stations: StationState[] = [];
-
+    let worlds: WorldState[] = [];
 
     p.preload = () => {
         console.log("PRELOAD");
@@ -30,16 +31,14 @@ export const sketch = (p: p5) => {
 
         config = loadConfig(configText.join("\n"));
 
-        stations = [];
-        agents = [];
+        worlds = Array.from({ length: config.worlds_parellised }, () => ({} as WorldState));
 
         const ws_url = [config.websocket_url, config.websocket_path].join("/");
         ws = setupWebSocket(ws_url, (data: Message) => {
-            agents = data.agents;
-            stations = data.stations
+            worlds[data.world_id] = data.world_state;
         });
 
-        p.createCanvas(config.arena_width, config.arena_height);
+        p.createCanvas(WIDTH, HEIGHT);
         p.background(0);
     };
 
@@ -47,13 +46,42 @@ export const sketch = (p: p5) => {
         p.background(0);
         p.fill(255);
 
-        stations.forEach((station) => {
-            p.rect(station.location.x, station.location.y, config.station_size, config.station_size);
-        });
+        let squares_per_side = Math.ceil(Math.sqrt(worlds.length));
+        let square_size = Math.min(WIDTH / squares_per_side, HEIGHT / squares_per_side);
+        let scale = Math.min(square_size / config.arena_width, square_size / config.arena_height);
 
-        agents.forEach((agent) => {
-            p.rect(agent.location.x, agent.location.y, config.agent_size, config.agent_size);
-        });
+        for (let x = 0; x < squares_per_side; x++) {
+            for (let y = 0; y < squares_per_side; y++) {
+
+                const index = x * squares_per_side + y;
+
+                if (index < worlds.length) {
+
+                    const world = worlds[index];
+                    let x_offset = x * (WIDTH / squares_per_side);
+                    let y_offset = y * (HEIGHT / squares_per_side);
+
+                    if (world.agents && world.stations) {
+                        world.agents.forEach((agent) => {
+                            p.rect(
+                                agent.location.x * scale + x_offset,
+                                agent.location.y * scale + y_offset,
+                                config.agent_size * scale,
+                                config.agent_size * scale
+                            );
+                        });
+                        world.stations.forEach((station) => {
+                            p.rect(
+                                station.location.x * scale + x_offset,
+                                station.location.y * scale + y_offset,
+                                config.station_size * scale,
+                                config.station_size * scale
+                            );
+                        });
+                    }
+                }
+            }
+        }
     
     };
 };
