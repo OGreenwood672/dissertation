@@ -88,26 +88,27 @@ class PPO_Actor(nn.Module):
         return action_logits, new_hidden_states
 
 
-class PPO_Critic(nn.Module):
+class PPO_Centralised_Critic(nn.Module):
     def __init__(self, num_agents, obs_dim, lstm_hidden_size=64):
         super().__init__()
         self.num_agents = num_agents
         self.hidden_size = lstm_hidden_size
         feature_dim = 64
 
+        self.input_dim = obs_dim * num_agents
+
         self.body = nn.Sequential(
-            nn.Linear(obs_dim, 64),
+            nn.Linear(self.input_dim, 64),
             nn.ReLU(),
             nn.Linear(64, feature_dim),
             nn.ReLU()
         )
         
-        self.value_head = nn.Linear(lstm_hidden_size, 1)
+        self.lstm = nn.LSTMCell(feature_dim, lstm_hidden_size)
 
-        self.lstms = nn.ModuleList([
-            nn.LSTMCell(feature_dim, lstm_hidden_size) 
-            for _ in range(num_agents)
-        ])
+        # Output a value per agent
+        self.value_head = nn.Linear(lstm_hidden_size, num_agents)
+
 
     def init_hidden(self, batch_size=1):
         """
@@ -115,42 +116,27 @@ class PPO_Critic(nn.Module):
         Returns a list of N (h, c) tuples.
         """
         device = self.body[0].weight.device
-        return [
-            (torch.zeros(batch_size, self.hidden_size, device=device), 
-             torch.zeros(batch_size, self.hidden_size, device=device))
-            for _ in range(self.num_agents)
-        ]
+        return (
+            torch.zeros(batch_size, self.hidden_size, device=device), 
+            torch.zeros(batch_size, self.hidden_size, device=device)
+        )
 
-    def forward(self, x, hidden_states):
+    def forward(self, x, hidden_state):
         """
         Processes observations and hidden states.
         
-        x: Observations.Shape: [BatchSize, NumAgents, ObsDim]
-        hidden_states: List of N (h, c) tuples.
+        x: Observations.Shape: [BatchSize, NumAgents * ObsDim]
+        hidden_states: List of (h, c) tuples.
 
-        returns: (values, new_hidden_states)
+        returns: (values, (new_hidden_state, critic_values))
         """
-        B, N, O = x.shape
-        assert N == self.num_agents, "Input has wrong number of agents"
+        _, input_shape  = x.shape
+        assert input_shape == self.input_dim, "Input has wrong size"
 
-        x_flat = x.reshape(B * N, O)
-        features_flat = self.body(x_flat)
-        features = features_flat.reshape(B, N, -1)
+        features = self.body(x)
         
-        new_hidden_states = []
-        lstm_outputs = []
+        new_hidden_state, critic_values = self.lstm(features, hidden_state)
         
-        for i in range(self.num_agents):
-            agent_features = features[:, i, :] 
-            agent_hidden = hidden_states[i]
-            h_new, c_new = self.lstms[i](agent_features, agent_hidden)
-            new_hidden_states.append((h_new, c_new))
-            lstm_outputs.append(h_new)
+        values = self.value_head(new_hidden_state)
         
-        all_lstm_outputs = torch.stack(lstm_outputs, dim=1)
-        all_lstm_outputs_flat = all_lstm_outputs.reshape(B * N, self.hidden_size)
-        
-        values_flat = self.value_head(all_lstm_outputs_flat)
-        values = values_flat.reshape(B, N, 1).squeeze(-1)
-        
-        return values, new_hidden_states
+        return values, (new_hidden_state, critic_values)

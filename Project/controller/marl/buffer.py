@@ -45,7 +45,19 @@ class RolloutBuffer:
         # Stack the data collected at each step into one tensor for the whole episode
         processed_episode = {}
         for key, values in episode_data.items():
-            processed_episode[key] = torch.from_numpy(np.stack(values)).float().to(self.device)
+            tensor =  torch.from_numpy(np.stack(values)).float().to(self.device)
+
+            if self.num_agents == 1:
+
+                if (
+                    tensor.ndim == 1 or
+                    (tensor.ndim == 2 and tensor.shape[1] != 1) or
+                    (tensor.ndim == 3 and tensor.shape[1] != 1)
+                ):
+                    tensor = tensor.unsqueeze(1)
+            
+
+            processed_episode[key] = tensor
             
         self.episodes[self.pos] = processed_episode
         self.pos += 1
@@ -131,24 +143,17 @@ class RolloutBuffer:
 
         flat_data = {}
         for k, v in self.batch.items():
-            flat_data[k] = v.reshape(total_timesteps, N, *v.shape[3:])
-
-        flat_advantages = self.batch["advantages"].reshape(total_timesteps, N)
-        flat_returns = self.batch["returns"].reshape(total_timesteps, N)
+            flat_data[k] = v.reshape(total_timesteps, *v.shape[2:])
 
         # Shuffle the Timesteps
         indices = torch.randperm(total_timesteps).to(self.device)
         
         for start in range(0, total_timesteps, batch_size):
             end = start + batch_size
-            
             mb_indices = indices[start:end]
             
             mb = {}
             for k, v in flat_data.items():
                 mb[k] = v[mb_indices]
-                
-            mb["advantages"] = flat_advantages[mb_indices]
-            mb["returns"] = flat_returns[mb_indices]
             
             yield mb

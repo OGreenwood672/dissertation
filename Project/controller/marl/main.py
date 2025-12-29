@@ -7,7 +7,7 @@ import numpy as np
 import concurrent.futures
 
 from .buffer import RolloutBuffer
-from .models import PPO_Actor, PPO_Critic
+from .models import PPO_Actor, PPO_Centralised_Critic as PPO_Critic
 
 
 
@@ -74,7 +74,7 @@ def main():
             
             # Reset hidden states for the recurrent model
             actor_hidden_states = actor.init_hidden(batch_size=worlds_parallised)
-            critic_hidden_states = critic.init_hidden(batch_size=worlds_parallised)
+            critic_hidden_state = critic.init_hidden(batch_size=worlds_parallised)
             
             for j in range(simulation_timesteps):
 
@@ -90,20 +90,17 @@ def main():
 
                     current_episodes_data[w]["a_hidden_states"].append(world_agents_states)
 
-                    world_critic_states = []
-                    for agent in range(num_agents):
-                        h_batch, c_batch = critic_hidden_states[agent]
-                        world_critic_states.append(
-                            (h_batch[w].detach().cpu(), c_batch[w].detach().cpu())
-                        )
-                        
-                    current_episodes_data[w]["c_hidden_states"].append(world_critic_states)
+                    h_batch, c_batch = critic_hidden_state
+                    current_episodes_data[w]["c_hidden_states"].append(
+                        [(h_batch[w].detach().cpu(), c_batch[w].detach().cpu())]
+                    )
 
                 # Get action logits from the model and update memory
                 obs_tensor = torch.tensor(np.stack(curr_obs_for_batch)).float().to(device)
+                global_state_tensor = obs_tensor.reshape(worlds_parallised, -1)
                 with torch.no_grad():
                     action_logits, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
-                    value, critic_hidden_states = critic(obs_tensor, critic_hidden_states)
+                    value, critic_hidden_state = critic(global_state_tensor, critic_hidden_state)
                 
                 # action_logits = action_logits.squeeze(0)
                 # Basically softmax to determine chosen action
@@ -157,19 +154,27 @@ def main():
                 
                 batchsize = obs.shape[0]
 
-                a_h, a_c = a_hidden_states.squeeze(3).unbind(dim=2)
-                c_h, c_c = c_hidden_states.squeeze(3).unbind(dim=2)
-
-                batch_a_hidden_states = [(a_h[:, i, :], a_c[:, i, :]) for i in range(num_agents)]
-                batch_c_hidden_states = [(c_h[:, i, :], c_c[:, i, :]) for i in range(num_agents)]
+                batch_a_hidden_states = [
+                    (
+                        a_hidden_states[:, i, 0, :].contiguous().to(device),
+                        a_hidden_states[:, i, 1, :].contiguous().to(device)
+                    )
+                    for i in range(num_agents)
+                ]
+                batch_c_hidden_states = (
+                    c_hidden_states[:, 0, 0, :].contiguous().to(device),
+                    c_hidden_states[:, 0, 1, :].contiguous().to(device)
+                )
                 
                 new_logits, _ = actor(obs, batch_a_hidden_states)
                 new_dist = torch.distributions.Categorical(logits=new_logits)
                 new_log_p = new_dist.log_prob(actions)
                 entropy = new_dist.entropy()
+
+                global_obs = obs.reshape(batchsize, -1)
                 
                 # Critic Loss
-                new_values, _ = critic(obs, batch_c_hidden_states)
+                new_values, _ = critic(global_obs, batch_c_hidden_states)
                 critic_loss = F.mse_loss(new_values.reshape(-1), returns.reshape(-1))
                 
                 # PPO Actor Loss
