@@ -1,0 +1,16 @@
+training:
+  training_timesteps: 1000
+  simulation_timesteps: 3000
+  buffer_size: 16
+  worlds_parallised: 16
+
+ppo_hyperparameters:
+  ppo_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_coef: 0.2
+  vf_coef: 0.5
+  ent_coef: 0.04
+
+architecture:
+  lstm_hidden_size: 64

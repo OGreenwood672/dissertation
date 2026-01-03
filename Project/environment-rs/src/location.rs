@@ -54,6 +54,16 @@ impl Sub for Location {
         }
     }
 }
+impl Sub<&Location> for &Location {
+    type Output = Location;
+
+    fn sub(self, other: &Location) -> Self::Output {
+        Location {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, PartialEq, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]

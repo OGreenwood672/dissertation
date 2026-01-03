@@ -131,29 +131,22 @@ class RolloutBuffer:
         self.batch["returns"] = returns
 
     
-    def get_minibatches(self, batch_size=32):
+    def get_minibatches(self, batch_size=4):
         """
         A generator that yields shuffled minibatches from the full batch.
         Assumes self.batch and self.advantages/self.returns are populated.
         """
                 
-        b_obs = self.batch["obs"]
-        B, T, N, _ = b_obs.shape
-        total_timesteps = B * T
-
-        flat_data = {}
-        for k, v in self.batch.items():
-            flat_data[k] = v.reshape(total_timesteps, *v.shape[2:])
-
-        # Shuffle the Timesteps
-        indices = torch.randperm(total_timesteps).to(self.device)
+        worlds = self.batch["obs"].shape[0] 
         
-        for start in range(0, total_timesteps, batch_size):
+        indices = torch.randperm(worlds).to(self.device)    
+
+        for start in range(0, worlds, batch_size):
             end = start + batch_size
             mb_indices = indices[start:end]
             
             mb = {}
-            for k, v in flat_data.items():
-                mb[k] = v[mb_indices]
+            for k, v in self.batch.items():
+                mb[k] = v[mb_indices] 
             
             yield mb

@@ -15,7 +15,6 @@ pub struct Config {
     pub headless: bool,
     pub websocket_url: String,
     pub websocket_path: String,
-    pub worlds_parellised: u32,
     pub agent_size: u32,
     pub station_size: u32,
     pub initial_agent_layout: Layout,
@@ -70,7 +69,6 @@ mod tests {
             headless: true
             websocket_url: ws://127.0.0.1:3000
             websocket_path: ws
-            worlds_parellised: 4
             agent_size: 2
             station_size: 5
             initial_agent_layout: random
