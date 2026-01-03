@@ -2,10 +2,11 @@ use std::vec::Vec;
 
 use serde::{Serialize};
 
-use crate::agent::{Action, Agent, AgentState};
+use crate::agent::{ACTION_COUNT, Action, Agent, AgentState};
 use crate::station::{Station, StationState};
 use crate::config::{AgentConfig, Config, StationConfig};
 use crate::location::{Layout, Location, get_location};
+use crate::resource::{RESOURCE_COUNT, one_hot_vector_from_resource};
 
 
 #[derive(Serialize)]
@@ -96,6 +97,10 @@ impl World {
 
     }
 
+    pub fn get_number_of_agents(&self) -> usize {
+        self.agents.len()
+    }
+
     pub fn reset_stations(&mut self) {
 
         let mut station_locations = get_location(
@@ -114,9 +119,8 @@ impl World {
         )).collect();
     }
 
-    pub fn apply_actions(&mut self, actions: Vec<Action>) -> Vec<f32> {
+    pub fn apply_actions(&mut self, actions: Vec<Action>) {
 
-        let mut rewards = Vec::new();
         for (index, action) in actions.into_iter().enumerate() {
             let original_location = self.agents[index].location.clone();
             let mut reward = -0.01; // Punishment for existing
@@ -159,10 +163,9 @@ impl World {
                 reward += self.direction_reward(original_location, self.agents[index].location, desired_location);
             }
 
-            rewards.push(reward);
+            self.agents[index].set_curr_reward(reward);
         }
 
-        rewards
     }
 
     fn interact(&mut self, agent_index: usize) -> f32 { // Returns reward
@@ -231,7 +234,7 @@ impl World {
 
         let nearest_station = self.stations.iter().enumerate()
             .filter_map(|(index, t_station)| {
-                let dist_sq = agent.location.distance_squared(t_station.location);
+                let dist_sq = agent.location.distance_squared(*t_station.get_location());
                 if dist_sq <= (self.context.agent_visibility as u64).pow(2) {
                     Some((index, dist_sq))
                 } else {
@@ -281,12 +284,30 @@ impl World {
         }
     }
 
+    pub fn get_agent_obs_size(&self) -> u32 {
+        
+        const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
+        const OBS_PER_INVENTORY_PIECE: u32 = 3;
+        let target_size = self.context.max_inputs + self.context.max_outputs;
+        let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
+
+        const SELF_AGENT_OBS_SIZE: u32 = 2;
+        const TARGET_OBS_SIZE: u32 = 6 + RESOURCE_COUNT as u32;
+        
+        SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * target_size + obs_size
+
+    }
+
     fn get_agent_observation(&self, agent: &Agent) -> Vec<f32> {
 
         const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
         const OBS_PER_INVENTORY_PIECE: u32 = 3;
         let target_size = self.context.max_inputs + self.context.max_outputs;
         let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
+
+        const SELF_AGENT_OBS_SIZE: u32 = 2;
+        const TARGET_OBS_SIZE: u32 = 6 + RESOURCE_COUNT as u32;
+        let total_obs_size: u32 = SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * target_size + obs_size;
 
         let mut obs = Vec::new();
         
@@ -298,7 +319,7 @@ impl World {
         for i in 0..target_size as usize {
             if i < agent.agent_targets.len() {
                 // Target's resource
-                obs.push(f32::from(&agent.agent_targets[i].resource));
+                obs.extend(one_hot_vector_from_resource(agent.agent_targets[i].resource));
 
                 // Has the agent come across this station/agent
                 obs.push(agent.agent_targets[i].is_found as i32 as f32);
@@ -315,13 +336,7 @@ impl World {
                 // Does agent have the resource
                 obs.push(agent.agent_targets[i].is_collected as i32 as f32);
             } else {
-                obs.push(0.0);
-                obs.push(0.0);
-                obs.push(0.0);
-                obs.push(0.0);
-                obs.push(0.0);
-                obs.push(0.0);
-                obs.push(0.0);
+                obs.extend(vec![0.0; TARGET_OBS_SIZE as usize]);
             }
         }
 
@@ -345,12 +360,114 @@ impl World {
         assert!(entity_obs.len() as u32 == obs_size);
 
         obs.extend(entity_obs);
+        
+        assert!(obs.len() as u32 == total_obs_size);
 
         obs
     }
 
-    pub fn get_agents_observations(&self) -> Vec<Vec<f32>> {
-        self.agents.iter().map(|agent| self.get_agent_observation(agent)).collect()
+    // pub fn get_agents_observations(&self) -> Vec<Vec<f32>> {
+    //     self.agents.iter().map(|agent| self.get_agent_observation(agent)).collect()
+    // }
+
+    pub fn get_agent_action_count(&self) -> u32 {
+        ACTION_COUNT
+    }
+
+    pub fn get_agent_obs(&self, agent_index: usize) -> Vec<f32> {
+        self.get_agent_observation(&self.agents[agent_index])
+    }
+
+    pub fn get_agent_reward(&self, agent_index: usize) -> f32 {
+        self.agents[agent_index].get_curr_reward()
+    }
+
+    pub fn get_global_obs_size(&self) -> u32 {
+        let max_targets = self.context.max_inputs + self.context.max_outputs;
+        let target_obs_size = RESOURCE_COUNT as u32 + 2;
+
+        self.get_number_of_agents() as u32 * (
+            2 // location
+            + target_obs_size * max_targets // targets
+            + self.get_number_of_agents() as u32 * ( // Other Agents
+                2 // location
+                + target_obs_size * max_targets // targets
+            )
+            + self.context.station_configs.len() as u32 * (
+                2 // location
+                + RESOURCE_COUNT as u32 // resource
+                + 1 // station type
+            )
+        )
+        
+    }
+
+    pub fn get_global_obs(&self) -> Vec<f32> {
+        let mut obs = Vec::new();
+
+        let max_targets = self.context.max_inputs + self.context.max_outputs;
+        let target_obs_size = RESOURCE_COUNT + 2;
+
+        // for every agent, give all position, and all relative positions to every agent and station.
+        for agent in &self.agents {
+            let loc = agent.get_location();
+            obs.push(loc.x as f32 / self.context.width as f32);
+            obs.push(loc.y as f32 / self.context.height as f32);
+
+            for target in 0..max_targets {
+                if target < agent.agent_targets.len() as u32 {
+                    // What is in target
+                    obs.extend(one_hot_vector_from_resource(agent.agent_targets[target as usize].resource));
+
+                    // Do we have it
+                    obs.push(agent.agent_targets[target as usize].is_collected as i32 as f32);
+
+                    // Do we want it, or do we want to drop it off
+                    obs.push(f32::from(&agent.agent_targets[target as usize].station_type));
+                } else {
+                    obs.extend(vec![0.0; target_obs_size as usize]);
+                }
+
+            }
+
+            for other_agent in &self.agents {
+                let other_loc = other_agent.get_location();
+                let vector = other_loc - loc;
+                obs.push(vector.x as f32 / self.context.width as f32);
+                obs.push(vector.y as f32 / self.context.height as f32);
+
+                for target in 0..max_targets {
+                    if target < other_agent.agent_targets.len() as u32 {
+                        // What is in target
+                        obs.extend(one_hot_vector_from_resource(other_agent.agent_targets[target as usize].resource));
+
+                        // Does the agent have it
+                        obs.push(other_agent.agent_targets[target as usize].is_collected as i32 as f32);
+
+                        // Do we want it, or do we want to drop it off
+                        obs.push(f32::from(&other_agent.agent_targets[target as usize].station_type));
+                    } else {
+                        obs.extend(vec![0.0; target_obs_size as usize]);
+                    }
+
+                }
+            }
+
+            for station in &self.stations {
+                let station_loc = station.get_location();
+                let vector = station_loc - loc;
+                obs.push(vector.x as f32 / self.context.width as f32);
+                obs.push(vector.y as f32 / self.context.height as f32);
+
+                obs.extend(one_hot_vector_from_resource(*station.get_resource()));
+                obs.push(*station.get_station_type() as i32 as f32);
+
+            }
+        }
+
+        assert_eq!(obs.len() as u32, self.get_global_obs_size());
+
+        obs
     }
 
 }

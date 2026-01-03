@@ -1,16 +1,18 @@
-arena_width: 50
-arena_height: 50
+arena_width: 100
+arena_height: 100
 
 headless: false
 websocket_url: ws://127.0.0.1:3000
 websocket_path: ws
-worlds_parellised: 4
 
 agent_size: 2
 initial_agent_layout: random
 agents:
   - id: 1
     inputs: [bun]
+    output: plainburger
+  - id: 2
+    inputs: [plainburger]
     output: burger
   # - id: 2
   #   inputs: [bun]

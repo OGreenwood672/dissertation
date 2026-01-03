@@ -22,9 +22,9 @@ impl From<&StationType> for f32 {
 
 pub struct Station {
     id: i32,
-    pub location: Location,
-    pub station_type: StationType,
-    pub resource: ResourceType,
+    location: Location,
+    station_type: StationType,
+    resource: ResourceType,
 }
 
 #[derive(Serialize)]
@@ -56,6 +56,18 @@ impl Station {
 
 
         obs
+    }
+
+    pub fn get_location(&self) -> &Location {
+        &self.location
+    }
+
+    pub fn get_station_type(&self) -> &StationType {
+        &self.station_type
+    }
+    
+    pub fn get_resource(&self) -> &ResourceType {
+        &self.resource
     }
 }
 

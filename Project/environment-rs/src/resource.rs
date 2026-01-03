@@ -14,6 +14,7 @@ pub enum ResourceType {
     Bun,
     Salad
 }
+pub const RESOURCE_COUNT: usize = 9;
 
 impl From<&ResourceType> for f32 {
     fn from(resource: &ResourceType) -> Self {
@@ -29,4 +30,10 @@ impl From<&ResourceType> for f32 {
             ResourceType::Salad => 9.0,
         }
     }
+}
+
+pub fn one_hot_vector_from_resource(resource: ResourceType) -> Vec<f32> {
+    let mut one_hot_vector = vec![0.0; RESOURCE_COUNT];
+    one_hot_vector[f32::from(&resource) as usize - 1] = 1.0;
+    one_hot_vector
 }

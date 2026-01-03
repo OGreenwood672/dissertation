@@ -17,6 +17,7 @@ class PPO_Actor(nn.Module):
     def __init__(self, num_agents, obs_dim, action_dim, lstm_hidden_size=64):
         super().__init__()
         self.num_agents = num_agents
+        self.obs_dim = obs_dim
         self.hidden_size = lstm_hidden_size
         feature_dim = 64
 
@@ -32,10 +33,11 @@ class PPO_Actor(nn.Module):
         self.action_head = nn.Linear(lstm_hidden_size, action_dim)
         
         # Unique LSTM for each agent
-        self.lstms = nn.ModuleList([
-            nn.LSTMCell(feature_dim, lstm_hidden_size) 
-            for _ in range(num_agents)
-        ])
+        self.lstm = nn.LSTM(
+            input_size=feature_dim, 
+            hidden_size=lstm_hidden_size, 
+            batch_first=True
+        )
 
     def init_hidden(self, batch_size=1):
         """
@@ -43,59 +45,54 @@ class PPO_Actor(nn.Module):
         Returns a list of N (h, c) tuples.
         """
         device = self.body[0].weight.device
-        return [
-            (torch.zeros(batch_size, self.hidden_size, device=device), 
-             torch.zeros(batch_size, self.hidden_size, device=device))
-            for _ in range(self.num_agents)
-        ]
+        length = batch_size * self.num_agents
+
+        h = torch.zeros(1, length, self.hidden_size, device=device)
+        c = torch.zeros(1, length, self.hidden_size, device=device)
+        return (h, c)
 
     def forward(self, x, hidden_states):
         """
         Processes observations and hidden states.
         
         x: Observations. 
+           Shape: [BatchSize, Timestep, NumAgents, ObsDim] = [B, T, N, O]
+           OR
            Shape: [BatchSize, NumAgents, ObsDim] = [B, N, O]
         hidden_states: List of N (h, c) tuples. 
                        Each h, c has shape [BatchSize, HiddenSize]
-        returns (action_logits, new_hidden_states)
+
+        returns action_logits, new_hidden_states
         """
-        B, N, O = x.shape
+        # Add timestep for single inference
+        has_time_dim = (x.ndim == 4)
+        if not has_time_dim: x = x.unsqueeze(1)
+        
+        B, T, N, O = x.shape
         assert N == self.num_agents, "Input has wrong number of agents"
+        assert O == self.obs_dim, "Input has wrong observation size"
         
-        x_flat = x.reshape(B * N, O)
-        features_flat = self.body(x_flat)
+        x = x.transpose(1, 2).contiguous().reshape(B * N, T, O)
+        features = self.body(x)
+
+        lstm_output, (h_out, c_out) = self.lstm(features, hidden_states)
+
+        # [B*N, T, Hidden] -> [B, N, T, Hidden] -> [B, T, N, Hidden]
+        lstm_output = lstm_output.reshape(B, N, T, -1).transpose(1, 2)
         
-        features = features_flat.reshape(B, N, -1)
-        
-        new_hidden_states = []
-        lstm_outputs = []
-        
-        for i in range(self.num_agents):
-            agent_features = features[:, i, :] 
-            agent_hidden = hidden_states[i]
-            
-            h_new, c_new = self.lstms[i](agent_features, agent_hidden)
-            
-            new_hidden_states.append((h_new, c_new))
-            lstm_outputs.append(h_new)
-        
-        all_lstm_outputs = torch.stack(lstm_outputs, dim=1)
-        all_lstm_outputs_flat = all_lstm_outputs.reshape(B * N, self.hidden_size)
-        
-        action_logits_flat = self.action_head(all_lstm_outputs_flat)
-        action_logits = action_logits_flat.reshape(B, N, -1)
-        
-        return action_logits, new_hidden_states
+        action_logits = self.action_head(lstm_output)
+
+        if not has_time_dim: action_logits = action_logits.squeeze(1)
+                
+        return action_logits, (h_out, c_out)
 
 
 class PPO_Centralised_Critic(nn.Module):
-    def __init__(self, num_agents, obs_dim, lstm_hidden_size=64):
+    def __init__(self, num_agents, obs_dim):
         super().__init__()
-        self.num_agents = num_agents
-        self.hidden_size = lstm_hidden_size
         feature_dim = 64
 
-        self.input_dim = obs_dim * num_agents
+        self.input_dim = obs_dim
 
         self.body = nn.Sequential(
             nn.Linear(self.input_dim, 64),
@@ -104,39 +101,23 @@ class PPO_Centralised_Critic(nn.Module):
             nn.ReLU()
         )
         
-        self.lstm = nn.LSTMCell(feature_dim, lstm_hidden_size)
-
         # Output a value per agent
-        self.value_head = nn.Linear(lstm_hidden_size, num_agents)
+        self.value_head = nn.Linear(feature_dim, num_agents)
 
 
-    def init_hidden(self, batch_size=1):
-        """
-        Initializes the hidden states for all agents.
-        Returns a list of N (h, c) tuples.
-        """
-        device = self.body[0].weight.device
-        return (
-            torch.zeros(batch_size, self.hidden_size, device=device), 
-            torch.zeros(batch_size, self.hidden_size, device=device)
-        )
-
-    def forward(self, x, hidden_state):
+    def forward(self, x):
         """
         Processes observations and hidden states.
         
-        x: Observations.Shape: [BatchSize, NumAgents * ObsDim]
+        x: Observations.Shape: [BatchSize, Global obs]
         hidden_states: List of (h, c) tuples.
 
         returns: (values, (new_hidden_state, critic_values))
         """
-        _, input_shape  = x.shape
-        assert input_shape == self.input_dim, "Input has wrong size"
+        assert x.shape[-1] == self.input_dim, "Input has wrong observation size"
 
         features = self.body(x)
         
-        new_hidden_state, critic_values = self.lstm(features, hidden_state)
+        values = self.value_head(features)
         
-        values = self.value_head(new_hidden_state)
-        
-        return values, (new_hidden_state, critic_values)
+        return values
