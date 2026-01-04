@@ -12,8 +12,15 @@ agents:
     inputs: [bun]
     output: plainburger
   - id: 2
-    inputs: [plainburger]
+    inputs: [plainburger, salad]
     output: burger
+  - id: 3
+    inputs: [lettuce]
+    output: choppedlettuce
+  - id: 4
+    inputs: [choppedlettuce]
+    output: salad
+
   # - id: 2
   #   inputs: [bun]
   #   output: burger
@@ -46,6 +53,9 @@ stations:
     type: pickup
     resource: bun
   - id: 2
+    type: pickup
+    resource: lettuce
+  - id: 3
     type: dropoff
     resource: burger
   # - id: 1

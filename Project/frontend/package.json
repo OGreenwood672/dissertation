@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "dev": "cpx ../configs/simulation.yaml public && vite"
+    "dev": "python ./load_config.py && vite"
   },
   "keywords": [],
   "author": "",

@@ -1,8 +1,8 @@
 training:
-  training_timesteps: 1000
-  simulation_timesteps: 3000
-  buffer_size: 16
-  worlds_parallised: 16
+  training_timesteps: 5000
+  simulation_timesteps: 2000
+  buffer_size: 96 # must be larger than worlds_parallised
+  worlds_parallised: 24
 
 ppo_hyperparameters:
   ppo_epochs: 10

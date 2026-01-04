@@ -12,13 +12,13 @@ export interface StationConfig {
   resource: string;
 }
 
-export interface SimulationConfig {
+export interface Config {
   arena_width: number;
   arena_height: number;
   headless: boolean;
   websocket_url: string;
   websocket_path: string;
-  worlds_parellised: number;
+  worlds_parallised: number;
   agent_size: number;
   initial_agent_layout: string;
   agents: AgentConfig[];
@@ -28,5 +28,5 @@ export interface SimulationConfig {
 }
 
 export const loadConfig = (configText: string) => {
-    return parse(configText) as SimulationConfig;
+    return parse(configText) as Config;
 };
