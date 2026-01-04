@@ -1,79 +1,110 @@
 // import p5 from "p5";
 import { setupWebSocket } from "./websocket";
-import { AgentConfig, loadConfig, SimulationConfig, StationConfig } from "./config";
-import { AgentState, Message, StationState, WorldState } from "./types";
+import { loadConfig, Config } from "./config";
+import { Message, WorldState } from "./types";
 
-const CONFIG_PATH = "http://localhost:5173/simulation.yaml"
-
-const WIDTH = 600;
-const HEIGHT = 600;
+const CONFIG_PATH = "http://localhost:5173/frontend_config.json"
 
 export const sketch = (p: p5) => {
 
-    let config: SimulationConfig;
+    let config: Config;
     let configText: string[];
     let ws: WebSocket;
 
     let worlds: WorldState[] = [];
 
+    let WIDTH = p.windowWidth * 0.95;
+    let HEIGHT = p.windowHeight * 0.95;
+
+    let aspect = WIDTH / HEIGHT;
+
+    let cols: number, rows: number;
+    let cell_w: number, cell_h: number;
+    let square_size: number;
+    let scale: number;
+
     p.preload = () => {
-        console.log("PRELOAD");
+        console.log("Preloading...");
+
         p.loadStrings(CONFIG_PATH, (result: string[]) => {
             console.log("SUCCESS: Config file loaded!");
             configText = result;
         }, () => {
-            console.error("ERROR: Failed to load config file. Check path and network tab.");
+            console.error("ERROR: Failed to load config file");
         });
+
+        console.log("Preload complete");
     };
 
     p.setup = () => {
-        console.log("SETUP")
+        console.log("setting up...");
 
         config = loadConfig(configText.join("\n"));
 
-        worlds = Array.from({ length: config.worlds_parellised }, () => ({} as WorldState));
+        cols = Math.ceil(Math.sqrt(config.worlds_parallised * aspect));
+        rows = Math.ceil(config.worlds_parallised / cols);
+
+        cell_w = WIDTH / cols;
+        cell_h = HEIGHT / rows;
+
+        square_size = Math.min(cell_w, cell_h);
+        scale = Math.min(square_size / config.arena_width, square_size / config.arena_height);
+
+        WIDTH = square_size * cols;
+        HEIGHT = square_size * rows;
+
+        worlds = Array.from({ length: config.worlds_parallised }, () => ({} as WorldState));
 
         const ws_url = [config.websocket_url, config.websocket_path].join("/");
         ws = setupWebSocket(ws_url, (data: Message) => {
             worlds[data.world_id] = data.world_state;
         });
 
-        p.createCanvas(WIDTH, HEIGHT);
+        p.createCanvas(WIDTH + 1, HEIGHT + 1);
         p.background(0);
+
+        console.log("setup complete");
     };
 
     p.draw = () => {
         p.background(0);
         p.fill(255);
 
-        let squares_per_side = Math.ceil(Math.sqrt(worlds.length));
-        let square_size = Math.min(WIDTH / squares_per_side, HEIGHT / squares_per_side);
-        let scale = Math.min(square_size / config.arena_width, square_size / config.arena_height);
+        // console.log(config.worlds_parallised, cols, rows);
 
-        for (let x = 0; x < squares_per_side; x++) {
-            for (let y = 0; y < squares_per_side; y++) {
+        if (!(cols && rows && cell_w && cell_h && square_size && scale)) { return; }
 
-                const index = x * squares_per_side + y;
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+
+                const index = y * cols + x;
 
                 if (index < worlds.length) {
-
                     const world = worlds[index];
-                    let x_offset = x * (WIDTH / squares_per_side);
-                    let y_offset = y * (HEIGHT / squares_per_side);
+
+                    let cell_x = x * square_size;
+                    let cell_y = y * square_size;
+
+                    p.push();
+                    p.noFill();
+                    p.strokeWeight(1);
+                    p.stroke(255);
+                    p.rect(cell_x, cell_y, square_size, square_size);
+                    p.pop();
 
                     if (world.agents && world.stations) {
                         world.agents.forEach((agent) => {
                             p.rect(
-                                agent.location.x * scale + x_offset,
-                                agent.location.y * scale + y_offset,
+                                agent.location.x * scale + cell_x,
+                                agent.location.y * scale + cell_y,
                                 config.agent_size * scale,
                                 config.agent_size * scale
                             );
                         });
                         world.stations.forEach((station) => {
                             p.rect(
-                                station.location.x * scale + x_offset,
-                                station.location.y * scale + y_offset,
+                                station.location.x * scale + cell_x,
+                                station.location.y * scale + cell_y,
                                 config.station_size * scale,
                                 config.station_size * scale
                             );

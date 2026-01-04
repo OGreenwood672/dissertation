@@ -1,0 +1,60 @@
+{
+    "arena_width": 65,
+    "arena_height": 65,
+    "headless": false,
+    "websocket_url": "ws://127.0.0.1:3000",
+    "websocket_path": "ws",
+    "agent_size": 2,
+    "initial_agent_layout": "random",
+    "agents": [
+        {
+            "id": 1,
+            "inputs": [
+                "bun"
+            ],
+            "output": "plainburger"
+        },
+        {
+            "id": 2,
+            "inputs": [
+                "plainburger",
+                "salad"
+            ],
+            "output": "burger"
+        },
+        {
+            "id": 3,
+            "inputs": [
+                "lettuce"
+            ],
+            "output": "choppedlettuce"
+        },
+        {
+            "id": 4,
+            "inputs": [
+                "choppedlettuce"
+            ],
+            "output": "salad"
+        }
+    ],
+    "station_size": 4,
+    "station_layout": "random",
+    "stations": [
+        {
+            "id": 1,
+            "type": "pickup",
+            "resource": "bun"
+        },
+        {
+            "id": 2,
+            "type": "pickup",
+            "resource": "lettuce"
+        },
+        {
+            "id": 3,
+            "type": "dropoff",
+            "resource": "burger"
+        }
+    ],
+    "worlds_parallised": 24
+}
