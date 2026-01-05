@@ -29,11 +29,11 @@ class RolloutBuffer:
         episode_data must have the following keys:
             "obs" - observations from the agents
             "actions" - actions taken by the agents
+            "comm" - communication vector broadcasted by actor
             "log_prob" - the log probabilities of the actions taken
             "rewards" - the rewards received by the agents
             "c_values" - the critic's values for each observation
             "a_hidden_states" - actors hidden states for each agent
-            "c_hidden_states" - critics hidden states for each agent
 
             May later add "done" as a keyword to use in compute_advantages to determine
             if a simulation is finished early
