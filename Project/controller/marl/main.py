@@ -36,7 +36,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    actor = PPO_Actor(num_agents, agent_obs_shape[0], act_shape[0], mappo_config.lstm_hidden_size).to(device)
+    actor = PPO_Actor(num_agents, agent_obs_shape[0], act_shape[0], comm_dim=5, lstm_hidden_size=mappo_config.lstm_hidden_size).to(device)
     critic = PPO_Critic(num_agents, global_obs_shape[0]).to(device)
 
     actor_optimizer = torch.optim.Adam(actor.parameters(), lr=0.001)
@@ -58,7 +58,8 @@ def main():
         for batch_run in range(batch_runs):
             
             current_episodes_data = [{
-                "obs": [], "global_obs": [], "actions": [], "log_probs": [], "rewards": [], "c_values": [], "a_hidden_states": []
+                "obs": [], "global_obs": [], "actions": [], "comm": [],
+                "log_probs": [], "rewards": [], "c_values": [], "a_hidden_states": []
             } for _ in range(mappo_config.worlds_parallised)]
             
             executor.map(sim.parallel_reset, range(mappo_config.worlds_parallised))
@@ -85,14 +86,22 @@ def main():
                 obs_tensor = torch.tensor(np.stack(curr_obs_for_batch)).float().to(device)
                 global_state_tensor = torch.tensor(np.stack(curr_global_obs_for_batch)).float().to(device)
                 with torch.no_grad():
-                    action_logits, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
+                    action_logits, comm_mean, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                     values = critic(global_state_tensor)
-                                
-                # Basically softmax to determine chosen action
-                dist = torch.distributions.Categorical(logits=action_logits)
-                actions = dist.sample()
 
-                log_probs = dist.log_prob(actions)
+                # * -- Action Sampling --
+                # Basically softmax to determine chosen action
+                action_dist = torch.distributions.Categorical(logits=action_logits)
+                actions = action_dist.sample()
+                action_log_probs = action_dist.log_prob(actions)
+
+                # * -- Continuous Communication Sampling --
+                comm_std = actor.comm_log_std.exp().expand_as(comm_mean)
+                comm_dist = torch.distributions.Normal(comm_mean, comm_std)
+                comms = comm_dist.sample()
+                comm_log_probs = comm_dist.log_prob(comms).sum(dim=-1) # sum as log(B) + log(C) = log(BC)
+
+                log_probs = action_log_probs + comm_log_probs
 
                 # Use chosen actions in env
                 action_choice = actions.cpu().numpy()
@@ -100,20 +109,20 @@ def main():
                 step_args = zip(range(mappo_config.worlds_parallised), action_choice)
                 executor.map(sim.parallel_step, step_args)
                 
-                next_obs = [sim.get_agents_obs(world_id) for world_id in range(mappo_config.worlds_parallised)]
                 rewards = [sim.get_agents_reward(world_id) for world_id in range(mappo_config.worlds_parallised)]
-                # sleep(0.5)
 
                 # Save to current episodes
                 for w in range(mappo_config.worlds_parallised):
                     current_episodes_data[w]["obs"].append(curr_obs_for_batch[w])
                     current_episodes_data[w]["global_obs"].append(curr_global_obs_for_batch[w])
                     current_episodes_data[w]["actions"].append(action_choice[w])
-                    current_episodes_data[w]["log_probs"].append(log_probs[w].cpu().numpy())
+                    current_episodes_data[w]["comm"].append(comms[w].detach().cpu().numpy())
+                    current_episodes_data[w]["log_probs"].append(log_probs[w].detach().cpu().numpy())
                     current_episodes_data[w]["rewards"].append(rewards[w])
                     current_episodes_data[w]["c_values"].append(values[w].cpu())
 
-                curr_obs_for_batch = next_obs
+
+                curr_obs_for_batch = [sim.get_agents_obs(world_id, comms[world_id]) for world_id in range(mappo_config.worlds_parallised)]
                 curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(mappo_config.worlds_parallised)]
 
             global_state_tensor = torch.tensor(np.stack(curr_global_obs_for_batch)).float().to(device)
@@ -151,6 +160,8 @@ def main():
                 global_obs = batch["global_obs"]
                 # [B, T, N, Actions]
                 actions = batch["actions"]
+                # [B, T, N, Comm]
+                comms = batch["comm"]
 
                 # [B, T, N]
                 old_log_probs = batch["log_probs"]
@@ -168,13 +179,21 @@ def main():
                 flat_global_obs = global_obs.view(-1, *global_obs.shape[2:])
                 new_values = critic(flat_global_obs).reshape(-1)
                 
-                all_logits, _ = actor(obs, batch_a_hidden_init)
+                all_action_logits, all_comm_means, _ = actor(obs, batch_a_hidden_init)
 
-                new_dist = torch.distributions.Categorical(logits=all_logits)
-                
-                new_log_probs = new_dist.log_prob(actions).flatten()
-                entropy = new_dist.entropy().flatten()
-                
+                # * -- Action Resampling --
+                new_action_dist = torch.distributions.Categorical(logits=all_action_logits)
+                new_action_log_probs = new_action_dist.log_prob(actions).flatten()
+                action_entropy = new_action_dist.entropy().flatten()
+
+                # * -- Continuous Communication Resampling --
+                new_comm_std = actor.comm_log_std.exp().expand_as(all_comm_means)
+                new_comm_dist = torch.distributions.Normal(all_comm_means, new_comm_std)
+                new_comm_log_probs = new_comm_dist.log_prob(comms).sum(dim=-1).flatten()
+                comm_entropy = new_comm_dist.entropy().sum(dim=-1).flatten()
+
+                entropy = action_entropy + comm_entropy
+                new_log_probs = new_action_log_probs + new_comm_log_probs                
                                 
                 old_log_probs = old_log_probs.flatten()
                 returns = returns.flatten()

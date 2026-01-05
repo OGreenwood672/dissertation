@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 
 class PPO_Actor(nn.Module):
-    def __init__(self, num_agents, obs_dim, action_dim, lstm_hidden_size=64):
+    def __init__(self, num_agents, obs_dim, action_dim, comm_dim=5, lstm_hidden_size=64):
         super().__init__()
         self.num_agents = num_agents
         self.obs_dim = obs_dim
@@ -28,16 +28,24 @@ class PPO_Actor(nn.Module):
             nn.Linear(64, feature_dim),
             nn.ReLU()
         )
-        
-        # Output for actions
-        self.action_head = nn.Linear(lstm_hidden_size, action_dim)
-        
+
         # Unique LSTM for each agent
         self.lstm = nn.LSTM(
             input_size=feature_dim, 
             hidden_size=lstm_hidden_size, 
             batch_first=True
         )
+        
+        # Output for actions
+        self.action_head = nn.Linear(lstm_hidden_size, action_dim)
+
+        # noise to learn
+        # log to maintain positive std
+        self.comm_log_std = nn.Parameter(torch.zeros(1, comm_dim))
+
+        # Output for continuous communication
+        self.comm_head = nn.Linear(lstm_hidden_size, comm_dim)
+        
 
     def init_hidden(self, batch_size=1):
         """
@@ -69,8 +77,8 @@ class PPO_Actor(nn.Module):
         if not has_time_dim: x = x.unsqueeze(1)
         
         B, T, N, O = x.shape
-        assert N == self.num_agents, "Input has wrong number of agents"
-        assert O == self.obs_dim, "Input has wrong observation size"
+        assert N == self.num_agents, f"Input has wrong number of agents: Got {N}, Expected {self.num_agents}"
+        assert O == self.obs_dim, f"Input has wrong observation size: Got {O}, Expected {self.obs_dim}"
         
         x = x.transpose(1, 2).contiguous().reshape(B * N, T, O)
         features = self.body(x)
@@ -82,20 +90,24 @@ class PPO_Actor(nn.Module):
         
         action_logits = self.action_head(lstm_output)
 
-        if not has_time_dim: action_logits = action_logits.squeeze(1)
+        comm_logits = self.comm_head(lstm_output)
+
+        if not has_time_dim:
+            action_logits = action_logits.squeeze(1)
+            comm_logits = comm_logits.squeeze(1)
                 
-        return action_logits, (h_out, c_out)
+        return action_logits, comm_logits, (h_out, c_out)
 
 
 class PPO_Centralised_Critic(nn.Module):
-    def __init__(self, num_agents, obs_dim):
+    def __init__(self, num_agents, global_obs_dim):
         super().__init__()
         feature_dim = 64
 
-        self.input_dim = obs_dim
+        self.global_obs_dim = global_obs_dim
 
         self.body = nn.Sequential(
-            nn.Linear(self.input_dim, 64),
+            nn.Linear(self.global_obs_dim, 64),
             nn.ReLU(),
             nn.Linear(64, feature_dim),
             nn.ReLU()
@@ -114,7 +126,7 @@ class PPO_Centralised_Critic(nn.Module):
 
         returns: (values, (new_hidden_state, critic_values))
         """
-        assert x.shape[-1] == self.input_dim, "Input has wrong observation size"
+        assert x.shape[-1] == self.global_obs_dim, "Input has wrong observation size"
 
         features = self.body(x)
         
