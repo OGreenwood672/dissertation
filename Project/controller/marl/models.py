@@ -12,13 +12,23 @@ VQ-VAE
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+# improve dynamic communication choosing
+from enum import Enum
+class CommunicationType(Enum):
+    DISCRETE = "discrete"
+    CONTINUOUS = "continuous"
+    TOTAL = "total"
+
 
 class PPO_Actor(nn.Module):
-    def __init__(self, num_agents, obs_dim, action_dim, comm_dim=5, lstm_hidden_size=64):
+    def __init__(self, num_agents, obs_dim, action_dim, comm_dim=5, communication_type=CommunicationType.CONTINUOUS, lstm_hidden_size=64):
         super().__init__()
         self.num_agents = num_agents
         self.obs_dim = obs_dim
         self.hidden_size = lstm_hidden_size
+        self.comm_type = communication_type
         feature_dim = 64
 
         # Main body
@@ -39,12 +49,17 @@ class PPO_Actor(nn.Module):
         # Output for actions
         self.action_head = nn.Linear(lstm_hidden_size, action_dim)
 
-        # noise to learn
-        # log to maintain positive std
-        self.comm_log_std = nn.Parameter(torch.zeros(1, comm_dim))
-
         # Output for continuous communication
         self.comm_head = nn.Linear(lstm_hidden_size, comm_dim)
+
+        
+        if communication_type == CommunicationType.CONTINUOUS:
+            # noise to learn
+            # log to maintain positive std
+            self.comm_log_std = nn.Parameter(torch.zeros(1, comm_dim))
+
+        elif communication_type == CommunicationType.DISCRETE:
+            self.vq_layer = Quantiser(vocab_size=64, comm_dim=comm_dim)
         
 
     def init_hidden(self, batch_size=1):
@@ -92,11 +107,23 @@ class PPO_Actor(nn.Module):
 
         comm_logits = self.comm_head(lstm_output)
 
+        loss = torch.tensor(0.0, device=x.device)
+        
+        if self.comm_type == CommunicationType.DISCRETE:
+            B, T, N, C = comm_logits.shape
+            flat_inputs = comm_logits.view(-1, C)
+            quantised_flat, vq_loss = self.vq_layer(flat_inputs)
+            comm_logits = quantised_flat.view(B, T, N, C)
+            loss += vq_loss
+
         if not has_time_dim:
             action_logits = action_logits.squeeze(1)
             comm_logits = comm_logits.squeeze(1)
                 
-        return action_logits, comm_logits, (h_out, c_out)
+        return action_logits, comm_logits, loss, (h_out, c_out)
+
+    def get_comm_type(self):
+        return self.comm_type
 
 
 class PPO_Centralised_Critic(nn.Module):
@@ -133,3 +160,36 @@ class PPO_Centralised_Critic(nn.Module):
         values = self.value_head(features)
         
         return values
+    
+
+class Quantiser(nn.Module):
+
+    def __init__(self, vocab_size, comm_dim, commitment_cost=0.25):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.comm_dim = comm_dim
+        self.commitment_cost = commitment_cost
+
+        # The codebook
+        self.embedding = nn.Embedding(vocab_size, comm_dim)
+
+        # codebook initialisation
+        self.embedding.weight.data.uniform_( -1 / vocab_size, 1 / vocab_size)
+
+    def forward(self, x):
+        
+        distances = torch.cdist(x, self.embedding.weight, p=2)
+
+        min_distance_index = distances.argmin(-1)
+
+        quantised = self.embedding(min_distance_index)
+
+        codebook_loss = F.mse_loss(quantised, x.detach())
+        e_latent_loss = F.mse_loss(quantised.detach(), x)
+
+        loss = codebook_loss + self.commitment_cost * e_latent_loss
+
+        # to allow backprop, effectivly x + constant = quantised
+        quantised = x + (quantised - x).detach()
+
+        return quantised, loss

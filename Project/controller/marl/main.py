@@ -8,7 +8,7 @@ import numpy as np
 import concurrent.futures
 
 from .buffer import RolloutBuffer
-from .models import PPO_Actor, PPO_Centralised_Critic as PPO_Critic
+from .models import CommunicationType, PPO_Actor, PPO_Centralised_Critic as PPO_Critic
 from .env_wrapper import SimWrapper
 
 
@@ -36,7 +36,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    actor = PPO_Actor(num_agents, agent_obs_shape[0], act_shape[0], comm_dim=5, lstm_hidden_size=mappo_config.lstm_hidden_size).to(device)
+    actor = PPO_Actor(num_agents, agent_obs_shape[0], act_shape[0], comm_dim=5, communication_type=CommunicationType.DISCRETE, lstm_hidden_size=mappo_config.lstm_hidden_size).to(device)
     critic = PPO_Critic(num_agents, global_obs_shape[0]).to(device)
 
     actor_optimizer = torch.optim.Adam(actor.parameters(), lr=0.001)
@@ -86,7 +86,7 @@ def main():
                 obs_tensor = torch.tensor(np.stack(curr_obs_for_batch)).float().to(device)
                 global_state_tensor = torch.tensor(np.stack(curr_global_obs_for_batch)).float().to(device)
                 with torch.no_grad():
-                    action_logits, comm_mean, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
+                    action_logits, comm_mean, _, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                     values = critic(global_state_tensor)
 
                 # * -- Action Sampling --
@@ -95,11 +95,16 @@ def main():
                 actions = action_dist.sample()
                 action_log_probs = action_dist.log_prob(actions)
 
-                # * -- Continuous Communication Sampling --
-                comm_std = actor.comm_log_std.exp().expand_as(comm_mean)
-                comm_dist = torch.distributions.Normal(comm_mean, comm_std)
-                comms = comm_dist.sample()
-                comm_log_probs = comm_dist.log_prob(comms).sum(dim=-1) # sum as log(B) + log(C) = log(BC)
+                if actor.get_comm_type() == CommunicationType.CONTINUOUS:
+                    # * -- Continuous Communication Sampling --
+                    comm_std = actor.comm_log_std.exp().expand_as(comm_mean)
+                    comm_dist = torch.distributions.Normal(comm_mean, comm_std)
+                    comms = comm_dist.sample()
+                    comm_log_probs = comm_dist.log_prob(comms).sum(dim=-1) # sum as log(B) + log(C) = log(BC)
+                elif actor.get_comm_type() == CommunicationType.DISCRETE:
+                    # * -- Discrete Communication --
+                    comms = comm_mean
+                    comm_log_probs = torch.zeros_like(action_log_probs)
 
                 log_probs = action_log_probs + comm_log_probs
 
@@ -110,16 +115,22 @@ def main():
                 executor.map(sim.parallel_step, step_args)
                 
                 rewards = [sim.get_agents_reward(world_id) for world_id in range(mappo_config.worlds_parallised)]
-
+                
                 # Save to current episodes
+
+                # cpu_actions = actions.cpu().numpy()
+                cpu_comms = comms.detach().cpu().numpy()
+                cpu_log_probs = log_probs.detach().cpu().numpy()
+                cpu_values = values.cpu().numpy()
+
                 for w in range(mappo_config.worlds_parallised):
                     current_episodes_data[w]["obs"].append(curr_obs_for_batch[w])
                     current_episodes_data[w]["global_obs"].append(curr_global_obs_for_batch[w])
                     current_episodes_data[w]["actions"].append(action_choice[w])
-                    current_episodes_data[w]["comm"].append(comms[w].detach().cpu().numpy())
-                    current_episodes_data[w]["log_probs"].append(log_probs[w].detach().cpu().numpy())
+                    current_episodes_data[w]["comm"].append(cpu_comms[w])
+                    current_episodes_data[w]["log_probs"].append(cpu_log_probs[w])
                     current_episodes_data[w]["rewards"].append(rewards[w])
-                    current_episodes_data[w]["c_values"].append(values[w].cpu())
+                    current_episodes_data[w]["c_values"].append(cpu_values[w])
 
 
                 curr_obs_for_batch = [sim.get_agents_obs(world_id, comms[world_id]) for world_id in range(mappo_config.worlds_parallised)]
@@ -179,18 +190,24 @@ def main():
                 flat_global_obs = global_obs.view(-1, *global_obs.shape[2:])
                 new_values = critic(flat_global_obs).reshape(-1)
                 
-                all_action_logits, all_comm_means, _ = actor(obs, batch_a_hidden_init)
+                all_action_logits, all_comm_means, vq_loss, _ = actor(obs, batch_a_hidden_init)
 
                 # * -- Action Resampling --
                 new_action_dist = torch.distributions.Categorical(logits=all_action_logits)
                 new_action_log_probs = new_action_dist.log_prob(actions).flatten()
                 action_entropy = new_action_dist.entropy().flatten()
 
-                # * -- Continuous Communication Resampling --
-                new_comm_std = actor.comm_log_std.exp().expand_as(all_comm_means)
-                new_comm_dist = torch.distributions.Normal(all_comm_means, new_comm_std)
-                new_comm_log_probs = new_comm_dist.log_prob(comms).sum(dim=-1).flatten()
-                comm_entropy = new_comm_dist.entropy().sum(dim=-1).flatten()
+                if actor.get_comm_type() == CommunicationType.CONTINUOUS:
+                    # * -- Continuous Communication Resampling --
+                    new_comm_std = actor.comm_log_std.exp().expand_as(all_comm_means)
+                    new_comm_dist = torch.distributions.Normal(all_comm_means, new_comm_std)
+                    new_comm_log_probs = new_comm_dist.log_prob(comms).sum(dim=-1).flatten()
+                    comm_entropy = new_comm_dist.entropy().sum(dim=-1).flatten()
+                elif actor.get_comm_type() == CommunicationType.DISCRETE:
+                    # * -- Discrete Communication Resampling --
+                    new_comm_log_probs = torch.zeros_like(new_action_log_probs)
+                    comm_entropy = torch.zeros_like(action_entropy)
+
 
                 entropy = action_entropy + comm_entropy
                 new_log_probs = new_action_log_probs + new_comm_log_probs                
@@ -216,6 +233,7 @@ def main():
                 entropy_loss = -entropy.mean()
                 
                 total_loss = actor_loss + mappo_config.vf_coef * critic_loss + mappo_config.ent_coef * entropy_loss
+                total_loss += vq_loss
                 
                 # Update
                 actor_optimizer.zero_grad()
