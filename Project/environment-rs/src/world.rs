@@ -18,8 +18,6 @@ pub struct WorldState {
 struct WorldContext {
     width: u32,
     height: u32,
-    agent_size: u32,
-    station_size: u32,
     agent_layout: Layout,
     station_layout: Layout,
     agent_configs: Vec<AgentConfig>,
@@ -54,13 +52,11 @@ impl World {
             context: WorldContext {
                 width,
                 height,
-                agent_size: config.agent_size,
-                station_size: config.station_size,
+                agent_visibility: config.agent_visibility,
                 agent_layout: config.initial_agent_layout,
                 station_layout: config.station_layout,
                 agent_configs: config.agents,
                 station_configs: config.stations,
-                agent_visibility: config.agent_size * 6,
                 max_inputs: max_inputs as u32,
                 max_outputs: 1
             }
@@ -85,7 +81,7 @@ impl World {
             self.context.agent_layout,
             self.context.width, self.context.height,
             self.context.agent_configs.len() as u32,
-            self.context.agent_size * 3
+             5
         ).into_iter();
 
         self.agents = self.context.agent_configs.iter().map(|agent: &AgentConfig| Agent::new(
@@ -108,7 +104,7 @@ impl World {
             self.context.width,
             self.context.height,
             self.context.station_configs.len() as u32,
-            self.context.station_size * 3
+            10
         ).into_iter();
 
         self.stations = self.context.station_configs.iter().map(|station: &StationConfig| Station::new(

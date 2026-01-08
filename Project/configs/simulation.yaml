@@ -4,7 +4,7 @@ arena_height: 65
 headless: false
 websocket_url: ws://127.0.0.1:3000
 websocket_path: ws
-agent_size: 3
+agent_visibility: 10
 initial_agent_layout: random
 agents:
   - id: 1
@@ -17,7 +17,6 @@ agents:
     inputs: [plainburger, salad]
     output: burger
 
-station_size: 5
 station_layout: random
 stations:
   - id: 1

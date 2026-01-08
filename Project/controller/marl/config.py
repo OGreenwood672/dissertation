@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, ConfigDict
+import json
 import yaml
 
 def load_yaml(filepath):
@@ -6,21 +7,36 @@ def load_yaml(filepath):
         return yaml.safe_load(file)
     
 
-@dataclass(frozen=True)
-class MappoConfig:
+from enum import Enum
+class CommunicationType(str, Enum):
+    DISCRETE = "discrete"
+    CONTINUOUS = "continuous"
+    TOTAL = "total"
+
+
+class MappoConfig(BaseModel):
+
+    model_config = ConfigDict(frozen=True)
 
     buffer_size: int
     training_timesteps: int
     simulation_timesteps: int
     worlds_parallised: int
+    seed: int
+    periodic_save_interval: int
     
     ppo_epochs: int
-    lstm_hidden_size: int
     gamma: float
     gae_lambda: float
     clip_coef: float
     vf_coef: float
     ent_coef: float
+    learning_rate: float
+
+    lstm_hidden_size: int
+    feature_dim: int
+
+    communication_type: CommunicationType
     
     @classmethod
     def from_yaml(cls, config_path: str):
@@ -34,7 +50,25 @@ class MappoConfig:
             else:
                 config = raw_config
                 break
+        
+        if "communication_type" in config:
+            config["communication_type"] = CommunicationType(config["communication_type"])
 
         valid_keys = {k: v for k, v in config.items() if k in cls.__annotations__}
         
         return cls(**valid_keys)
+    
+    @classmethod
+    def from_json(cls, config_path: str):
+
+        try:
+            raw_config = json.load(open(config_path))
+        except:
+            raise FileNotFoundError(f"Config file not found at {config_path}")
+        
+        valid_keys = {k: v for k, v in raw_config.items() if k in cls.__annotations__}
+
+        return cls(**valid_keys)
+    
+    def get_dict(self):
+        return self.model_dump()

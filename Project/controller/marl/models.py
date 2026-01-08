@@ -3,10 +3,8 @@ file: models.py
 
 Contains model defintions for:
 
-PPO Actors (For IPPO)
-IPPO Critic
-
-VQ-VAE
+PPO Actors (For MAPPO)
+PPO Critic
 
 """
 
@@ -14,29 +12,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# improve dynamic communication choosing
-from enum import Enum
-class CommunicationType(Enum):
-    DISCRETE = "discrete"
-    CONTINUOUS = "continuous"
-    TOTAL = "total"
+from .config import CommunicationType
 
 
 class PPO_Actor(nn.Module):
-    def __init__(self, num_agents, obs_dim, action_dim, comm_dim=5, communication_type=CommunicationType.CONTINUOUS, lstm_hidden_size=64):
+    def __init__(self, num_agents, obs_dim, action_dim, comm_dim=5, communication_type=CommunicationType.CONTINUOUS, feature_dim=256, lstm_hidden_size=64):
         super().__init__()
         self.num_agents = num_agents
         self.obs_dim = obs_dim
         self.hidden_size = lstm_hidden_size
         self.comm_type = communication_type
-        feature_dim = 64
 
         # Main body
         self.body = nn.Sequential(
-            nn.Linear(obs_dim, 64),
+            nn.Linear(obs_dim, feature_dim),
             nn.ReLU(),
-            nn.Linear(64, feature_dim),
+            nn.Linear(feature_dim, feature_dim),
+            nn.ReLU(),
+            nn.Linear(feature_dim, feature_dim),
             nn.ReLU()
+            
         )
 
         # Unique LSTM for each agent
@@ -127,17 +122,18 @@ class PPO_Actor(nn.Module):
 
 
 class PPO_Centralised_Critic(nn.Module):
-    def __init__(self, num_agents, global_obs_dim):
+    def __init__(self, num_agents, global_obs_dim, feature_dim=256):
         super().__init__()
-        feature_dim = 64
 
         self.global_obs_dim = global_obs_dim
 
         self.body = nn.Sequential(
-            nn.Linear(self.global_obs_dim, 64),
+            nn.Linear(self.global_obs_dim, feature_dim),
             nn.ReLU(),
-            nn.Linear(64, feature_dim),
-            nn.ReLU()
+            nn.Linear(feature_dim, feature_dim),
+            nn.ReLU(),
+            nn.Linear(feature_dim, feature_dim),
+            nn.ReLU(),
         )
         
         # Output a value per agent
