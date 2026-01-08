@@ -4,40 +4,34 @@
     "headless": false,
     "websocket_url": "ws://127.0.0.1:3000",
     "websocket_path": "ws",
-    "agent_size": 2,
+    "agent_visibility": 10,
     "initial_agent_layout": "random",
     "agents": [
         {
             "id": 1,
             "inputs": [
-                "bun"
+                "bun",
+                "patty"
             ],
             "output": "plainburger"
         },
         {
             "id": 2,
             "inputs": [
-                "plainburger",
-                "salad"
+                "lettuce",
+                "tomato"
             ],
-            "output": "burger"
+            "output": "salad"
         },
         {
             "id": 3,
             "inputs": [
-                "lettuce"
+                "plainburger",
+                "salad"
             ],
-            "output": "choppedlettuce"
-        },
-        {
-            "id": 4,
-            "inputs": [
-                "choppedlettuce"
-            ],
-            "output": "salad"
+            "output": "burger"
         }
     ],
-    "station_size": 4,
     "station_layout": "random",
     "stations": [
         {
@@ -48,10 +42,20 @@
         {
             "id": 2,
             "type": "pickup",
-            "resource": "lettuce"
+            "resource": "patty"
         },
         {
             "id": 3,
+            "type": "pickup",
+            "resource": "lettuce"
+        },
+        {
+            "id": 4,
+            "type": "pickup",
+            "resource": "tomato"
+        },
+        {
+            "id": 5,
             "type": "dropoff",
             "resource": "burger"
         }

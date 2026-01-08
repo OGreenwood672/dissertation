@@ -1,58 +1,108 @@
-from controller.marl.config import MappoConfig
-from logging_utils.decorators import LoggingFunctionIdentification
-from time import sleep
-import environment.environment as environment
+import argparse
 import torch
 import torch.nn.functional as F
 import numpy as np
 import concurrent.futures
 
+from logging_utils.decorators import LoggingFunctionIdentification
+
+import environment.environment as environment
+from .checkpoint_manager import CheckpointManager
+from .config import MappoConfig
 from .buffer import RolloutBuffer
 from .models import CommunicationType, PPO_Actor, PPO_Centralised_Critic as PPO_Critic
 from .env_wrapper import SimWrapper
 
 
+def get_args():
+    parser = argparse.ArgumentParser(description="MAPPO Controller")
+    parser.add_argument("--mode", type=str, default="train", help="Mode to run in", choices=["train", "eval"])
+    
+    return parser.parse_args()    
 
-@LoggingFunctionIdentification("CONTROLLER")
-def main():
-    print("starting program")
+def setup(config, device, mode):
 
-    mappo_config = MappoConfig.from_yaml('./configs/mappo_settings.yaml')
+    cm = CheckpointManager(config, default_load_previous=mode == "eval")
+    SEED = cm.get_seed()
+
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(SEED)
+
     sim = SimWrapper(
         environment.Simulation(
             './configs/simulation.yaml',
-            worlds_parallised=mappo_config.worlds_parallised
-            )
+            worlds_parallised=config.worlds_parallised
         )
+    )
     
     num_agents = sim.get_num_agents()
     agent_obs_shape = (sim.get_agent_obs_size(0),)
     global_obs_shape = (sim.get_global_obs_size(0),)
     act_shape = (sim.get_agent_action_count(0),)
 
-    batch_runs = mappo_config.buffer_size // mappo_config.worlds_parallised
+    actor = PPO_Actor(
+        num_agents, agent_obs_shape[0], act_shape[0], comm_dim=5,
+        communication_type=config.communication_type, feature_dim=config.feature_dim,
+        lstm_hidden_size=config.lstm_hidden_size
+    ).to(device)
+    critic = PPO_Critic(num_agents, global_obs_shape[0], config.feature_dim).to(device)
 
-    # Set device to GPU if available, otherwise CPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.learning_rate)
+    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.learning_rate)
 
-    actor = PPO_Actor(num_agents, agent_obs_shape[0], act_shape[0], comm_dim=5, communication_type=CommunicationType.DISCRETE, lstm_hidden_size=mappo_config.lstm_hidden_size).to(device)
-    critic = PPO_Critic(num_agents, global_obs_shape[0]).to(device)
+    start_step = 0
+    if not cm.is_new_run:
+        actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_checkpoint_models()
 
-    actor_optimizer = torch.optim.Adam(actor.parameters(), lr=0.001)
-    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=0.001)
+        actor.load_state_dict(actor_state)
+        critic.load_state_dict(critic_state)
 
+        if mode == "train":
+            actor_optimizer.load_state_dict(actor_optimiser_state)
+            critic_optimizer.load_state_dict(critic_optimizer_state)
+
+        print(f"Loaded checkpoint from step {start_step}")
+
+    return {
+        "sim": sim,
+        "actor": actor,
+        "critic": critic,
+        "actor_opt": actor_optimizer,
+        "critic_opt": critic_optimizer,
+        "start_step": start_step,
+        "checkpoint_manager": cm,
+        "num_agents": num_agents,
+        "agent_obs_shape": (agent_obs_shape,),
+        "act_shape": (act_shape,)
+    }
+
+
+def train(system, config, device):
+
+    sim = system['sim']
+    actor = system['actor']
+    critic = system['critic']
+    actor_optimizer = system['actor_opt']
+    critic_optimizer = system['critic_opt']
+
+    cm = system['checkpoint_manager']
+
+    num_agents = system['num_agents']
+    
     buffer = RolloutBuffer(
-        buffer_size=mappo_config.buffer_size,
-        num_agents=num_agents,
-        obs_space_shape=agent_obs_shape,
-        action_space_shape=act_shape,
+        buffer_size=config.buffer_size,
+        num_agents=system['num_agents'],
+        obs_space_shape=system['agent_obs_shape'],
+        action_space_shape=system['act_shape'],
         device=device
     )
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=mappo_config.worlds_parallised)
+    batch_runs = config.buffer_size // config.worlds_parallised
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=config.worlds_parallised)
 
-    for i in range(mappo_config.training_timesteps):
+    for current_training_timestep in range(system["start_step"], config.training_timesteps):
 
         final_batch_values = []
         for batch_run in range(batch_runs):
@@ -60,22 +110,22 @@ def main():
             current_episodes_data = [{
                 "obs": [], "global_obs": [], "actions": [], "comm": [],
                 "log_probs": [], "rewards": [], "c_values": [], "a_hidden_states": []
-            } for _ in range(mappo_config.worlds_parallised)]
+            } for _ in range(config.worlds_parallised)]
             
-            executor.map(sim.parallel_reset, range(mappo_config.worlds_parallised))
-            curr_obs_for_batch = [sim.get_agents_obs(world_id) for world_id in range(mappo_config.worlds_parallised)]
-            curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(mappo_config.worlds_parallised)]
+            executor.map(sim.parallel_reset, range(config.worlds_parallised))
+            curr_obs_for_batch = [sim.get_agents_obs(world_id) for world_id in range(config.worlds_parallised)]
+            curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(config.worlds_parallised)]
             
             # Reset hidden states for the recurrent model
-            actor_hidden_states = actor.init_hidden(batch_size=mappo_config.worlds_parallised)
+            actor_hidden_states = actor.init_hidden(batch_size=config.worlds_parallised)
             
-            for _ in range(mappo_config.simulation_timesteps):
+            for _ in range(config.simulation_timesteps):
 
-                h = actor_hidden_states[0].reshape(mappo_config.worlds_parallised, num_agents, -1)
-                c = actor_hidden_states[1].reshape(mappo_config.worlds_parallised, num_agents, -1)
+                h = actor_hidden_states[0].reshape(config.worlds_parallised, num_agents, -1)
+                c = actor_hidden_states[1].reshape(config.worlds_parallised, num_agents, -1)
 
                 # Move hidden states to CPU for storage
-                for w in range(mappo_config.worlds_parallised):
+                for w in range(config.worlds_parallised):
                     state_for_buffer = torch.stack([h[w], c[w]], dim=1)
                     
                     current_episodes_data[w]["a_hidden_states"].append(
@@ -111,10 +161,10 @@ def main():
                 # Use chosen actions in env
                 action_choice = actions.cpu().numpy()
                 # Add world id to actions
-                step_args = zip(range(mappo_config.worlds_parallised), action_choice)
+                step_args = zip(range(config.worlds_parallised), action_choice)
                 executor.map(sim.parallel_step, step_args)
                 
-                rewards = [sim.get_agents_reward(world_id) for world_id in range(mappo_config.worlds_parallised)]
+                rewards = [sim.get_agents_reward(world_id) for world_id in range(config.worlds_parallised)]
                 
                 # Save to current episodes
 
@@ -123,7 +173,7 @@ def main():
                 cpu_log_probs = log_probs.detach().cpu().numpy()
                 cpu_values = values.cpu().numpy()
 
-                for w in range(mappo_config.worlds_parallised):
+                for w in range(config.worlds_parallised):
                     current_episodes_data[w]["obs"].append(curr_obs_for_batch[w])
                     current_episodes_data[w]["global_obs"].append(curr_global_obs_for_batch[w])
                     current_episodes_data[w]["actions"].append(action_choice[w])
@@ -133,8 +183,8 @@ def main():
                     current_episodes_data[w]["c_values"].append(cpu_values[w])
 
 
-                curr_obs_for_batch = [sim.get_agents_obs(world_id, comms[world_id]) for world_id in range(mappo_config.worlds_parallised)]
-                curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(mappo_config.worlds_parallised)]
+                curr_obs_for_batch = [sim.get_agents_obs(world_id, comms[world_id]) for world_id in range(config.worlds_parallised)]
+                curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(config.worlds_parallised)]
 
             global_state_tensor = torch.tensor(np.stack(curr_global_obs_for_batch)).float().to(device)
             if global_state_tensor.ndim == 2:
@@ -204,7 +254,7 @@ def main():
                     new_comm_log_probs = new_comm_dist.log_prob(comms).sum(dim=-1).flatten()
                     comm_entropy = new_comm_dist.entropy().sum(dim=-1).flatten()
                 elif actor.get_comm_type() == CommunicationType.DISCRETE:
-                    # * -- Discrete Communication Resampling --
+                    # * -- Discrete Communication --
                     new_comm_log_probs = torch.zeros_like(new_action_log_probs)
                     comm_entropy = torch.zeros_like(action_entropy)
 
@@ -247,5 +297,28 @@ def main():
                 actor_optimizer.step()
                 critic_optimizer.step()
 
+        if current_training_timestep % config.periodic_save_interval == 0:
+            cm.save_checkpoint(actor, critic, actor_optimizer, critic_optimizer, current_training_timestep)
+
+
+def evaluate(system, config, device):
+    pass
+
+
 if __name__ == "__main__":
-    main()
+
+    args = get_args()
+
+    mappo_config = MappoConfig.from_yaml('./configs/mappo_settings.yaml')
+
+
+    # Set device to GPU if available, otherwise CPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    system = setup(mappo_config, device, mode=args.mode)
+
+    if args.mode == "train":
+        train(system, mappo_config, device)
+    elif args.mode == "eval":
+        evaluate(system, mappo_config, device)

@@ -3,6 +3,8 @@ training:
   simulation_timesteps: 2000
   buffer_size: 96 # must be larger than worlds_parallised
   worlds_parallised: 24
+  seed: -1
+  periodic_save_interval: 50
 
 ppo_hyperparameters:
   ppo_epochs: 10
@@ -11,6 +13,11 @@ ppo_hyperparameters:
   clip_coef: 0.2
   vf_coef: 0.5
   ent_coef: 0.04
+  learning_rate: 0.001
 
 architecture:
   lstm_hidden_size: 64
+  feature_dim: 256
+
+experiment:
+  communication_type: discrete

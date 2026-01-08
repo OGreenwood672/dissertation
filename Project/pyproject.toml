@@ -14,7 +14,8 @@ authors = [
 dependencies = [
     "PyYaml",
     "torch",
-    "numpy"
+    "numpy",
+    "pydantic"
 ]
 
 [project.optional-dependencies]
@@ -32,7 +33,7 @@ dev = [
 find = { include = ["controller", "controller.*", "logging_utils", "logging_utils.*", "environment", "environment.*"] }
 
 [[tool.setuptools-rust.ext-modules]]
-# Private Rust extension module to be nested into the Python package
+
 target = "environment-rs.environment"  # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml,
 # "environment" = { path = "environment-rs/Cargo.toml", optional = false, debug = true }
 path = "environment-rs/Cargo.toml"

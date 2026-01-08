@@ -1,2 +1,2 @@
 source venv/bin/activate
-python3 -m controller.marl.main
+python3 -m controller.marl.main --mode train

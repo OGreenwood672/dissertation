@@ -13,3 +13,5 @@ __pycache__/
 .pytest_cache/
 
 emerging_communication.egg-info/
+
+results/

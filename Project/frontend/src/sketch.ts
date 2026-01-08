@@ -16,6 +16,9 @@ export const sketch = (p: p5) => {
     let WIDTH = p.windowWidth * 0.95;
     let HEIGHT = p.windowHeight * 0.95;
 
+    const STATION_SIZE = 5;
+    const AGENT_SIZE = 2;
+
     let aspect = WIDTH / HEIGHT;
 
     let cols: number, rows: number;
@@ -95,18 +98,18 @@ export const sketch = (p: p5) => {
                     if (world.agents && world.stations) {
                         world.agents.forEach((agent) => {
                             p.rect(
-                                agent.location.x * scale + cell_x,
-                                agent.location.y * scale + cell_y,
-                                config.agent_size * scale,
-                                config.agent_size * scale
+                                agent.location.x * scale + cell_x - AGENT_SIZE / 2,
+                                agent.location.y * scale + cell_y - AGENT_SIZE / 2,
+                                AGENT_SIZE * scale,
+                                AGENT_SIZE * scale
                             );
                         });
                         world.stations.forEach((station) => {
                             p.rect(
-                                station.location.x * scale + cell_x,
-                                station.location.y * scale + cell_y,
-                                config.station_size * scale,
-                                config.station_size * scale
+                                station.location.x * scale + cell_x - STATION_SIZE / 2,
+                                station.location.y * scale + cell_y - STATION_SIZE / 2,
+                                STATION_SIZE * scale,
+                                STATION_SIZE * scale
                             );
                         });
                     }
