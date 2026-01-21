@@ -14,16 +14,11 @@ class CheckpointManager:
 
         seed = config.seed
         
-        result_path = "./results/"
-        if config.communication_type == CommunicationType.DISCRETE:
-            result_path += "discrete/"
-        elif config.communication_type == CommunicationType.CONTINUOUS:
-            result_path += "continuous/"
-        else:
-            raise TypeError(f"Unknown communication type: {config.communication_type}")
+        result_path = "./results/" + config.communication_type.value + "/"
         
         os.makedirs(result_path, exist_ok=True)
         
+        # find new seed
         if seed == -1 and not default_load_previous:
             used_seeds = list(map(lambda x: int(re.search(r"seed_(\d+)", x).group(1)), os.listdir(result_path)))
             test_used_seed = 0
@@ -35,7 +30,8 @@ class CheckpointManager:
             result_path += self.get_folder_name(seed)
             self.gen_result_folder(result_path, config)
             self.is_new_run = True
-            
+        
+        # find largest seed
         elif seed == -1 and default_load_previous:
             used_seeds = list(map(lambda x: int(re.search(r"seed_(\d+)", x).group(1)), os.listdir(result_path)))
             result_path += self.get_folder_name(max(used_seeds))
