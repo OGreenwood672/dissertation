@@ -11,7 +11,6 @@ from enum import Enum
 class CommunicationType(str, Enum):
     DISCRETE = "discrete"
     CONTINUOUS = "continuous"
-    TOTAL = "total"
 
 
 class MappoConfig(BaseModel):

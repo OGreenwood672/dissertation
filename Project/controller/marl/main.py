@@ -167,12 +167,9 @@ def train(system, config, device):
                 rewards = [sim.get_agents_reward(world_id) for world_id in range(config.worlds_parallised)]
                 
                 # Save to current episodes
-
-                # cpu_actions = actions.cpu().numpy()
                 cpu_comms = comms.detach().cpu().numpy()
                 cpu_log_probs = log_probs.detach().cpu().numpy()
                 cpu_values = values.cpu().numpy()
-
                 for w in range(config.worlds_parallised):
                     current_episodes_data[w]["obs"].append(curr_obs_for_batch[w])
                     current_episodes_data[w]["global_obs"].append(curr_global_obs_for_batch[w])
