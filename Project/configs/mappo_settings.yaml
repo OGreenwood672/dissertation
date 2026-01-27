@@ -20,4 +20,4 @@ architecture:
   feature_dim: 256
 
 experiment:
-  communication_type: discrete
+  communication_type: continuous

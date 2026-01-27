@@ -16,3 +16,9 @@ start with validation across training
 
 Progress Report
 What should i talk about in the presentation
+
+
+editing rewards:
+- redistribute some of the rewards from each agent to all
+- add this grid tile method to encourage exploration
+- if agent tells another agent about a station they need, reward them
