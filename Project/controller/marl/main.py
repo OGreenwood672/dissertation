@@ -10,8 +10,9 @@ import environment.environment as environment
 from .checkpoint_manager import CheckpointManager
 from .config import MappoConfig
 from .buffer import RolloutBuffer
-from .models import CommunicationType, PPO_Actor, PPO_Centralised_Critic as PPO_Critic
+from .models import CommunicationType, PPO_Actor, PPO_Centralised_Critic as PPO_Critic, Quantiser
 from .env_wrapper import SimWrapper
+from .logger import Logger
 
 
 def get_args():
@@ -102,7 +103,11 @@ def train(system, config, device):
     batch_runs = config.buffer_size // config.worlds_parallised
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=config.worlds_parallised)
 
+    logger = Logger(save_folder=cm.get_result_path(), start_step=system["start_step"])
+
     for current_training_timestep in range(system["start_step"], config.training_timesteps):
+
+        reward_means = []
 
         final_batch_values = []
         for batch_run in range(batch_runs):
@@ -136,7 +141,7 @@ def train(system, config, device):
                 obs_tensor = torch.tensor(np.stack(curr_obs_for_batch)).float().to(device)
                 global_state_tensor = torch.tensor(np.stack(curr_global_obs_for_batch)).float().to(device)
                 with torch.no_grad():
-                    action_logits, comm_mean, _, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
+                    action_logits, comm_mean, _, _, _, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                     values = critic(global_state_tensor)
 
                 # * -- Action Sampling --
@@ -155,7 +160,7 @@ def train(system, config, device):
                     # * -- Discrete Communication --
                     comms = comm_mean
                     comm_log_probs = torch.zeros_like(action_log_probs)
-
+                    
                 log_probs = action_log_probs + comm_log_probs
 
                 # Use chosen actions in env
@@ -183,6 +188,8 @@ def train(system, config, device):
                 curr_obs_for_batch = [sim.get_agents_obs(world_id, comms[world_id]) for world_id in range(config.worlds_parallised)]
                 curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(config.worlds_parallised)]
 
+                reward_means.append(np.mean(rewards))
+
             global_state_tensor = torch.tensor(np.stack(curr_global_obs_for_batch)).float().to(device)
             if global_state_tensor.ndim == 2:
                 global_state_tensor = global_state_tensor.unsqueeze(1)
@@ -205,6 +212,16 @@ def train(system, config, device):
 
         buffer.flatten_episodes_to_batch()
         buffer.compute_advantages(torch.cat(final_batch_values, dim=0), mappo_config.gamma, mappo_config.gae_lambda)
+
+        sum_actor_loss = 0
+        sum_critic_loss = 0
+        sum_entropy_loss = 0
+        sum_vq_loss = 0
+        sum_codebook_loss = 0
+        communication_entropy = 0
+        communication_perplexity = 0
+        communication_active_codebook_usage = 0
+        update_count = 0
         
         for _ in range(mappo_config.ppo_epochs):
 
@@ -237,7 +254,7 @@ def train(system, config, device):
                 flat_global_obs = global_obs.view(-1, *global_obs.shape[2:])
                 new_values = critic(flat_global_obs).reshape(-1)
                 
-                all_action_logits, all_comm_means, vq_loss, _ = actor(obs, batch_a_hidden_init)
+                all_action_logits, all_comm_means, codebook_loss, quantised_indices, vq_loss, _ = actor(obs, batch_a_hidden_init)
 
                 # * -- Action Resampling --
                 new_action_dist = torch.distributions.Categorical(logits=all_action_logits)
@@ -250,10 +267,17 @@ def train(system, config, device):
                     new_comm_dist = torch.distributions.Normal(all_comm_means, new_comm_std)
                     new_comm_log_probs = new_comm_dist.log_prob(comms).sum(dim=-1).flatten()
                     comm_entropy = new_comm_dist.entropy().sum(dim=-1).flatten()
+
                 elif actor.get_comm_type() == CommunicationType.DISCRETE:
                     # * -- Discrete Communication --
                     new_comm_log_probs = torch.zeros_like(new_action_log_probs)
                     comm_entropy = torch.zeros_like(action_entropy)
+
+                    batch_entropy, batch_perplexity = actor.vq_layer.compute_metrics(quantised_indices)
+                    communication_entropy += batch_entropy.item()
+                    communication_perplexity += batch_perplexity.item()
+
+                    communication_active_codebook_usage += Quantiser.get_active_codebook_usage(quantised_indices)
 
 
                 entropy = action_entropy + comm_entropy
@@ -281,6 +305,15 @@ def train(system, config, device):
                 
                 total_loss = actor_loss + mappo_config.vf_coef * critic_loss + mappo_config.ent_coef * entropy_loss
                 total_loss += vq_loss
+
+                sum_actor_loss += actor_loss.item()
+                sum_critic_loss += critic_loss.item()
+                sum_entropy_loss += entropy_loss.item()
+                sum_vq_loss += vq_loss.item()
+                if codebook_loss is not None:
+                    sum_codebook_loss += codebook_loss.item()
+
+                update_count += 1
                 
                 # Update
                 actor_optimizer.zero_grad()
@@ -296,6 +329,25 @@ def train(system, config, device):
 
         if current_training_timestep % config.periodic_save_interval == 0:
             cm.save_checkpoint(actor, critic, actor_optimizer, critic_optimizer, current_training_timestep)
+        
+        logger.log(
+            timestep=current_training_timestep,
+
+            reward_mean=np.mean(reward_means),
+            reward_std=np.std(reward_means),
+
+            communication_entropy_mean=communication_entropy / update_count,
+            communication_perplexity_mean=communication_perplexity / update_count,
+            codebook_loss=sum_codebook_loss / update_count,
+            communication_active_codebook_usage=communication_active_codebook_usage / update_count,
+
+            actor_loss=sum_actor_loss / update_count,
+            critic_loss=sum_critic_loss / update_count,
+            entropy_loss=sum_entropy_loss / update_count,
+            vq_loss=sum_vq_loss / update_count,
+        )
+
+    logger.close()
 
 
 def evaluate(system, config, device):

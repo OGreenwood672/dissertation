@@ -48,6 +48,11 @@ count_section "FRONTEND (Source Only)" "$FRONTEND_FILES"
 LOG_FILES=$(find logging_utils -name "*.py" -not -path "*/__pycache__/*")
 count_section "LOGGING UTILS" "$LOG_FILES"
 
+ANALYSIS_FILES=$(find notebooks \
+    -name "__pycache__" -prune -o \
+    -type f \( -name "*.py" -o -name "*.ipynb" \) -print)
+count_section "NOTEBOOKS" "$ANALYSIS_FILES"
+
 echo "##########################################"
 echo "  GRAND TOTAL LINES OF CODE: $GRAND_TOTAL"
 echo "##########################################"

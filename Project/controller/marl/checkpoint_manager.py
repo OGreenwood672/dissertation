@@ -5,7 +5,6 @@ import json
 import torch
 
 from .config import MappoConfig
-from .models import CommunicationType
 
 
 class CheckpointManager:
@@ -108,3 +107,7 @@ class CheckpointManager:
 
     def get_seed(self):
         return self.seed
+    
+    def get_result_path(self):
+        return self.result_path
+    

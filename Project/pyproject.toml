@@ -15,7 +15,11 @@ dependencies = [
     "PyYaml",
     "torch",
     "numpy",
-    "pydantic"
+    "pydantic",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "ipykernel"
 ]
 
 [project.optional-dependencies]
@@ -34,7 +38,7 @@ find = { include = ["controller", "controller.*", "logging_utils", "logging_util
 
 [[tool.setuptools-rust.ext-modules]]
 
-target = "environment-rs.environment"  # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml,
+target = "environment.environment"  # The last part of the name (e.g. "_lib") has to match lib.name in Cargo.toml,
 # "environment" = { path = "environment-rs/Cargo.toml", optional = false, debug = true }
 path = "environment-rs/Cargo.toml"
 debug = true

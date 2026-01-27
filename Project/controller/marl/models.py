@@ -104,10 +104,12 @@ class PPO_Actor(nn.Module):
 
         loss = torch.tensor(0.0, device=x.device)
         
+        quantised_index = None
+        codebook_loss = None
         if self.comm_type == CommunicationType.DISCRETE:
             B, T, N, C = comm_logits.shape
             flat_inputs = comm_logits.view(-1, C)
-            quantised_flat, vq_loss = self.vq_layer(flat_inputs)
+            quantised_flat, vq_loss, codebook_loss, quantised_index = self.vq_layer(flat_inputs)
             comm_logits = quantised_flat.view(B, T, N, C)
             loss += vq_loss
 
@@ -115,7 +117,7 @@ class PPO_Actor(nn.Module):
             action_logits = action_logits.squeeze(1)
             comm_logits = comm_logits.squeeze(1)
                 
-        return action_logits, comm_logits, loss, (h_out, c_out)
+        return action_logits, comm_logits, codebook_loss, quantised_index, loss, (h_out, c_out)
 
     def get_comm_type(self):
         return self.comm_type
@@ -188,4 +190,20 @@ class Quantiser(nn.Module):
         # to allow backprop, effectivly x + constant = quantised
         quantised = x + (quantised - x).detach()
 
-        return quantised, loss
+        return quantised, loss, codebook_loss, min_distance_index
+    
+    def compute_metrics(self, quantised_indices):
+        
+        counts = torch.bincount(quantised_indices.flatten(), minlength=self.vocab_size).float()
+        
+        probs = counts / counts.sum()
+        
+        entropy = -torch.sum(probs * torch.log(probs + 1e-10))
+        
+        perplexity = torch.exp(entropy)
+        
+        return entropy, perplexity
+    
+    @staticmethod
+    def get_active_codebook_usage(indices):
+        return len(torch.unique(indices.flatten()))
