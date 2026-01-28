@@ -389,8 +389,16 @@ impl World {
         self.get_agent_observation(&self.agents[agent_index])
     }
 
+    pub fn get_agents_obs(&self) -> Vec<Vec<f32>> {
+        self.agents.iter().map(|agent| self.get_agent_observation(agent)).collect()
+    }
+
     pub fn get_agent_reward(&self, agent_index: usize) -> f32 {
         self.agents[agent_index].get_curr_reward()
+    }
+
+    pub fn get_agents_reward(&self) -> Vec<f32> {
+        self.agents.iter().map(|agent| agent.get_curr_reward()).collect()
     }
 
     pub fn get_global_obs_size(&self) -> u32 {

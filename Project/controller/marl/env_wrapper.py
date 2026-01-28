@@ -8,11 +8,16 @@ class SimWrapper:
         self._num_agents = sim.config.n_agents
         self._comm_dim = comm_dim
 
-    def parallel_step(self, args):
-        world_id, action = args
-        return self._sim.step(world_id, action)
+    def parallel_step(self, actions, world_comms=None):
 
-    def parallel_reset(self, world_id):
+        if world_comms is None:
+            n_worlds = len(actions) 
+            comm_size = self.get_world_comms_size()
+            world_comms = np.zeros((n_worlds, comm_size), dtype=np.float32)
+
+        return self._sim.parallel_step(actions, world_comms)
+
+    def reset(self, world_id):
         return self._sim.reset(world_id)
 
     def get_num_agents(self):
@@ -48,6 +53,9 @@ class SimWrapper:
 
     def get_global_obs(self, world_id):
         return self._sim.get_global_obs(world_id)
+    
+    def get_all_global_obs(self):
+        return self._sim.get_all_global_obs()
 
     def get_global_obs_size(self, world_id):
         return self._sim.get_global_obs_size(world_id)
