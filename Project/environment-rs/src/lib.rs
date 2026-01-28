@@ -2,6 +2,7 @@ use pyo3::prelude::*;
 
 pub mod agent;
 pub mod config;
+pub mod grid_map;
 pub mod sim;
 pub mod location;
 pub mod resource;

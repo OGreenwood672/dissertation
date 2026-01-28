@@ -58,6 +58,10 @@ impl Station {
         obs
     }
 
+    pub fn get_id(&self) -> i32 {
+        self.id
+    }
+
     pub fn get_location(&self) -> &Location {
         &self.location
     }

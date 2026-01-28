@@ -7,6 +7,7 @@ use crate::station::{Station, StationState};
 use crate::config::{AgentConfig, Config, StationConfig};
 use crate::location::{Layout, Location, get_location};
 use crate::resource::{RESOURCE_COUNT, one_hot_vector_from_resource};
+use crate::grid_map::{Entity, GridMap};
 
 
 #[derive(Serialize)]
@@ -30,12 +31,8 @@ struct WorldContext {
 pub struct World {
     agents: Vec<Agent>,
     stations: Vec<Station>,
+    map: GridMap,
     context: WorldContext
-}
-
-pub enum Entity {
-    Station(usize),
-    Agent(usize),
 }
 
 impl World {
@@ -49,6 +46,7 @@ impl World {
         let mut world = World {
             agents: Vec::new(),
             stations: Vec::new(),
+            map: GridMap::new(width, height),
             context: WorldContext {
                 width,
                 height,
@@ -62,8 +60,7 @@ impl World {
             }
         };
 
-        world.reset_agents();
-        world.reset_stations();
+        world.populate_map();
 
         world
     }
@@ -115,6 +112,20 @@ impl World {
         )).collect();
     }
 
+    
+    fn populate_map(&mut self) {
+
+        self.reset_agents();
+        self.reset_stations();
+
+        for agent in &self.agents {
+            self.map.add_agent(agent.id, agent.location);
+        }
+        for station in &self.stations {
+            self.map.add_station(station.get_id(), station.get_location().clone());
+        }
+    }
+
     pub fn apply_actions(&mut self, actions: Vec<Action>) {
 
         for (index, action) in actions.into_iter().enumerate() {
@@ -123,6 +134,7 @@ impl World {
             reward += match action {
                 Action::MoveUp => {
                     self.agents[index].move_north();
+                    self.map.move_agent(self.agents[index].id, original_location, self.agents[index].location);
                     if original_location == self.agents[index].location {
                         -5.0
                     } else {
@@ -131,6 +143,7 @@ impl World {
                 }
                 Action::MoveDown => {
                     self.agents[index].move_south(self.context.height);
+                    self.map.move_agent(self.agents[index].id, original_location, self.agents[index].location);
                     if original_location == self.agents[index].location {
                         -5.0
                     } else {
@@ -139,6 +152,7 @@ impl World {
                 }
                 Action::MoveLeft => {
                     self.agents[index].move_west();
+                    self.map.move_agent(self.agents[index].id, original_location, self.agents[index].location);
                     if original_location == self.agents[index].location {
                         -5.0
                     } else {
@@ -147,6 +161,7 @@ impl World {
                 }
                 Action::MoveRight => {
                     self.agents[index].move_east(self.context.width);
+                    self.map.move_agent(self.agents[index].id, original_location, self.agents[index].location);
                     if original_location == self.agents[index].location {
                         -5.0
                     } else {
@@ -158,6 +173,11 @@ impl World {
             if let Some(desired_location) = self.get_desired_target(index) {
                 reward += self.direction_reward(original_location, self.agents[index].location, desired_location);
             }
+            if !self.map.has_location_been_visited(self.agents[index].location) {
+                reward += 0.02;
+                self.map.set_location_visited(self.agents[index].location);
+            }
+
 
             self.agents[index].set_curr_reward(reward);
         }
@@ -167,6 +187,11 @@ impl World {
     fn interact(&mut self, agent_index: usize) -> f32 { // Returns reward
 
         let nearest_entity = self.get_nearest_visible_entity(&self.agents[agent_index]);
+        // let nearest_entity = self.map.get_nearest_visible_entity(
+        //     self.agents[agent_index].id,
+        //     self.agents[agent_index].location,
+        //     self.context.agent_visibility
+        // );
         match nearest_entity {
             Some(Entity::Station(station_index)) => {
                 let agent = &mut self.agents[agent_index];
@@ -174,8 +199,6 @@ impl World {
                 agent.interact_with_station(station)
             }
             Some(Entity::Agent(other_agent_index)) => {
-                assert_ne!(agent_index, other_agent_index); // Should never be returned by nearest_entity
-
                 // Splitting the agent array to borrow both required agents mutably
                 let (agent, other_agent) = if agent_index < other_agent_index {
                     let (left, right) = self.agents.split_at_mut(other_agent_index);
@@ -201,19 +224,9 @@ impl World {
 
     }
 
-    // fn position_reward(&self, agent_index: usize) -> f32 {
-    //     let agent = &self.agents[agent_index];
-    //     let x = agent.location.x;
-    //     let y = agent.location.y;
-    //     if x >= 0 && x <= self.context.width as i32 && y > 0 && y < self.context.height as i32 {
-    //         0.0
-    //     } else {
-    //         -5000.0
-    //     }
-    // }
-
     fn direction_reward(&self, original_location: Location, new_location: Location, desired_target: Location) -> f32 {
 
+        //! TODO: Is this wanted
         if (desired_target - new_location).magnitude() <= self.context.agent_visibility as f32 {
             return 0.0;
         }
@@ -305,7 +318,7 @@ impl World {
         const TARGET_OBS_SIZE: u32 = 6 + RESOURCE_COUNT as u32;
         let total_obs_size: u32 = SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * target_size + obs_size;
 
-        let mut obs = Vec::new();
+        let mut obs = Vec::with_capacity(total_obs_size as usize);
         
         // Agent Location (0-1)
         obs.push(agent.location.x as f32 / self.context.width as f32);
@@ -338,6 +351,12 @@ impl World {
 
         // Next to which station/agent if any
         let nearest_entity = self.get_nearest_visible_entity(agent);
+        // let nearest_entity = self.map.get_nearest_visible_entity(
+        //     agent.id,
+        //     agent.location,
+        //     self.context.agent_visibility
+        // );
+
         let entity_obs = match nearest_entity {
             Some(Entity::Station(station_index)) => {
                 let t_station = &self.stations[station_index];
@@ -361,10 +380,6 @@ impl World {
 
         obs
     }
-
-    // pub fn get_agents_observations(&self) -> Vec<Vec<f32>> {
-    //     self.agents.iter().map(|agent| self.get_agent_observation(agent)).collect()
-    // }
 
     pub fn get_agent_action_count(&self) -> u32 {
         ACTION_COUNT
