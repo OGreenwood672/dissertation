@@ -32,8 +32,8 @@ impl From<&ResourceType> for f32 {
     }
 }
 
-pub fn one_hot_vector_from_resource(resource: ResourceType) -> Vec<f32> {
-    let mut one_hot_vector = vec![0.0; RESOURCE_COUNT];
+pub fn one_hot_vector_from_resource(resource: ResourceType) -> [f32; RESOURCE_COUNT] {
+    let mut one_hot_vector = [0.0; RESOURCE_COUNT];
     one_hot_vector[f32::from(&resource) as usize - 1] = 1.0;
     one_hot_vector
 }
