@@ -1,4 +1,5 @@
 use pyo3::prelude::*;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use tokio::runtime::Runtime;
 use serde_json;
 use tokio::signal;
@@ -92,33 +93,55 @@ impl Simulation {
         })
     }
 
-    pub fn step(&mut self, world_id: i32, actions_i32: Vec<i32>) -> PyResult<()> {
+    pub fn parallel_step(&mut self, py: Python<'_>, actions: Vec<Vec<i32>>, world_comms: Vec<Vec<f32>>) -> PyResult<(Vec<Vec<Vec<f32>>>, Vec<Vec<f32>>)> {
 
-        let world = &mut self.worlds[world_id as usize];
-        let actions: Vec<Action> = ToActions::to_actions(actions_i32);
+        Python::detach(py, || {
+            let results: Vec<_> = self.worlds.par_iter_mut()
+                .zip(actions.par_iter())
+                .zip(world_comms.par_iter())
+                .map(|((world, world_actions), world_comms)| {
+                    let agent_actions = ToActions::to_actions(world_actions.clone());
+                    world.apply_actions(agent_actions);
+                    
+                    let mut obs = world.get_agents_obs();
+                    let rewards = world.get_agents_reward();
 
-        world.apply_actions(actions);
+                    for agent_obs in obs.iter_mut() {
+                        agent_obs.extend_from_slice(world_comms);
+                    }
 
-        if !self.config.headless {
-            
-            let world_state_with_id = serde_json::json!({ "world_id": world_id, "world_state": world.get_state() });
-            let json_state = serde_json::to_string(&world_state_with_id)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("failed to serialize world state: {}", e)))?;
+                    (obs, rewards)
+                })
+                .collect();
 
-            if let Err(e) = self.bcast_tx.send(json_state) {
-                if !self.bcast_is_erring {
-                    println!("[DEBUG] Broadcast error: {}", e);
-                    self.bcast_is_erring = true;
-                }
-            } else {
-                if self.bcast_is_erring {
-                    println!("[DEBUG] Broadcast recovered");
-                    self.bcast_is_erring = false;
+            let (obs, rewards): (Vec<Vec<Vec<f32>>>, Vec<Vec<f32>>) = results.into_iter().unzip();
+
+            if !self.config.headless {
+
+                for (world_id, world) in self.worlds.iter().enumerate() {
+                    let world_state_with_id = serde_json::json!({ "world_id": world_id, "world_state": world.get_state() });
+                    let json_state = serde_json::to_string(&world_state_with_id)
+                        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("failed to serialize world state: {}", e)))?;
+
+                    if let Err(e) = self.bcast_tx.send(json_state) {
+                        if !self.bcast_is_erring {
+                            println!("[DEBUG] Broadcast error: {}", e);
+                            self.bcast_is_erring = true;
+                        }
+                    } else {
+                        if self.bcast_is_erring {
+                            println!("[DEBUG] Broadcast recovered");
+                            self.bcast_is_erring = false;
+                        }
+                    }
                 }
             }
-        }
-        Ok(())
+
+            Ok((obs, rewards))
+        })
+
     }
+
 
     pub fn shutdown(&self) -> PyResult<()> {
         println!("Shutting down simulation server...");
@@ -167,6 +190,11 @@ impl Simulation {
     pub fn get_global_obs(&self, world_id: i32) -> PyResult<Vec<f32>> {
         let world = &self.worlds[world_id as usize];
         let obs = world.get_global_obs();
+        Ok(obs)
+    }
+
+    pub fn get_all_global_obs(&self) -> PyResult<Vec<Vec<f32>>> {
+        let obs: Vec<Vec<f32>> = self.worlds.iter().map(|world| world.get_global_obs()).collect();
         Ok(obs)
     }
 

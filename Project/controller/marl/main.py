@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 import numpy as np
-import concurrent.futures
+# import concurrent.futures
 
 from logging_utils.decorators import LoggingFunctionIdentification
 
@@ -101,7 +101,6 @@ def train(system, config, device):
     )
 
     batch_runs = config.buffer_size // config.worlds_parallised
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=config.worlds_parallised)
 
     logger = Logger(save_folder=cm.get_result_path(), start_step=system["start_step"])
 
@@ -117,7 +116,9 @@ def train(system, config, device):
                 "log_probs": [], "rewards": [], "c_values": [], "a_hidden_states": []
             } for _ in range(config.worlds_parallised)]
             
-            executor.map(sim.parallel_reset, range(config.worlds_parallised))
+            for world_id in range(config.worlds_parallised):
+                sim.reset(world_id)
+
             curr_obs_for_batch = [sim.get_agents_obs(world_id) for world_id in range(config.worlds_parallised)]
             curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(config.worlds_parallised)]
             
@@ -165,12 +166,9 @@ def train(system, config, device):
 
                 # Use chosen actions in env
                 action_choice = actions.cpu().numpy()
-                # Add world id to actions
-                step_args = zip(range(config.worlds_parallised), action_choice)
-                executor.map(sim.parallel_step, step_args)
-                
-                rewards = [sim.get_agents_reward(world_id) for world_id in range(config.worlds_parallised)]
-                
+
+                next_obs_for_batch, rewards = sim.parallel_step(action_choice.tolist())
+                                
                 # Save to current episodes
                 cpu_comms = comms.detach().cpu().numpy()
                 cpu_log_probs = log_probs.detach().cpu().numpy()
@@ -185,8 +183,8 @@ def train(system, config, device):
                     current_episodes_data[w]["c_values"].append(cpu_values[w])
 
 
-                curr_obs_for_batch = [sim.get_agents_obs(world_id, comms[world_id]) for world_id in range(config.worlds_parallised)]
-                curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(config.worlds_parallised)]
+                curr_obs_for_batch = next_obs_for_batch
+                curr_global_obs_for_batch = sim.get_all_global_obs()
 
                 reward_means.append(np.mean(rewards))
 

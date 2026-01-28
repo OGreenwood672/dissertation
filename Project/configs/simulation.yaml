@@ -1,7 +1,7 @@
 arena_width: 65
 arena_height: 65
 
-headless: true
+headless: false
 websocket_url: ws://127.0.0.1:3000
 websocket_path: ws
 agent_visibility: 100
