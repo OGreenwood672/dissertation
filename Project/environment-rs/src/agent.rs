@@ -98,6 +98,7 @@ impl ToActions for Vec<i32> {
     fn to_actions(self) -> Vec<Action> {
         self.into_iter().map(Action::from).collect()
     }
+
 }
 
 impl Agent {

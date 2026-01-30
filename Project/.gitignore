@@ -15,3 +15,5 @@ __pycache__/
 emerging_communication.egg-info/
 
 results/
+
+*.so
