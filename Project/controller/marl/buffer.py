@@ -7,22 +7,39 @@ class RolloutBuffer:
     A buffer for storing full episodes.
     It collects `buffer_size` (number of episodes)
     """
-    def __init__(self, buffer_size, num_agents, obs_space_shape, action_space_shape, device='cpu'):
-        # buffer_size is the number of episodes to store
-        self.buffer_size = buffer_size
-        self.num_agents = num_agents
-        self.obs_space_shape = obs_space_shape
-        self.action_space_shape = action_space_shape
-        self.device = device
+    def __init__(self, total_runs, timesteps_per_run, num_worlds_per_run, num_agents, num_obs, num_comms, num_global_obs, hidden_state_size, device='cpu'):
         
-        self.episodes = [None] * buffer_size
+        # assert(total_runs % num_worlds_per_run == 0, "total_runs must be divisible by num_worlds_per_run")
+
+        self.device = device
+
+        self.total_runs = total_runs
+        self.num_worlds_per_run = num_worlds_per_run
+        self.num_agents = num_agents
+
+        self.timesteps_per_run = timesteps_per_run
+
+        self.buffer_size = total_runs
+
+        self.num_obs = num_obs
+        
         # self.pos tracks how many episodes stored so far
         self.pos = 0
 
-        self.batch = {}
+        self.obs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_obs), device=device)
+        self.global_obs = torch.zeros((self.buffer_size, timesteps_per_run, num_global_obs), device=device)
+        self.actions = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
+        self.rewards = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
+        self.log_probs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
+        self.c_values = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
+        self.comm = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_comms), device=device)
+        self.a_hidden_states = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, 2, hidden_state_size), device=device)
 
-
-    def add_episode(self, episode_data):
+        # Results of GAE
+        self.advantages = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
+        self.returns = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
+    
+    def add_episodes(self, episode_data):
         """
         Adds one complete episode to the buffer.
         'episode_data' is a dictionary where each key holds a list of step-data.
@@ -38,47 +55,26 @@ class RolloutBuffer:
             May later add "done" as a keyword to use in compute_advantages to determine
             if a simulation is finished early
         """
-        if self.pos >= self.buffer_size:
-            print("Warning: Buffer is full. Overwriting old episode.")
-            self.pos = 0 # Reset position if full
-
-        # Stack the data collected at each step into one tensor for the whole episode
-        processed_episode = {}
-        for key, values in episode_data.items():
-            tensor =  torch.from_numpy(np.stack(values)).float().to(self.device)
-
-            if self.num_agents == 1:
-
-                if (
-                    tensor.ndim == 1 or
-                    (tensor.ndim == 2 and tensor.shape[1] != 1) or
-                    (tensor.ndim == 3 and tensor.shape[1] != 1)
-                ):
-                    tensor = tensor.unsqueeze(1)
-            
-
-            processed_episode[key] = tensor
-            
-        self.episodes[self.pos] = processed_episode
-        self.pos += 1
-
-    def flatten_episodes_to_batch(self):
-        """
-        Collates all episodes into a single batch.
-        """
-        assert self.pos == self.buffer_size, "Buffer is not yet full!"
-        self.pos = 0 # Reset buffer position
         
-        # Check all the episodes are the same length
-        assert all([len(ep["obs"]) == len(self.episodes[0]["obs"]) for ep in self.episodes])
+        if self.pos + self.num_worlds_per_run > self.buffer_size:
+            raise ValueError("Buffer overflow! Trying to insert more episodes than buffer size.")
 
-        keys = self.episodes[0].keys()
-        self.batch = {}
-        for k in keys:
-            self.batch[k] = torch.stack([ep[k] for ep in self.episodes])
-        
-        # Clear the episodes list
-        self.episodes = [None] * self.buffer_size
+
+        def process(key, curr_store):
+            data = torch.from_numpy(episode_data[key]).to(self.device).transpose(0, 1)            
+            curr_store[self.pos : self.pos + self.num_worlds_per_run] = data
+            return curr_store
+
+        self.obs = process("obs", self.obs)
+        self.actions = process("actions", self.actions)
+        self.rewards = process("rewards", self.rewards)
+        self.log_probs = process("log_probs", self.log_probs)
+        self.c_values = process("c_values", self.c_values)
+        self.global_obs = process("global_obs", self.global_obs)
+        self.comm = process("comm", self.comm)
+        self.a_hidden_states = process("a_hidden_states", self.a_hidden_states)
+
+        self.pos += self.num_worlds_per_run
 
 
     def compute_advantages(self, last_value, gamma, gae_lambda):
@@ -92,61 +88,57 @@ class RolloutBuffer:
         gamma: The discount factor
         gae_lambda: The GAE lambda
         """
-        
-        rewards = self.batch["rewards"]
-        values = self.batch["c_values"]
-        
-        B, T, N = rewards.shape
-        
-        advantages = torch.zeros_like(rewards, device=self.device)
-        returns = torch.zeros_like(rewards, device=self.device)
-
+                        
         gae = 0
-        next_value = last_value
         
-        for t in reversed(range(T)):
-            r = rewards[:, t, :]
-            v = values[:, t, :]
+        for t in reversed(range(self.timesteps_per_run)):
+            r = self.rewards[:, t]
+            v = self.c_values[:, t]
             
             # Calculate the 1-step TD Error (delta)
             # delta = reward + gamma * V(s_t+1) - V(s_t)
-            delta = r + gamma * next_value - v
+            delta = r + gamma * last_value - v
             
             # Calculate the GAE advantage
             # gae = delta + gamma * lambda * gae
             gae = delta + gamma * gae_lambda * gae
             
             # Set the advantage for this timestep
-            advantages[:, t, :] = gae
+            self.advantages[:, t, :] = gae
             
             # Set the return for this timestep (the critic target)
             # Return = Advantage + Value
-            returns[:, t, :] = gae + v
+            self.returns[:, t, :] = gae + v
             
-            # Update next_value for the next iteration
-            # The next value for step t-1 is the value at step t
-            next_value = v
+            # Update last_val for the next iteration
+            # The last value for step t-1 is the value at step t
+            last_value = v
         
-        self.batch["advantages"] = advantages
-        self.batch["returns"] = returns
-
     
     def get_minibatches(self, batch_size=4):
         """
         A generator that yields shuffled minibatches from the full batch.
-        Assumes self.batch and self.advantages/self.returns are populated.
+        Assumes self.advantages/self.returns are populated.
         """
-                
-        worlds = self.batch["obs"].shape[0] 
-        
-        indices = torch.randperm(worlds).to(self.device)    
+                        
+        indices = torch.randperm(self.buffer_size).to(self.device)    
 
-        for start in range(0, worlds, batch_size):
+        for start in range(0, self.buffer_size, batch_size):
             end = start + batch_size
             mb_indices = indices[start:end]
-            
-            mb = {}
-            for k, v in self.batch.items():
-                mb[k] = v[mb_indices] 
-            
-            yield mb
+
+            yield {
+                "obs": self.obs[mb_indices],
+                "actions": self.actions[mb_indices],
+                "rewards": self.rewards[mb_indices],
+                "log_probs": self.log_probs[mb_indices],
+                "c_values": self.c_values[mb_indices],
+                "advantages": self.advantages[mb_indices],
+                "returns": self.returns[mb_indices],
+                "a_hidden_states": self.a_hidden_states[mb_indices],
+                "global_obs": self.global_obs[mb_indices],
+                "comm": self.comm[mb_indices]
+            }    
+    
+    def reset(self):
+        self.pos = 0
