@@ -6,29 +6,88 @@ Good requirements analysis, justified selection of suitable tools, good engineer
 \section{Project Overview}
 \label{sec:2.1}
 
+
+
 \subsection{Simulation}
 \label{sec:2.1.1}
 
-\subsection{Communication Pipeline}
-\label{sec:2.1.2}
+let []
+
+A world is a set of agents and worlds.
+
+A station is at an immovable point for as long as the world exists.
+A station can be a allow for ingredients to be collected and dropped off.
+On initalisation of the world, we generate an array of stations,
+or if we get a low
+
+Agents have a location, inventory Analysis.
+
+
+
+% \subsection{Communication Pipeline}
+% \label{sec:2.1.2}
+
+% No Communicationion
+
+
+
+% Discrete Communication
 
 \subsection{System Architecture}
 \label{sec:2.1.3}
 
+% Insert figure
+
+% Similar to proposal
+The program is decoupled into a frontend for visualisation and a backend controller.
+The SimWrapper manages a set of vectorised worlds and broadcasts each world's state to the frontend via a websocket.
+Each world involves agents with the ability to move in the four cardinal directions and interact with their nearest agent/station.
+The agents can pick up/drop off specified ingredients to other agents or stations. Their goal is to work together to make and drop off a burger.
+This task is complex as it involves sequential dependencies.
+Agents must learn to navigate the grid world to locate specific stations and identify agents holding required ingredients.
+The SimWrapper batches observations from each agent in the worlds and a global observation from each world and sends them to the controller.
+The controller then feeds these observations into the actor-critic network, which returns critic values (for training), an action for every agent and a communication vector.
+When using the continuous protocol, each agent receives all the communication vectors from all other agents in the same world.
+When using the emergent protocol, each communication vector is quantised first before being broadcast to all other agents.
+Once a pre-defined number of simulations have been run, the data that we recorded in the buffer is used to update the actor-critic network.
+
+
 \section{Reinforcement Learning}
 \label{sec:2.2}
+
+Basic formula?
+
+Idea behind rewards
+
+Whats important
+spare reward problem - how we mitigate
+credit assignment problem - how we mitigate
+3rd problem - what is it? - u get it
+
+Normalisation of rewards
+
 
 \subsection{POMDP}
 \label{sec:2.2.1}
 
+What is this lol?
+P... O... Markov Decision Process
+
 \subsection{PPO}
 \label{sec:2.2.2}
+
+TRPO -> PPO
+Why used in MARL
+
+Show formula
 
 \section{Recurrent Neural Networks (LSTMs)}
 \label{sec:2.3}
 
 \section{Vector Quantisation Theory}
 \label{sec:2.4}
+
+Yknow what to explain
 
 \section{Requirements Analysis}
 \label{sec:2.5}
@@ -48,11 +107,34 @@ Good requirements analysis, justified selection of suitable tools, good engineer
 \subsection{Tool Selection \& Justification}
 \label{sec:2.6.2}
 
+Rust env - why? - vecotrised, talk about python GIL (global lock)
+Why rust over cpp, 
+
+Python - PyTorch - why not tensorflow + keras
+
+Do we need to talk about VsCode, linters, pyproject.toml and libraries?
+
 \subsection{Version Control System}
 \label{sec:2.6.3}
 
+git
+
 \section{Starting Point}
 \label{sec:2.7}
+
+Sci-kit learn from Peters' Research
+Genetic Algorithm
+Coding Train lol
+
+Camb Courses
+MLRD
+AI
+Introduction to Probability
+
+Maybe talk about
+Information Theory
+MLBI
+DNNs
 
 \section{Summary}
 \label{sec:2.8}

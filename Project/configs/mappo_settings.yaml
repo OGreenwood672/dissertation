@@ -1,8 +1,8 @@
 training:
   training_timesteps: 5000
-  simulation_timesteps: 2000
-  buffer_size: 96 # must be larger than worlds_parallised
-  worlds_parallised: 24
+  simulation_timesteps: 1000
+  buffer_size: 2 # must be larger than worlds_parallised
+  worlds_parallised: 1
   seed: -1
   periodic_save_interval: 20
 
