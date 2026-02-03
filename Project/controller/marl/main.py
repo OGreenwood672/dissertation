@@ -75,8 +75,8 @@ def setup(config, device, mode):
         "start_step": start_step,
         "checkpoint_manager": cm,
         "num_agents": num_agents,
-        "agent_obs_shape": (agent_obs_shape,),
-        "act_shape": (act_shape,)
+        "agent_obs_shape": agent_obs_shape,
+        "act_shape": act_shape
     }
 
 
@@ -90,17 +90,23 @@ def train(system, config, device):
 
     cm = system['checkpoint_manager']
 
-    num_agents = system['num_agents']
-    
+    T = config.simulation_timesteps
+    W = config.worlds_parallised
+    N = system['num_agents']
+
+    batch_runs = config.buffer_size // W
+
     buffer = RolloutBuffer(
-        buffer_size=config.buffer_size,
-        num_agents=system['num_agents'],
-        obs_space_shape=system['agent_obs_shape'],
-        action_space_shape=system['act_shape'],
+        total_runs=config.buffer_size,
+        timesteps_per_run=T,
+        num_worlds_per_run=W,
+        num_agents=N,
+        num_obs=system['agent_obs_shape'][0],
+        num_comms=5,
+        num_global_obs=sim.get_global_obs_size(0), 
+        hidden_state_size=config.lstm_hidden_size,
         device=device
     )
-
-    batch_runs = config.buffer_size // config.worlds_parallised
 
     logger = Logger(save_folder=cm.get_result_path(), start_step=system["start_step"])
 
@@ -109,38 +115,38 @@ def train(system, config, device):
         reward_means = []
 
         final_batch_values = []
+        buffer.reset()
+
         for batch_run in range(batch_runs):
-            
-            current_episodes_data = [{
-                "obs": [], "global_obs": [], "actions": [], "comm": [],
-                "log_probs": [], "rewards": [], "c_values": [], "a_hidden_states": []
-            } for _ in range(config.worlds_parallised)]
-            
-            for world_id in range(config.worlds_parallised):
+
+            buf_obs = np.zeros((T, W, N, system['agent_obs_shape'][0]), dtype=np.float32)
+            buf_global_obs = np.zeros((T, W, sim.get_global_obs_size(0)), dtype=np.float32)
+            buf_actions = np.zeros((T, W, N), dtype=np.float32)
+            buf_rewards = np.zeros((T, W, N), dtype=np.float32)
+            buf_log_probs = np.zeros((T, W, N), dtype=np.float32)
+            buf_c_values = np.zeros((T, W, N), dtype=np.float32)
+            buf_comms = np.zeros((T, W, N, 5), dtype=np.float32)
+            buf_hidden_states = np.zeros((T, W, N, 2, config.lstm_hidden_size), dtype=np.float32)     
+
+            for world_id in range(W):
                 sim.reset(world_id)
 
-            curr_obs_for_batch = [sim.get_agents_obs(world_id) for world_id in range(config.worlds_parallised)]
-            curr_global_obs_for_batch = [sim.get_global_obs(world_id) for world_id in range(config.worlds_parallised)]
-            
+            curr_obs = np.array([sim.get_agents_obs(w) for w in range(W)])
+            curr_global_obs = np.array([sim.get_global_obs(w) for w in range(W)])            
+
             # Reset hidden states for the recurrent model
-            actor_hidden_states = actor.init_hidden(batch_size=config.worlds_parallised)
+            actor_hidden_states = actor.init_hidden(batch_size=W)
             
-            for _ in range(config.simulation_timesteps):
+            for t in range(T):
 
-                h = actor_hidden_states[0].reshape(config.worlds_parallised, num_agents, -1)
-                c = actor_hidden_states[1].reshape(config.worlds_parallised, num_agents, -1)
-
-                # Move hidden states to CPU for storage
-                for w in range(config.worlds_parallised):
-                    state_for_buffer = torch.stack([h[w], c[w]], dim=1)
-                    
-                    current_episodes_data[w]["a_hidden_states"].append(
-                        state_for_buffer.detach().cpu().numpy()
-                    )
+                h = actor_hidden_states[0].reshape(W, N, -1)
+                c = actor_hidden_states[1].reshape(W, N, -1)
+                hidden_stacked = torch.stack([h, c], dim=2)
+                buf_hidden_states[t] = hidden_stacked.detach().cpu().numpy()
 
                 # Get action logits from the model and update memory and add time dimension for actor model
-                obs_tensor = torch.tensor(np.stack(curr_obs_for_batch)).float().to(device)
-                global_state_tensor = torch.tensor(np.stack(curr_global_obs_for_batch)).float().to(device)
+                obs_tensor = torch.from_numpy(curr_obs).float().to(device)
+                global_state_tensor = torch.from_numpy(curr_global_obs).float().to(device)
                 with torch.no_grad():
                     action_logits, comm_mean, _, _, _, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                     values = critic(global_state_tensor)
@@ -166,29 +172,25 @@ def train(system, config, device):
 
                 # Use chosen actions in env
                 action_choice = actions.cpu().numpy()
+                comm_choice = comms.detach().cpu().numpy()
 
-                next_obs_for_batch, rewards = sim.parallel_step(action_choice.tolist())
+                next_obs, rewards = sim.parallel_step(action_choice, comm_choice)
                                 
                 # Save to current episodes
-                cpu_comms = comms.detach().cpu().numpy()
-                cpu_log_probs = log_probs.detach().cpu().numpy()
-                cpu_values = values.cpu().numpy()
-                for w in range(config.worlds_parallised):
-                    current_episodes_data[w]["obs"].append(curr_obs_for_batch[w])
-                    current_episodes_data[w]["global_obs"].append(curr_global_obs_for_batch[w])
-                    current_episodes_data[w]["actions"].append(action_choice[w])
-                    current_episodes_data[w]["comm"].append(cpu_comms[w])
-                    current_episodes_data[w]["log_probs"].append(cpu_log_probs[w])
-                    current_episodes_data[w]["rewards"].append(rewards[w])
-                    current_episodes_data[w]["c_values"].append(cpu_values[w])
+                buf_obs[t] = curr_obs
+                buf_global_obs[t] = curr_global_obs
+                buf_actions[t] = action_choice
+                buf_comms[t] = comm_choice
+                buf_log_probs[t] = log_probs.detach().cpu().numpy()
+                buf_rewards[t] = rewards
+                buf_c_values[t] = values.detach().cpu().numpy().squeeze()
 
-
-                curr_obs_for_batch = next_obs_for_batch
-                curr_global_obs_for_batch = sim.get_all_global_obs()
+                curr_obs = next_obs
+                curr_global_obs = np.array(sim.get_all_global_obs())
 
                 reward_means.append(np.mean(rewards))
 
-            global_state_tensor = torch.tensor(np.stack(curr_global_obs_for_batch)).float().to(device)
+            global_state_tensor = torch.tensor(np.stack(curr_global_obs)).float().to(device)
             if global_state_tensor.ndim == 2:
                 global_state_tensor = global_state_tensor.unsqueeze(1)
                         
@@ -201,14 +203,22 @@ def train(system, config, device):
             final_batch_values.append(batch_last_vals)
 
             # Save to buffer
-            for w in range(mappo_config.worlds_parallised):
-                buffer.add_episode(current_episodes_data[w])
+            batch_data = {
+                "obs": buf_obs,
+                "global_obs": buf_global_obs,
+                "actions": buf_actions,
+                "comm": buf_comms,
+                "log_probs": buf_log_probs,
+                "rewards": buf_rewards,
+                "c_values": buf_c_values,
+                "a_hidden_states": buf_hidden_states
+            }
+            buffer.add_episodes(batch_data)
             
-            print(f"Collected batch {batch_run+1}/{batch_runs} (Total {mappo_config.worlds_parallised * (batch_run+1)} episodes)")
+            print(f"Collected batch {batch_run+1}/{batch_runs} (Total {W * (batch_run+1)} episodes)")
 
         print("Buffer is full. Creating batch...")
 
-        buffer.flatten_episodes_to_batch()
         buffer.compute_advantages(torch.cat(final_batch_values, dim=0), mappo_config.gamma, mappo_config.gae_lambda)
 
         sum_actor_loss = 0

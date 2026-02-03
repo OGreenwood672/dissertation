@@ -1,11 +1,12 @@
 use pyo3::prelude::*;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::slice::ParallelSlice;
 use tokio::runtime::Runtime;
 use serde_json;
 use tokio::signal;
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
-use crate::agent::{Action, ToActions};
+use crate::agent::{ToActions};
 use crate::config::{load_config};
 use crate::world::World;
 use crate::websocket::websocket;
@@ -93,28 +94,51 @@ impl Simulation {
         })
     }
 
-    pub fn parallel_step(&mut self, py: Python<'_>, actions: Vec<Vec<i32>>, world_comms: Vec<Vec<f32>>) -> PyResult<(Vec<Vec<Vec<f32>>>, Vec<Vec<f32>>)> {
+    pub fn parallel_step(&mut self, py: Python<'_>, flat_actions: Vec<i32>, flat_world_comms: Vec<f32>) -> PyResult<(Vec<f32>, Vec<f32>)> {
+            
+        let n_agents = self.worlds[0].get_number_of_agents();
+        let n_worlds = self.worlds.len();
+        let comm_length = flat_world_comms.len() / n_worlds;
+        
+        if flat_actions.len() != n_worlds * n_agents {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid number of actions"));
+        }
+
+        let obs_size = self.worlds[0].get_agent_obs_size() as usize + comm_length;
+        let total_obs_len = n_worlds * n_agents * obs_size;
+        let total_rew_len = n_worlds * n_agents;
 
         Python::detach(py, || {
             let results: Vec<_> = self.worlds.par_iter_mut()
-                .zip(actions.par_iter())
-                .zip(world_comms.par_iter())
+                .zip(flat_actions.par_chunks(n_agents))
+                .zip(flat_world_comms.par_chunks(comm_length))
                 .map(|((world, world_actions), world_comms)| {
-                    let agent_actions = ToActions::to_actions(world_actions.clone());
+
+                    let agent_actions = ToActions::to_actions(world_actions.to_vec());
+
                     world.apply_actions(agent_actions);
+                    world.spread_rewards(0.4);
                     
                     let mut obs = world.get_agents_obs();
                     let rewards = world.get_agents_reward();
 
+                    let mut flat_world_obs = Vec::with_capacity(obs.len() * (obs[0].len() + world_comms.len()));
+
                     for agent_obs in obs.iter_mut() {
                         agent_obs.extend_from_slice(world_comms);
-                    }
+                        flat_world_obs.extend_from_slice(agent_obs);                    }
 
-                    (obs, rewards)
+                    (flat_world_obs, rewards)
                 })
                 .collect();
+            
+            let mut all_obs = Vec::with_capacity(total_obs_len);
+            let mut all_rewards = Vec::with_capacity(total_rew_len);
 
-            let (obs, rewards): (Vec<Vec<Vec<f32>>>, Vec<Vec<f32>>) = results.into_iter().unzip();
+            for (w_obs, w_rew) in results {
+                all_obs.extend(w_obs);
+                all_rewards.extend(w_rew);
+            }
 
             if !self.config.headless {
 
@@ -137,7 +161,7 @@ impl Simulation {
                 }
             }
 
-            Ok((obs, rewards))
+            Ok((all_obs, all_rewards))
         })
 
     }

@@ -184,6 +184,15 @@ impl World {
 
     }
 
+    pub fn spread_rewards(&mut self, alpha: f32) {
+        let total_reward = self.agents.iter().map(|agent| agent.get_curr_reward()).sum::<f32>();
+        for agent in &mut self.agents {
+            let curr_reward = agent.get_curr_reward() * (1.0 - alpha) + total_reward * alpha;
+            agent.set_curr_reward(curr_reward);
+        }
+    }
+
+
     fn interact(&mut self, agent_index: usize) -> f32 { // Returns reward
 
         let nearest_entity = self.get_nearest_visible_entity(&self.agents[agent_index]);
@@ -227,9 +236,9 @@ impl World {
     fn direction_reward(&self, original_location: Location, new_location: Location, desired_target: Location) -> f32 {
 
         //! TODO: Is this wanted
-        if (desired_target - new_location).magnitude() <= self.context.agent_visibility as f32 {
-            return 0.0;
-        }
+        // if (desired_target - new_location).magnitude() <= self.context.agent_visibility as f32 {
+        //     return 0.0;
+        // }
 
         // Use cosine similarity - [-1, 1]
         let cosine_similarity = Location::cosine_similarity(original_location, new_location, desired_target);
