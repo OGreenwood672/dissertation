@@ -78,7 +78,7 @@ impl World {
             self.context.agent_layout,
             self.context.width, self.context.height,
             self.context.agent_configs.len() as u32,
-             5
+             0
         ).into_iter();
 
         self.agents = self.context.agent_configs.iter().map(|agent: &AgentConfig| Agent::new(

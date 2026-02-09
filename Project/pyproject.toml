@@ -19,7 +19,8 @@ dependencies = [
     "pandas",
     "matplotlib",
     "seaborn",
-    "ipykernel"
+    "ipykernel",
+    "rich"
 ]
 
 [project.optional-dependencies]
