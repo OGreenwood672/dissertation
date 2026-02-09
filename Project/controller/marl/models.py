@@ -11,12 +11,19 @@ PPO Critic
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numpy import sqrt
 
 from .config import CommunicationType
 
+# Helper function to initialise weights for PPO layers
+def init_layer(layer, std=sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
 
 class PPO_Actor(nn.Module):
-    def __init__(self, num_agents, obs_dim, action_dim, comm_dim=5, communication_type=CommunicationType.CONTINUOUS, feature_dim=256, lstm_hidden_size=64):
+    def __init__(self, num_agents, obs_dim, action_dim, comm_dim, communication_type=CommunicationType.CONTINUOUS, feature_dim=256, lstm_hidden_size=64, is_training=False):
         super().__init__()
         self.num_agents = num_agents
         self.obs_dim = obs_dim
@@ -25,11 +32,11 @@ class PPO_Actor(nn.Module):
 
         # Main body
         self.body = nn.Sequential(
-            nn.Linear(obs_dim, feature_dim),
+            init_layer(nn.Linear(obs_dim, feature_dim)),
             nn.ReLU(),
-            nn.Linear(feature_dim, feature_dim),
+            init_layer(nn.Linear(feature_dim, feature_dim)),
             nn.ReLU(),
-            nn.Linear(feature_dim, feature_dim),
+            init_layer(nn.Linear(feature_dim, feature_dim)),
             nn.ReLU()
             
         )
@@ -54,7 +61,7 @@ class PPO_Actor(nn.Module):
             self.comm_log_std = nn.Parameter(torch.zeros(1, comm_dim))
 
         elif communication_type == CommunicationType.DISCRETE:
-            self.vq_layer = Quantiser(vocab_size=64, comm_dim=comm_dim)
+            self.vq_layer = Quantiser(vocab_size=64, comm_dim=comm_dim, is_training=is_training)
         
 
     def init_hidden(self, batch_size=1):
@@ -100,7 +107,7 @@ class PPO_Actor(nn.Module):
         
         action_logits = self.action_head(lstm_output)
 
-        comm_logits = self.comm_head(lstm_output)
+        comm_logits = torch.tanh(self.comm_head(lstm_output))
 
         loss = torch.tensor(0.0, device=x.device)
         
@@ -124,17 +131,20 @@ class PPO_Actor(nn.Module):
 
 
 class PPO_Centralised_Critic(nn.Module):
-    def __init__(self, num_agents, global_obs_dim, feature_dim=256):
+    def __init__(self, num_agents, global_obs_dim, comm_dim, feature_dim=512):
         super().__init__()
 
-        self.global_obs_dim = global_obs_dim
+        self.input_dim = global_obs_dim + comm_dim * num_agents
 
         self.body = nn.Sequential(
-            nn.Linear(self.global_obs_dim, feature_dim),
+            nn.Linear(self.input_dim, feature_dim),
+            nn.LayerNorm(feature_dim),
             nn.ReLU(),
             nn.Linear(feature_dim, feature_dim),
+            nn.LayerNorm(feature_dim),
             nn.ReLU(),
             nn.Linear(feature_dim, feature_dim),
+            nn.LayerNorm(feature_dim),
             nn.ReLU(),
         )
         
@@ -151,7 +161,7 @@ class PPO_Centralised_Critic(nn.Module):
 
         returns: (values, (new_hidden_state, critic_values))
         """
-        assert x.shape[-1] == self.global_obs_dim, "Input has wrong observation size"
+        assert x.shape[-1] == self.input_dim, "Input has wrong observation size"
 
         features = self.body(x)
         
@@ -162,11 +172,12 @@ class PPO_Centralised_Critic(nn.Module):
 
 class Quantiser(nn.Module):
 
-    def __init__(self, vocab_size, comm_dim, commitment_cost=0.25):
+    def __init__(self, vocab_size, comm_dim, commitment_cost=0.25, is_training=False):
         super().__init__()
         self.vocab_size = vocab_size
         self.comm_dim = comm_dim
         self.commitment_cost = commitment_cost
+        self.is_training = is_training
 
         # The codebook
         self.embedding = nn.Embedding(vocab_size, comm_dim)
@@ -174,11 +185,27 @@ class Quantiser(nn.Module):
         # codebook initialisation
         self.embedding.weight.data.uniform_( -1 / vocab_size, 1 / vocab_size)
 
+        self.register_buffer('usage_count', torch.zeros(vocab_size))
+
     def forward(self, x):
         
         distances = torch.cdist(x, self.embedding.weight, p=2)
 
         min_distance_index = distances.argmin(-1)
+
+        # Dead Code Revival
+        if self.is_training:
+            with torch.no_grad():
+                unique, counts = torch.unique(min_distance_index, return_counts=True)
+                self.usage_count[unique] += counts.float()
+
+                dead_codes = torch.where(self.usage_count < 1.0)[0]
+                if len(dead_codes) > 0:
+                    random_inputs = x[torch.randperm(x.size(0))[:len(dead_codes)]]
+                    self.embedding.weight.data[dead_codes] = random_inputs.detach()
+                    self.usage_count[dead_codes] = 10.0 
+                
+                self.usage_count *= 0.99
 
         quantised = self.embedding(min_distance_index)
 

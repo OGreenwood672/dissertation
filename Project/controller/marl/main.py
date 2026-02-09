@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 import numpy as np
-# import concurrent.futures
+from time import time, sleep
 
 from logging_utils.decorators import LoggingFunctionIdentification
 
@@ -21,37 +21,38 @@ def get_args():
     
     return parser.parse_args()    
 
-def setup(config, device, mode):
+def setup(config_pth, device, mode):
 
-    cm = CheckpointManager(config, default_load_previous=mode == "eval")
+    cm = CheckpointManager(config_pth, default_load_previous=mode == "eval")
     SEED = cm.get_seed()
+    config = cm.get_config()
 
     np.random.seed(SEED)
     torch.manual_seed(SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(SEED)
-
+    
     sim = SimWrapper(
         environment.Simulation(
             './configs/simulation.yaml',
             worlds_parallised=config.worlds_parallised
         )
     )
-    
+
     num_agents = sim.get_num_agents()
     agent_obs_shape = (sim.get_agent_obs_size(0),)
     global_obs_shape = (sim.get_global_obs_size(0),)
     act_shape = (sim.get_agent_action_count(0),)
 
     actor = PPO_Actor(
-        num_agents, agent_obs_shape[0], act_shape[0], comm_dim=5,
+        num_agents, agent_obs_shape[0], act_shape[0], comm_dim=config.communication_size,
         communication_type=config.communication_type, feature_dim=config.feature_dim,
-        lstm_hidden_size=config.lstm_hidden_size
+        lstm_hidden_size=config.lstm_hidden_size, is_training=mode == "train"
     ).to(device)
-    critic = PPO_Critic(num_agents, global_obs_shape[0], config.feature_dim).to(device)
+    critic = PPO_Critic(num_agents, global_obs_shape[0], config.communication_size, config.feature_dim).to(device)
 
-    actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.learning_rate)
-    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.learning_rate)
+    actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.actor_learning_rate)
+    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.critic_learning_rate)
 
     start_step = 0
     if not cm.is_new_run:
@@ -76,8 +77,9 @@ def setup(config, device, mode):
         "checkpoint_manager": cm,
         "num_agents": num_agents,
         "agent_obs_shape": agent_obs_shape,
-        "act_shape": act_shape
-    }
+        "act_shape": act_shape,
+        "comm_shape": config.communication_size
+    }, config
 
 
 def train(system, config, device):
@@ -93,6 +95,7 @@ def train(system, config, device):
     T = config.simulation_timesteps
     W = config.worlds_parallised
     N = system['num_agents']
+    C = system["comm_shape"]
 
     batch_runs = config.buffer_size // W
 
@@ -102,8 +105,8 @@ def train(system, config, device):
         num_worlds_per_run=W,
         num_agents=N,
         num_obs=system['agent_obs_shape'][0],
-        num_comms=5,
-        num_global_obs=sim.get_global_obs_size(0), 
+        num_comms=C,
+        num_global_obs=sim.get_global_obs_size(0) + C * N, 
         hidden_state_size=config.lstm_hidden_size,
         device=device
     )
@@ -120,24 +123,27 @@ def train(system, config, device):
         for batch_run in range(batch_runs):
 
             buf_obs = np.zeros((T, W, N, system['agent_obs_shape'][0]), dtype=np.float32)
-            buf_global_obs = np.zeros((T, W, sim.get_global_obs_size(0)), dtype=np.float32)
+            buf_global_obs = np.zeros((T, W, sim.get_global_obs_size(0) + C * N), dtype=np.float32)
             buf_actions = np.zeros((T, W, N), dtype=np.float32)
             buf_rewards = np.zeros((T, W, N), dtype=np.float32)
             buf_log_probs = np.zeros((T, W, N), dtype=np.float32)
             buf_c_values = np.zeros((T, W, N), dtype=np.float32)
-            buf_comms = np.zeros((T, W, N, 5), dtype=np.float32)
+            buf_comms = np.zeros((T, W, N, C), dtype=np.float32)
             buf_hidden_states = np.zeros((T, W, N, 2, config.lstm_hidden_size), dtype=np.float32)     
 
             for world_id in range(W):
                 sim.reset(world_id)
 
-            curr_obs = np.array([sim.get_agents_obs(w) for w in range(W)])
-            curr_global_obs = np.array([sim.get_global_obs(w) for w in range(W)])            
+            comm_choice = np.zeros((W, N, C), dtype=np.float32)
+            curr_obs = np.array([sim.get_agents_obs(w, comm_choice[w]) for w in range(W)])
+            curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))            
 
             # Reset hidden states for the recurrent model
             actor_hidden_states = actor.init_hidden(batch_size=W)
             
             for t in range(T):
+
+                start = time()
 
                 h = actor_hidden_states[0].reshape(W, N, -1)
                 c = actor_hidden_states[1].reshape(W, N, -1)
@@ -186,9 +192,13 @@ def train(system, config, device):
                 buf_c_values[t] = values.detach().cpu().numpy().squeeze()
 
                 curr_obs = next_obs
-                curr_global_obs = np.array(sim.get_all_global_obs())
+                curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))
 
                 reward_means.append(np.mean(rewards))
+
+                end = time()
+                if end - start < config.timestep:
+                    sleep(config.timestep - (end - start))
 
             global_state_tensor = torch.tensor(np.stack(curr_global_obs)).float().to(device)
             if global_state_tensor.ndim == 2:
@@ -219,7 +229,7 @@ def train(system, config, device):
 
         print("Buffer is full. Creating batch...")
 
-        buffer.compute_advantages(torch.cat(final_batch_values, dim=0), mappo_config.gamma, mappo_config.gae_lambda)
+        buffer.compute_advantages(torch.cat(final_batch_values, dim=0), config.gamma, config.gae_lambda)
 
         sum_actor_loss = 0
         sum_critic_loss = 0
@@ -231,7 +241,7 @@ def train(system, config, device):
         communication_active_codebook_usage = 0
         update_count = 0
         
-        for _ in range(mappo_config.ppo_epochs):
+        for _ in range(config.ppo_epochs):
 
             # Perhaps work out worlds_parallised = how large GPU mem is
             for batch in buffer.get_minibatches():
@@ -253,8 +263,8 @@ def train(system, config, device):
 
                 h_c_init = batch["a_hidden_states"][:, 0] 
                 # [1, B * N, Hidden]
-                h_0 = h_c_init[:, :, 0, :].reshape(-1, mappo_config.lstm_hidden_size).unsqueeze(0)
-                c_0 = h_c_init[:, :, 1, :].reshape(-1, mappo_config.lstm_hidden_size).unsqueeze(0)
+                h_0 = h_c_init[:, :, 0, :].reshape(-1, config.lstm_hidden_size).unsqueeze(0)
+                c_0 = h_c_init[:, :, 1, :].reshape(-1, config.lstm_hidden_size).unsqueeze(0)
 
                 batch_a_hidden_init = (h_0.contiguous(), c_0.contiguous())
                 
@@ -288,7 +298,7 @@ def train(system, config, device):
                     communication_active_codebook_usage += Quantiser.get_active_codebook_usage(quantised_indices)
 
 
-                entropy = action_entropy + comm_entropy
+                entropy = action_entropy + comm_entropy * 5
                 new_log_probs = new_action_log_probs + new_comm_log_probs                
                                 
                 old_log_probs = old_log_probs.flatten()
@@ -306,12 +316,12 @@ def train(system, config, device):
                 ratio = log_ratio.exp()
                 
                 loss1 = advantages * ratio
-                loss2 = advantages * torch.clamp(ratio, 1.0 - mappo_config.clip_coef, 1.0 + mappo_config.clip_coef)
+                loss2 = advantages * torch.clamp(ratio, 1.0 - config.clip_coef, 1.0 + config.clip_coef)
                 actor_loss = -torch.min(loss1, loss2).mean()
                 
                 entropy_loss = -entropy.mean()
                 
-                total_loss = actor_loss + mappo_config.vf_coef * critic_loss + mappo_config.ent_coef * entropy_loss
+                total_loss = actor_loss + config.vf_coef * critic_loss + config.ent_coef * entropy_loss
                 total_loss += vq_loss
 
                 sum_actor_loss += actor_loss.item()
@@ -357,25 +367,94 @@ def train(system, config, device):
 
     logger.close()
 
+def run_eval(
+        system, config, device, episodes,
+        zero_comms=False
+    ):
+        
+    sim = system['sim']
+    actor = system['actor'].eval()
+
+    T = config.simulation_timesteps
+    W = config.worlds_parallised
+    N = system['num_agents']
+    C = 5
+
+    reward_means = []
+
+    for _ in range(episodes):
+
+        for world_id in range(W):
+            sim.reset(world_id)
+
+        comm_choice = np.zeros((W, N, C), dtype=np.float32)
+        curr_obs = np.array([sim.get_agents_obs(w, comm_choice[w]) for w in range(W)])
+
+        # Reset hidden states for the recurrent model
+        actor_hidden_states = actor.init_hidden(batch_size=W)
+
+        reward_means_per_episode = []
+        
+        for t in range(T):
+
+            start = time()
+
+            # Get action logits from the model and update memory and add time dimension for actor model
+            obs_tensor = torch.from_numpy(curr_obs).float().to(device)
+            with torch.no_grad():
+                action_logits, comms, _, _, _, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
+
+            # * -- Action Choosing --
+            actions = torch.argmax(action_logits, dim=-1)
+
+            if zero_comms:
+                comms = torch.zeros_like(comms)
+
+            # Use chosen actions in env
+            action_choice = actions.cpu().numpy()
+            comm_choice = comms.detach().cpu().numpy()
+
+            curr_obs, rewards = sim.parallel_step(action_choice, comm_choice)
+                            
+            reward_means_per_episode.append(np.mean(rewards))
+
+            end = time()
+            if end - start < config.timestep:
+                sleep(config.timestep - (end - start))
+            
+        reward_means.append(np.mean(reward_means_per_episode))
+    
+    return reward_means
+
 
 def evaluate(system, config, device):
-    pass
+
+    baseline = run_eval(system, config, device, 5)
+
+    print(f"Baseline: {np.mean(baseline)}")
+
+    # Communication test
+    no_comm_baseline = run_eval(system, config, device, 5, zero_comms=True)
+
+    print(f"No Communication: {np.mean(no_comm_baseline)}")
 
 
-if __name__ == "__main__":
+def main():
+
+    config_pth = './configs/mappo_settings.yaml'
 
     args = get_args()
-
-    mappo_config = MappoConfig.from_yaml('./configs/mappo_settings.yaml')
-
 
     # Set device to GPU if available, otherwise CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    system = setup(mappo_config, device, mode=args.mode)
+    system, config = setup(config_pth, device, mode=args.mode)
 
     if args.mode == "train":
-        train(system, mappo_config, device)
+        train(system, config, device)
     elif args.mode == "eval":
-        evaluate(system, mappo_config, device)
+        evaluate(system, config, device)
+
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::convert::From;
 use std::vec::Vec;
 use serde::Serialize;
@@ -103,7 +102,7 @@ impl ToActions for Vec<i32> {
 
 impl Agent {
     /// Creates a new Agent instance.
-    pub fn new(id: i32, location: Location, input: HashSet<ResourceType>, output: ResourceType) -> Self {
+    pub fn new(id: i32, location: Location, input: Vec<ResourceType>, output: ResourceType) -> Self {
 
         let mut agent_targets: Vec<AgentTarget> = input.into_iter().map(|input| {
             AgentTarget::new(StationType::PickUp, input)
@@ -256,9 +255,9 @@ impl Agent {
     // agent back
     pub fn interact_with_station(&mut self, station: &Station) -> f32 {
 
-        const COMBINE_REWARD: f32 = 7.0;
-        const BASIC_REWARD: f32 = 5.0;
-        const FOUND_REWARD: f32 = 2.0;
+        const COMBINE_REWARD: f32 = 1.0;
+        const BASIC_REWARD: f32 = 0.7;
+        const FOUND_REWARD: f32 = 0.1;
 
         let mut successful_interaction = false;
         let mut dropped_off = false;
@@ -309,9 +308,9 @@ impl Agent {
     // Only allow progression
     pub fn interact_with_agent(&mut self, agent: &mut Agent) -> f32 {
 
-        const COMBINE_REWARD: f32 = 7.0;
-        const BASIC_REWARD: f32 = 5.0;
-        const FOUND_REWARD: f32 = 2.0;
+        const COMBINE_REWARD: f32 = 1.0;
+        const BASIC_REWARD: f32 = 0.7;
+        const FOUND_REWARD: f32 = 0.1;
 
 
         let mut successful_interaction = false;
@@ -348,6 +347,16 @@ impl Agent {
 
         reward
 
+    }
+
+    pub fn get_inventory_reward(&self) -> f32 {
+        let mut reward = 0.0;
+        for target in &self.agent_targets {
+            if target.is_collected {
+                reward += 0.005; 
+            }
+        }
+        reward
     }
 
 }

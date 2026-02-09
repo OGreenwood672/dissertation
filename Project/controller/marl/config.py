@@ -17,6 +17,7 @@ class MappoConfig(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
+    timestep: float
     buffer_size: int
     training_timesteps: int
     simulation_timesteps: int
@@ -30,12 +31,14 @@ class MappoConfig(BaseModel):
     clip_coef: float
     vf_coef: float
     ent_coef: float
-    learning_rate: float
+    actor_learning_rate: float
+    critic_learning_rate: float
 
     lstm_hidden_size: int
     feature_dim: int
 
     communication_type: CommunicationType
+    communication_size: int
     
     @classmethod
     def from_yaml(cls, config_path: str):

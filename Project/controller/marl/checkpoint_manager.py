@@ -9,11 +9,14 @@ from .config import MappoConfig
 
 class CheckpointManager:
 
-    def __init__(self, config: MappoConfig, default_load_previous=False):
+    def __init__(self, config: MappoConfig | str, default_load_previous: bool = False):
 
-        seed = config.seed
+        if isinstance(config, str):
+            self.config = MappoConfig.from_yaml('./configs/mappo_settings.yaml')
+
+        seed = self.config.seed
         
-        result_path = "./results/" + config.communication_type.value + "/"
+        result_path = "./results/" + self.config.communication_type.value + "/"
         
         os.makedirs(result_path, exist_ok=True)
         
@@ -27,7 +30,7 @@ class CheckpointManager:
                     break
                 test_used_seed += 1
             result_path += self.get_folder_name(seed)
-            self.gen_result_folder(result_path, config)
+            self.gen_result_folder(result_path, self.config)
             self.is_new_run = True
         
         # find largest seed
@@ -43,7 +46,7 @@ class CheckpointManager:
                 self.is_new_run = False
             else:
                 result_path += self.get_folder_name(seed)
-                self.gen_result_folder(result_path, config)
+                self.gen_result_folder(result_path, self.config)
                 self.is_new_run = True
 
         self.result_path = result_path
@@ -52,6 +55,10 @@ class CheckpointManager:
     def load_config(self):
         config_path = self.result_path + "/config.json"
         return MappoConfig.from_json(config_path)
+
+    def get_config(self):
+        return self.config
+
 
     def load_checkpoint_models(self, checkpoint_step=None):
 

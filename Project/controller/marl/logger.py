@@ -57,7 +57,7 @@ class Logger:
 
     def clear_logs(self, start_step):
 
-        if input("Logs must be truncated after time step {start_step}. Do you wish to proceed (Y/n)").lower() == "n":
+        if input(f"Logs must be truncated after time step {start_step}. Do you wish to proceed (Y/n)").lower() == "n":
             quit()
 
         print(f"Truncating log at timestep {start_step} and onwards...")
@@ -68,7 +68,7 @@ class Logger:
                 reader = csv.DictReader(f)
                 for row in reader:
                     try:
-                        if int(float(row["timestep"])) <= start_step:
+                        if int(float(row["timestep"])) < start_step:
                             rows.append(row)
                     except ValueError:
                         continue

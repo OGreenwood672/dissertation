@@ -8,6 +8,7 @@ class SimWrapper:
         self._num_agents = sim.config.n_agents
         self._comm_dim = comm_dim
         self._obs_dim = sim.get_agent_obs_size(0)
+        self._global_obs_dim = sim.get_global_obs_size(0)
 
     def parallel_step(self, actions, world_comms):
         n_worlds = len(actions)
@@ -30,17 +31,19 @@ class SimWrapper:
     
     def get_obs_dim(self):
         return self._obs_dim
+    
+    def get_global_obs_dim(self):
+        return self._global_obs_dim
 
     def get_agent_action_count(self, world_id):
         return self._sim.get_agent_action_count(world_id)
 
     def get_agent_obs(self, world_id, agent_id, world_comms=None):
-        if world_comms is None:
-            world_comms = np.zeros(self.get_world_comms_size())
-        else:
-            if isinstance(world_comms, torch.Tensor):
-                world_comms = world_comms.detach().cpu().numpy()
-            world_comms = world_comms.flatten()
+
+        if isinstance(world_comms, torch.Tensor):
+            world_comms = world_comms.detach().cpu().numpy()
+
+        world_comms = world_comms.flatten()
 
         return np.concatenate([self._sim.get_agent_obs(world_id, agent_id), world_comms])
     
@@ -62,8 +65,16 @@ class SimWrapper:
     def get_global_obs(self, world_id):
         return self._sim.get_global_obs(world_id)
     
-    def get_all_global_obs(self):
-        return self._sim.get_all_global_obs()
+    def get_all_global_obs(self, world_comms):
+
+        num_worlds = len(world_comms)
+
+        flat_obs = self._sim.get_all_global_obs(world_comms.ravel())
+
+        obs = np.array(flat_obs, dtype=np.float32).reshape(num_worlds, self.get_global_obs_dim() + self.get_world_comms_size())
+
+        return obs
+    
 
     def get_global_obs_size(self, world_id):
         return self._sim.get_global_obs_size(world_id)
