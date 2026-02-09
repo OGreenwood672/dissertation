@@ -4,11 +4,8 @@ import torch.nn.functional as F
 import numpy as np
 from time import time, sleep
 
-from logging_utils.decorators import LoggingFunctionIdentification
-
 import environment.environment as environment
 from .checkpoint_manager import CheckpointManager
-from .config import MappoConfig
 from .buffer import RolloutBuffer
 from .models import CommunicationType, PPO_Actor, PPO_Centralised_Critic as PPO_Critic, Quantiser
 from .env_wrapper import SimWrapper
@@ -31,7 +28,7 @@ def setup(config_pth, device, mode):
     torch.manual_seed(SEED)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(SEED)
-    
+
     sim = SimWrapper(
         environment.Simulation(
             './configs/simulation.yaml',
@@ -111,7 +108,7 @@ def train(system, config, device):
         device=device
     )
 
-    logger = Logger(save_folder=cm.get_result_path(), start_step=system["start_step"])
+    logger = Logger(save_folder=cm.get_result_path(), config=config, start_step=system["start_step"])
 
     for current_training_timestep in range(system["start_step"], config.training_timesteps):
 
@@ -121,6 +118,8 @@ def train(system, config, device):
         buffer.reset()
 
         for batch_run in range(batch_runs):
+
+            logger.update_step(current_training_timestep, batch_run, batch_runs, "Collecting Data")
 
             buf_obs = np.zeros((T, W, N, system['agent_obs_shape'][0]), dtype=np.float32)
             buf_global_obs = np.zeros((T, W, sim.get_global_obs_size(0) + C * N), dtype=np.float32)
@@ -225,9 +224,7 @@ def train(system, config, device):
             }
             buffer.add_episodes(batch_data)
             
-            print(f"Collected batch {batch_run+1}/{batch_runs} (Total {W * (batch_run+1)} episodes)")
-
-        print("Buffer is full. Creating batch...")
+        logger.update_step(current_training_timestep, batch_runs, batch_runs, "Updating models")
 
         buffer.compute_advantages(torch.cat(final_batch_values, dim=0), config.gamma, config.gae_lambda)
 
@@ -429,12 +426,14 @@ def run_eval(
 
 def evaluate(system, config, device):
 
-    baseline = run_eval(system, config, device, 5)
+    RUNS = 5
+
+    baseline = run_eval(system, config, device, RUNS)
 
     print(f"Baseline: {np.mean(baseline)}")
 
     # Communication test
-    no_comm_baseline = run_eval(system, config, device, 5, zero_comms=True)
+    no_comm_baseline = run_eval(system, config, device, RUNS, zero_comms=True)
 
     print(f"No Communication: {np.mean(no_comm_baseline)}")
 

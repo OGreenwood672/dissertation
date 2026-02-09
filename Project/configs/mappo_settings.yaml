@@ -4,7 +4,7 @@ training:
   timestep: 0
   buffer_size: 96 # must be larger than worlds_parallised
   worlds_parallised: 24
-  seed: 9
+  seed: -1
   periodic_save_interval: 20
 
 ppo_hyperparameters:

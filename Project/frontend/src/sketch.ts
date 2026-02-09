@@ -73,8 +73,6 @@ export const sketch = (p: p5) => {
         p.background(0);
         p.fill(255);
 
-        console.log(scale, square_size, STATION_SIZE, AGENT_SIZE);
-
         if (!(cols && rows && cell_w && cell_h && square_size && scale)) { return; }
 
         for (let y = 0; y < rows; y++) {
