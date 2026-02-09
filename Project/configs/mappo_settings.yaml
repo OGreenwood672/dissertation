@@ -1,9 +1,18 @@
 training:
+<<<<<<< HEAD
   training_timesteps: 5000
   simulation_timesteps: 1000
   buffer_size: 2 # must be larger than worlds_parallised
   worlds_parallised: 1
   seed: -1
+=======
+  training_timesteps: 50000
+  simulation_timesteps: 400
+  timestep: 0
+  buffer_size: 96 # must be larger than worlds_parallised
+  worlds_parallised: 24
+  seed: 9
+>>>>>>> dacfbf7 (IT WORKS - added eval, improved agent.rs and cm)
   periodic_save_interval: 20
 
 ppo_hyperparameters:
@@ -12,8 +21,9 @@ ppo_hyperparameters:
   gae_lambda: 0.95
   clip_coef: 0.2
   vf_coef: 0.5
-  ent_coef: 0.04
-  learning_rate: 0.001
+  ent_coef: 0.01
+  actor_learning_rate: 0.0001
+  critic_learning_rate: 0.0001
 
 architecture:
   lstm_hidden_size: 64
@@ -21,3 +31,4 @@ architecture:
 
 experiment:
   communication_type: discrete
+  communication_size: 5

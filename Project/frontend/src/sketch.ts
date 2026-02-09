@@ -16,8 +16,8 @@ export const sketch = (p: p5) => {
     let WIDTH = p.windowWidth * 0.95;
     let HEIGHT = p.windowHeight * 0.95;
 
-    const STATION_SIZE = 5;
-    const AGENT_SIZE = 2;
+    const STATION_SIZE = 1.5;
+    const AGENT_SIZE = 0.5;
 
     let aspect = WIDTH / HEIGHT;
 
@@ -73,7 +73,7 @@ export const sketch = (p: p5) => {
         p.background(0);
         p.fill(255);
 
-        // console.log(config.worlds_parallised, cols, rows);
+        console.log(scale, square_size, STATION_SIZE, AGENT_SIZE);
 
         if (!(cols && rows && cell_w && cell_h && square_size && scale)) { return; }
 

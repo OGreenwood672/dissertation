@@ -101,7 +101,7 @@ impl World {
             self.context.width,
             self.context.height,
             self.context.station_configs.len() as u32,
-            10
+            1
         ).into_iter();
 
         self.stations = self.context.station_configs.iter().map(|station: &StationConfig| Station::new(
@@ -128,15 +128,17 @@ impl World {
 
     pub fn apply_actions(&mut self, actions: Vec<Action>) {
 
+        const INVALID_MOVE_REWARD: f32 = -0.05;
+
         for (index, action) in actions.into_iter().enumerate() {
             let original_location = self.agents[index].location.clone();
-            let mut reward = -0.01; // Punishment for existing
+            let mut reward = -0.005; // Punishment for existing
             reward += match action {
                 Action::MoveUp => {
                     self.agents[index].move_north();
                     self.map.move_agent(self.agents[index].id, original_location, self.agents[index].location);
                     if original_location == self.agents[index].location {
-                        -5.0
+                        INVALID_MOVE_REWARD
                     } else {
                         0.0
                     }
@@ -145,7 +147,7 @@ impl World {
                     self.agents[index].move_south(self.context.height);
                     self.map.move_agent(self.agents[index].id, original_location, self.agents[index].location);
                     if original_location == self.agents[index].location {
-                        -5.0
+                        INVALID_MOVE_REWARD
                     } else {
                         0.0
                     }
@@ -154,7 +156,7 @@ impl World {
                     self.agents[index].move_west();
                     self.map.move_agent(self.agents[index].id, original_location, self.agents[index].location);
                     if original_location == self.agents[index].location {
-                        -5.0
+                        INVALID_MOVE_REWARD
                     } else {
                         0.0
                     }
@@ -163,7 +165,7 @@ impl World {
                     self.agents[index].move_east(self.context.width);
                     self.map.move_agent(self.agents[index].id, original_location, self.agents[index].location);
                     if original_location == self.agents[index].location {
-                        -5.0
+                        INVALID_MOVE_REWARD
                     } else {
                         0.0
                     }
@@ -174,10 +176,11 @@ impl World {
                 reward += self.direction_reward(original_location, self.agents[index].location, desired_location);
             }
             if !self.map.has_location_been_visited(self.agents[index].location) {
-                reward += 0.02;
+                reward += 0.005;
                 self.map.set_location_visited(self.agents[index].location);
             }
 
+            reward += self.agents[index].get_inventory_reward();
 
             self.agents[index].set_curr_reward(reward);
         }
@@ -244,7 +247,7 @@ impl World {
         let cosine_similarity = Location::cosine_similarity(original_location, new_location, desired_target);
 
         // Near 1 is the right direction
-        cosine_similarity
+        cosine_similarity * 0.001
  
     }
 

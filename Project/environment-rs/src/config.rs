@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -26,7 +25,7 @@ pub struct Config {
 #[derive(Debug, Deserialize, Clone)]
 pub struct AgentConfig {
     pub id: u32,
-    pub inputs: HashSet<ResourceType>,
+    pub inputs: Vec<ResourceType>,
     pub output: ResourceType,
 }
 

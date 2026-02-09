@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use rayon::slice::ParallelSlice;
 use tokio::runtime::Runtime;
 use serde_json;
@@ -98,20 +98,20 @@ impl Simulation {
             
         let n_agents = self.worlds[0].get_number_of_agents();
         let n_worlds = self.worlds.len();
-        let comm_length = flat_world_comms.len() / n_worlds;
+        let world_comm_length = flat_world_comms.len() / n_worlds;
         
         if flat_actions.len() != n_worlds * n_agents {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid number of actions"));
         }
 
-        let obs_size = self.worlds[0].get_agent_obs_size() as usize + comm_length;
+        let obs_size = self.worlds[0].get_agent_obs_size() as usize + world_comm_length;
         let total_obs_len = n_worlds * n_agents * obs_size;
         let total_rew_len = n_worlds * n_agents;
 
         Python::detach(py, || {
             let results: Vec<_> = self.worlds.par_iter_mut()
                 .zip(flat_actions.par_chunks(n_agents))
-                .zip(flat_world_comms.par_chunks(comm_length))
+                .zip(flat_world_comms.par_chunks(world_comm_length))
                 .map(|((world, world_actions), world_comms)| {
 
                     let agent_actions = ToActions::to_actions(world_actions.to_vec());
@@ -217,9 +217,24 @@ impl Simulation {
         Ok(obs)
     }
 
-    pub fn get_all_global_obs(&self) -> PyResult<Vec<Vec<f32>>> {
-        let obs: Vec<Vec<f32>> = self.worlds.iter().map(|world| world.get_global_obs()).collect();
-        Ok(obs)
+    pub fn get_all_global_obs(&self, py: Python<'_>,  flat_world_comms: Vec<f32>) -> PyResult<Vec<f32>> {
+        let world_comm_length = flat_world_comms.len() / self.worlds.len();
+
+        Python::detach(py, || {
+            let results: Vec<_> = self.worlds.par_iter()
+                .zip(flat_world_comms.par_chunks(world_comm_length))
+                .flat_map(|(world, world_comms)| {
+                    let mut obs = world.get_global_obs();
+                    
+                    obs.extend_from_slice(world_comms);
+                    
+                    obs
+                })
+                .collect();
+            
+            Ok(results)
+        })
+
     }
 
     pub fn get_global_obs_size(&self, world_id: i32) -> PyResult<u32> {

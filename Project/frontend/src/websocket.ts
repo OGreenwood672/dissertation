@@ -19,7 +19,7 @@ export const setupWebSocket = (url: string, process_data: (data: any) => void): 
     };
 
     ws.onmessage = (event) => {
-        console.log("Received:", event.data);
+        // console.log("Received:", event.data);
         process_data(serialize_agents(event.data));
     };
 

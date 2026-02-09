@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 
-#[derive(Debug, Deserialize, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Copy, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum ResourceType {
     PlainBurger,
