@@ -1,18 +1,10 @@
 training:
-<<<<<<< HEAD
-  training_timesteps: 5000
-  simulation_timesteps: 1000
-  buffer_size: 2 # must be larger than worlds_parallised
-  worlds_parallised: 1
-  seed: -1
-=======
   training_timesteps: 50000
   simulation_timesteps: 400
   timestep: 0
   buffer_size: 96 # must be larger than worlds_parallised
   worlds_parallised: 24
   seed: 9
->>>>>>> dacfbf7 (IT WORKS - added eval, improved agent.rs and cm)
   periodic_save_interval: 20
 
 ppo_hyperparameters:
