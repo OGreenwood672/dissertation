@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::location::Location;
-use crate::resource::ResourceType;
+use crate::resource::{ResourceType, one_hot_vector_from_resource};
 
 #[derive(Debug, Deserialize, PartialEq, Copy, Clone, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
@@ -52,7 +52,7 @@ impl Station {
         obs.push(f32::from(&self.station_type));
 
         // Resource
-        obs.push(f32::from(&self.resource));
+        obs.extend(one_hot_vector_from_resource(self.resource));
 
 
         obs

@@ -20,7 +20,9 @@ dependencies = [
     "matplotlib",
     "seaborn",
     "ipykernel",
-    "rich"
+    "rich",
+    "tqdm",
+    "scikit-learn"
 ]
 
 [project.optional-dependencies]

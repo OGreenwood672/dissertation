@@ -147,14 +147,14 @@ impl Simulation {
                     let json_state = serde_json::to_string(&world_state_with_id)
                         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("failed to serialize world state: {}", e)))?;
 
-                    if let Err(e) = self.bcast_tx.send(json_state) {
+                    if let Err(_) = self.bcast_tx.send(json_state) {
                         if !self.bcast_is_erring {
-                            println!("[DEBUG] Broadcast error: {}", e);
+                            // println!("[DEBUG] Broadcast error: {}", e);
                             self.bcast_is_erring = true;
                         }
                     } else {
                         if self.bcast_is_erring {
-                            println!("[DEBUG] Broadcast recovered");
+                            // println!("[DEBUG] Broadcast recovered");
                             self.bcast_is_erring = false;
                         }
                     }

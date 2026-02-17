@@ -23,7 +23,8 @@ struct WorldContext {
     station_layout: Layout,
     agent_configs: Vec<AgentConfig>,
     station_configs: Vec<StationConfig>,
-    agent_visibility: u32,
+    agent_station_visibility: f32,
+    agent_agent_visibility: f32,
     max_inputs: u32,
     max_outputs: u32,
 }
@@ -50,7 +51,8 @@ impl World {
             context: WorldContext {
                 width,
                 height,
-                agent_visibility: config.agent_visibility,
+                agent_station_visibility: config.agent_station_visibility,
+                agent_agent_visibility: config.agent_agent_visibility,
                 agent_layout: config.initial_agent_layout,
                 station_layout: config.station_layout,
                 agent_configs: config.agents,
@@ -256,7 +258,7 @@ impl World {
         let nearest_station = self.stations.iter().enumerate()
             .filter_map(|(index, t_station)| {
                 let dist_sq = agent.location.distance_squared(*t_station.get_location());
-                if dist_sq <= (self.context.agent_visibility as u64).pow(2) {
+                if dist_sq <= (self.context.agent_station_visibility as u64).pow(2) {
                     Some((index, dist_sq))
                 } else {
                     None
@@ -268,7 +270,7 @@ impl World {
             .filter(|(_, t_agent)| t_agent.id != agent.id) // Filter out self
             .filter_map(|(index, t_agent)| {
                 let dist_sq = agent.location.distance_squared(t_agent.location);
-                if dist_sq <= self.context.agent_visibility as u64 {
+                if dist_sq <= self.context.agent_agent_visibility as u64 {
                     Some((index, dist_sq))
                 } else {
                     None
@@ -308,7 +310,7 @@ impl World {
     pub fn get_agent_obs_size(&self) -> u32 {
         
         const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
-        const OBS_PER_INVENTORY_PIECE: u32 = 3;
+        const OBS_PER_INVENTORY_PIECE: u32 = 2 + RESOURCE_COUNT as u32;
         let target_size = self.context.max_inputs + self.context.max_outputs;
         let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
 
@@ -322,7 +324,7 @@ impl World {
     fn get_agent_observation(&self, agent: &Agent) -> Vec<f32> {
 
         const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
-        const OBS_PER_INVENTORY_PIECE: u32 = 3;
+        const OBS_PER_INVENTORY_PIECE: u32 = 2 + RESOURCE_COUNT as u32;
         let target_size = self.context.max_inputs + self.context.max_outputs;
         let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
 

@@ -172,6 +172,59 @@ class Logger:
     def close(self):
         self.live.stop()
         self.file.close()
+
+class ObsLogger:
+
+    def __init__(self, save_file):
+
+        self.save_file = save_file
+
+        file_exists = os.path.exists(self.save_file)
+
+        if file_exists:
+            os.remove(self.save_file)
+
+        self.file = open(self.save_file, "a")
+        self.writer = csv.writer(self.file)
+
+    @LoggingFunctionIdentification("LOGGER")
+    def log(self, obs):
+        try:
+            self.writer.writerows(obs)
+        except ValueError as e:
+            print(f"Failed to log row: {e}")
+
+
+    def close(self):
+        self.file.close()
+
+class CommsLogger:
+
+    def __init__(self, save_folder, vocab_size):
+
+        self.save_folder = save_folder
+        self.vocab_size = vocab_size
+
+        os.makedirs(save_folder, exist_ok=True)
+
+        for file in os.listdir(save_folder):
+            os.remove(os.path.join(save_folder, file))
+
+        self.save_files = [open(os.path.join(save_folder, f"comms_{i}.csv"), "a") for i in range(vocab_size)]
+
+        self.writers = [csv.writer(file) for file in self.save_files]
+
+
+    @LoggingFunctionIdentification("LOGGER")
+    def log(self, comm_index, obs):
+        try:
+            self.writers[comm_index].writerow(obs)
+        except ValueError as e:
+            print(f"Failed to log row: {e}")
+
+    def close(self):
+        for writer in self.writers:
+            writer.close()
     
 def get_line_graph(data, key):
 

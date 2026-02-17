@@ -3,7 +3,7 @@ use std::vec::Vec;
 use serde::Serialize;
 
 use crate::location::Location;
-use crate::resource::ResourceType;
+use crate::resource::{ResourceType, one_hot_vector_from_resource};
 use crate::station::{Station, StationType};
 
 #[derive(Clone, PartialEq)]
@@ -236,7 +236,7 @@ impl Agent {
         let targets = self.agent_targets.iter().collect::<Vec<_>>();
         for i in 0..max_targets as usize {
             if i < targets.len() {
-                obs.push(f32::from(&targets[i].resource));
+                obs.extend(one_hot_vector_from_resource(targets[i].resource));
                 obs.push(targets[i].is_found as i32 as f32);
                 obs.push(targets[i].is_collected as i32 as f32);
             } else {

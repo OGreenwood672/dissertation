@@ -1,10 +1,10 @@
 training:
-  training_timesteps: 50000
+  training_timesteps: 321
   simulation_timesteps: 400
   timestep: 0
   buffer_size: 96 # must be larger than worlds_parallised
   worlds_parallised: 24
-  seed: -1
+  seed: 15
   periodic_save_interval: 20
 
 ppo_hyperparameters:
@@ -22,5 +22,7 @@ architecture:
   feature_dim: 256
 
 experiment:
-  communication_type: discrete
-  communication_size: 5
+  communication_type: aim
+  aim_seed: 15
+  vocab_size: 64
+  communication_size: 8

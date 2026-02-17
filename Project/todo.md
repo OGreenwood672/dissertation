@@ -22,5 +22,11 @@ editing rewards:
 - if agent tells another agent about a station they need, reward them
 
 
-improve logging
 make it so, you can edit the entire project in the configs, save them and then load them no matter the changes
+
+
+
+Fix action head
+Add it to type of comm
+
+Make story

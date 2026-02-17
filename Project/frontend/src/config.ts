@@ -19,7 +19,8 @@ export interface Config {
   websocket_url: string;
   websocket_path: string;
   worlds_parallised: number;
-  agent_visibility: number;
+  agent_agent_visibility: number;
+  agent_station_visibility: number;
   initial_agent_layout: string;
   agents: AgentConfig[];
   station_layout: string;
