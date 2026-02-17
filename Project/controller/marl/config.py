@@ -11,6 +11,7 @@ from enum import Enum
 class CommunicationType(str, Enum):
     DISCRETE = "discrete"
     CONTINUOUS = "continuous"
+    AIM = "aim"
 
 
 class MappoConfig(BaseModel):
@@ -31,6 +32,7 @@ class MappoConfig(BaseModel):
     clip_coef: float
     vf_coef: float
     ent_coef: float
+
     actor_learning_rate: float
     critic_learning_rate: float
 
@@ -39,6 +41,8 @@ class MappoConfig(BaseModel):
 
     communication_type: CommunicationType
     communication_size: int
+    aim_seed: int
+    vocab_size: int
     
     @classmethod
     def from_yaml(cls, config_path: str):

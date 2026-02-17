@@ -13,6 +13,17 @@ def load_log_file(communication_type, seed):
         return pd.read_csv(logfile)
     else:
         raise FileNotFoundError(f"No log file found for seed <{seed}> and communication type <{communication_type}>")
+    
+def load_comm_file(communication_type, seed, comm_index):
+
+    result_path = "../../results/" + communication_type + "/"
+    folders = list(filter(lambda x: x.endswith(str(f"seed_{seed}")), os.listdir(result_path)))
+    if len(folders) > 0:
+        logfile = result_path + folders[0] + f"/comms/comms_{comm_index}.csv"
+        assert os.path.exists(logfile), f"Log file {logfile} does not exist"
+        return pd.read_csv(logfile)
+    else:
+        raise FileNotFoundError(f"No comms folder found for seed <{seed}> and communication type <{communication_type}>")
 
 
 def remove_result_folder(communication_type, seed):

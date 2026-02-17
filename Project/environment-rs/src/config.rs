@@ -14,7 +14,8 @@ pub struct Config {
     pub headless: bool,
     pub websocket_url: String,
     pub websocket_path: String,
-    pub agent_visibility: u32,
+    pub agent_agent_visibility: f32,
+    pub agent_station_visibility: f32,
     pub initial_agent_layout: Layout,
     pub station_layout: Layout,
     pub agents: Vec<AgentConfig>,
@@ -67,7 +68,8 @@ mod tests {
             headless: true
             websocket_url: ws://127.0.0.1:3000
             websocket_path: ws
-            agent_visibility: 10
+            agent_agent_visibility: 10.0
+            agent_station_visibility: 10.0
             initial_agent_layout: random
             station_layout: circle
             agents:

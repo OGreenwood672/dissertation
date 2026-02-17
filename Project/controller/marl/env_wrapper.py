@@ -9,6 +9,7 @@ class SimWrapper:
         self._comm_dim = comm_dim
         self._obs_dim = sim.get_agent_obs_size(0)
         self._global_obs_dim = sim.get_global_obs_size(0)
+        self._action_count = sim.get_agent_action_count(0)
 
     def parallel_step(self, actions, world_comms):
         n_worlds = len(actions)
@@ -35,8 +36,8 @@ class SimWrapper:
     def get_global_obs_dim(self):
         return self._global_obs_dim
 
-    def get_agent_action_count(self, world_id):
-        return self._sim.get_agent_action_count(world_id)
+    def get_agent_action_count(self):
+        return self._action_count
 
     def get_agent_obs(self, world_id, agent_id, world_comms=None):
 
@@ -49,9 +50,9 @@ class SimWrapper:
     
     def get_world_comms_size(self):
         return self._num_agents * self._comm_dim
-    
+        
     def get_agent_obs_size(self, world_id):
-        return self._sim.get_agent_obs_size(world_id) + self.get_world_comms_size()
+        return self._sim.get_agent_obs_size(world_id)
 
     def get_agent_reward(self, world_id, agent_id):
         return self._sim.get_agent_reward(world_id, agent_id)

@@ -11,7 +11,8 @@ PPO Critic
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from numpy import sqrt
+from numpy import sqrt, save, load
+import os
 
 from .config import CommunicationType
 
@@ -23,7 +24,13 @@ def init_layer(layer, std=sqrt(2), bias_const=0.0):
 
 
 class PPO_Actor(nn.Module):
-    def __init__(self, num_agents, obs_dim, action_dim, comm_dim, communication_type=CommunicationType.CONTINUOUS, feature_dim=256, lstm_hidden_size=64, is_training=False):
+    def __init__(
+            self,
+            num_agents, obs_dim, action_dim, comm_dim,
+            communication_type=CommunicationType.CONTINUOUS,
+            feature_dim=256, lstm_hidden_size=64, vocab_size=64,
+            is_training=False, aim_codebook=None
+        ):
         super().__init__()
         self.num_agents = num_agents
         self.obs_dim = obs_dim
@@ -61,7 +68,12 @@ class PPO_Actor(nn.Module):
             self.comm_log_std = nn.Parameter(torch.zeros(1, comm_dim))
 
         elif communication_type == CommunicationType.DISCRETE:
-            self.vq_layer = Quantiser(vocab_size=64, comm_dim=comm_dim, is_training=is_training)
+            self.vq_layer = Quantiser(vocab_size, comm_dim=comm_dim, is_training=is_training)
+
+        elif communication_type == CommunicationType.AIM:
+            assert aim_codebook is not None
+            aim_codebook = torch.tensor(aim_codebook, dtype=torch.float32)
+            self.register_buffer('aim_codebook', aim_codebook)
         
 
     def init_hidden(self, batch_size=1):
@@ -117,14 +129,26 @@ class PPO_Actor(nn.Module):
             B, T, N, C = comm_logits.shape
             flat_inputs = comm_logits.view(-1, C)
             quantised_flat, vq_loss, codebook_loss, quantised_index = self.vq_layer(flat_inputs)
-            comm_logits = quantised_flat.view(B, T, N, C)
+            comm_output = quantised_flat.view(B, T, N, C)
             loss += vq_loss
+
+        elif self.comm_type == CommunicationType.AIM:
+            B, T, N, C = comm_logits.shape
+            flat_inputs = comm_logits.view(-1, C)
+            distances = torch.cdist(flat_inputs, self.aim_codebook, p=2)
+            quantised_index = distances.argmin(-1)
+            quantised = self.aim_codebook[quantised_index].view(B, T, N, C)
+            comm_output = comm_logits + (quantised - comm_logits).detach()
+
+        elif self.comm_type == CommunicationType.CONTINUOUS:
+            comm_output = comm_logits
+
 
         if not has_time_dim:
             action_logits = action_logits.squeeze(1)
-            comm_logits = comm_logits.squeeze(1)
+            comm_output = comm_output.squeeze(1)
                 
-        return action_logits, comm_logits, codebook_loss, quantised_index, loss, (h_out, c_out)
+        return action_logits, comm_output, codebook_loss, quantised_index, loss, (h_out, c_out)
 
     def get_comm_type(self):
         return self.comm_type
@@ -183,7 +207,7 @@ class Quantiser(nn.Module):
         self.embedding = nn.Embedding(vocab_size, comm_dim)
 
         # codebook initialisation
-        self.embedding.weight.data.uniform_( -1 / vocab_size, 1 / vocab_size)
+        self.embedding.weight.data.uniform_(-0.5, 0.5)
 
         self.register_buffer('usage_count', torch.zeros(vocab_size))
 
@@ -234,3 +258,101 @@ class Quantiser(nn.Module):
     @staticmethod
     def get_active_codebook_usage(indices):
         return len(torch.unique(indices.flatten()))
+    
+
+class AIM(nn.Module):
+
+    def __init__(self, obs_dim, hidden_size, latent_dim, vocab_size, commitment_cost=0.5, nudge_dim=None):
+        super().__init__()
+
+        # The codebook
+        self.embedding = nn.Embedding(vocab_size, latent_dim)
+
+        # codebook initialisation
+        self.embedding.weight.data.uniform_(-0.5, 0.5)
+
+        self.commitment_cost = commitment_cost
+
+        self.encoder = nn.Sequential(
+            nn.Linear(obs_dim, hidden_size),
+            nn.LayerNorm(hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, latent_dim),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_dim, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, obs_dim)
+        )
+
+        # communicate what matters
+        if nudge_dim is not None:
+            self.nudge_head = nn.Linear(latent_dim, nudge_dim)
+
+        self.nudge = 0
+        self.recon = 0
+
+
+    def forward(self, x, nudge=None):
+        latent = self.encoder(x)
+
+        # Quantise
+        distances = torch.cdist(latent, self.embedding.weight, p=2)
+
+        min_distance_index = distances.argmin(-1)
+
+        quantised = self.embedding(min_distance_index)
+        quantised = latent + (quantised - latent).detach()
+
+        reconstructed = self.decoder(quantised)
+
+        nudge_loss = 0.0
+        nudge_contribution = 1.0
+        recon_contribution = 0.5
+        if nudge is not None:
+            pred_actions = self.nudge_head(quantised)
+            nudge_loss = F.mse_loss(pred_actions, nudge)
+            self.nudge += nudge_loss.item() * nudge_contribution
+
+        recon_loss = F.mse_loss(reconstructed, x)
+        codebook_loss = F.mse_loss(quantised.detach(), latent)
+        commitment_loss = F.mse_loss(quantised, latent.detach())
+
+        self.recon += recon_loss.item()
+
+        total_loss = recon_loss * recon_contribution + codebook_loss + commitment_loss * self.commitment_cost + nudge_loss * nudge_contribution
+
+        return total_loss
+    
+    def get_codebook(self):
+        return self.embedding.weight.detach().cpu().numpy()
+    
+    def save_codebook(self, save_folder):
+        codebook = self.get_codebook()
+        save(os.path.join(save_folder, "codebook.npy"), codebook)
+
+    @staticmethod
+    def load_codebook(seed):
+        result_path = "./results/discrete/"
+
+        folders = list(filter(lambda x: x.endswith(str(f"seed_{seed}")), os.listdir(result_path)))
+        if len(folders) > 0:
+            folder_path = result_path + folders[0]
+
+        assert os.path.exists(folder_path)
+        embedding = load(folder_path + "/codebook.npy")
+
+        return embedding
+    
+    @staticmethod
+    def compute_metrics(quantised_indices, vocab_size):
+        counts = torch.bincount(quantised_indices.flatten(), minlength=vocab_size).float()
+        
+        probs = counts / counts.sum()
+        
+        entropy = -torch.sum(probs * torch.log(probs + 1e-10))
+        
+        perplexity = torch.exp(entropy)
+        
+        return entropy, perplexity
