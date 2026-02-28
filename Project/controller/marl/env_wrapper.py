@@ -3,10 +3,11 @@ import torch
 
 
 class SimWrapper:
-    def __init__(self, sim, comm_dim=5):
+    def __init__(self, sim, comm_dim, num_comms):
         self._sim = sim
         self._num_agents = sim.config.n_agents
         self._comm_dim = comm_dim
+        self._num_comms = num_comms
         self._obs_dim = sim.get_agent_obs_size(0)
         self._global_obs_dim = sim.get_global_obs_size(0)
         self._action_count = sim.get_agent_action_count(0)
@@ -17,12 +18,13 @@ class SimWrapper:
         flat_comms = world_comms.astype(np.float32).ravel()
         flat_actions = actions.ravel()
 
-        flat_obs, flat_rewards = self._sim.parallel_step(flat_actions, flat_comms)
+        flat_obs, flat_global_obs, flat_rewards = self._sim.parallel_step(flat_actions, flat_comms)
 
-        obs = np.array(flat_obs, dtype=np.float32).reshape(n_worlds, self.get_num_agents(), self.get_obs_dim() + self.get_world_comms_size())
-        rewards = np.array(flat_rewards, dtype=np.float32).reshape(n_worlds, self.get_num_agents())
+        obs = flat_obs.reshape(n_worlds, self.get_num_agents(), self.get_obs_dim() + self.get_world_comms_size())
+        global_obs = flat_global_obs.reshape(n_worlds, self.get_global_obs_dim() + self.get_world_comms_size())
+        rewards = flat_rewards.reshape(n_worlds, self.get_num_agents())
 
-        return obs, rewards
+        return obs, global_obs, rewards
 
     def reset(self, world_id):
         return self._sim.reset(world_id)
@@ -49,7 +51,7 @@ class SimWrapper:
         return np.concatenate([self._sim.get_agent_obs(world_id, agent_id), world_comms])
     
     def get_world_comms_size(self):
-        return self._num_agents * self._comm_dim
+        return self._num_agents * self._comm_dim * self._num_comms
         
     def get_agent_obs_size(self, world_id):
         return self._sim.get_agent_obs_size(world_id)
@@ -73,7 +75,7 @@ class SimWrapper:
         flat_obs = self._sim.get_all_global_obs(world_comms.ravel())
 
         obs = np.array(flat_obs, dtype=np.float32).reshape(num_worlds, self.get_global_obs_dim() + self.get_world_comms_size())
-
+        
         return obs
     
 

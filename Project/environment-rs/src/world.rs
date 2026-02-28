@@ -190,7 +190,7 @@ impl World {
     }
 
     pub fn spread_rewards(&mut self, alpha: f32) {
-        let total_reward = self.agents.iter().map(|agent| agent.get_curr_reward()).sum::<f32>();
+        let total_reward = self.agents.iter().map(|agent| agent.get_curr_reward()).sum::<f32>() / self.agents.len() as f32;
         for agent in &mut self.agents {
             let curr_reward = agent.get_curr_reward() * (1.0 - alpha) + total_reward * alpha;
             agent.set_curr_reward(curr_reward);

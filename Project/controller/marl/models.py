@@ -29,13 +29,14 @@ class PPO_Actor(nn.Module):
             num_agents, obs_dim, action_dim, comm_dim,
             communication_type=CommunicationType.CONTINUOUS,
             feature_dim=256, lstm_hidden_size=64, vocab_size=64,
-            is_training=False, aim_codebook=None
+            is_training=False, aim_codebook=None, num_comms=1
         ):
         super().__init__()
         self.num_agents = num_agents
         self.obs_dim = obs_dim
         self.hidden_size = lstm_hidden_size
         self.comm_type = communication_type
+        self.num_comms = num_comms
 
         # Main body
         self.body = nn.Sequential(
@@ -58,22 +59,41 @@ class PPO_Actor(nn.Module):
         # Output for actions
         self.action_head = nn.Linear(lstm_hidden_size, action_dim)
 
-        # Output for continuous communication
-        self.comm_head = nn.Linear(lstm_hidden_size, comm_dim)
-
-        
         if communication_type == CommunicationType.CONTINUOUS:
             # noise to learn
             # log to maintain positive std
-            self.comm_log_std = nn.Parameter(torch.zeros(1, comm_dim))
+            self.comm_log_std = nn.Parameter(torch.zeros(1, 1, 1, num_comms, comm_dim))
+
+            self.comm_head = nn.Linear(lstm_hidden_size, comm_dim * num_comms)
 
         elif communication_type == CommunicationType.DISCRETE:
             self.vq_layer = Quantiser(vocab_size, comm_dim=comm_dim, is_training=is_training)
+            self.comm_head = nn.Linear(lstm_hidden_size, comm_dim * num_comms)
 
         elif communication_type == CommunicationType.AIM:
             assert aim_codebook is not None
             aim_codebook = torch.tensor(aim_codebook, dtype=torch.float32)
             self.register_buffer('aim_codebook', aim_codebook)
+
+            # Teaching the fixed codebook
+            # Sender must understand what its sending
+            # Predict other agent rewards
+            self.predict_agents_advantages = nn.Linear(comm_dim * num_comms, num_agents)
+            
+            # Reciever must understand how it is getting effected
+            # Predict critic value
+            self.predict_critic_value = nn.Linear(comm_dim * num_comms, 1)
+
+            self.comm_head = nn.Linear(lstm_hidden_size, vocab_size * num_comms)
+
+            # Intent Predictors
+            self.predict_intent_sender = nn.Linear(comm_dim * num_comms, action_dim)
+            self.predict_intent_receiver = nn.Linear(comm_dim * num_comms, action_dim)
+
+
+
+        elif communication_type == CommunicationType.NONE:
+            self.comm_head = nn.Linear(lstm_hidden_size, comm_dim * num_comms)
         
 
     def init_hidden(self, batch_size=1):
@@ -87,6 +107,7 @@ class PPO_Actor(nn.Module):
         h = torch.zeros(1, length, self.hidden_size, device=device)
         c = torch.zeros(1, length, self.hidden_size, device=device)
         return (h, c)
+    
 
     def forward(self, x, hidden_states):
         """
@@ -119,46 +140,33 @@ class PPO_Actor(nn.Module):
         
         action_logits = self.action_head(lstm_output)
 
-        comm_logits = torch.tanh(self.comm_head(lstm_output))
-
-        loss = torch.tensor(0.0, device=x.device)
+        if self.comm_type == CommunicationType.NONE:
+            comm_logits = torch.zeros(B, T, N, self.comm_head.out_features, device=x.device)
+        else:
+            comm_logits = self.comm_head(lstm_output)
+        comm_logits = comm_logits.reshape(B, T, N, self.num_comms, -1)
         
-        quantised_index = None
-        codebook_loss = None
-        if self.comm_type == CommunicationType.DISCRETE:
-            B, T, N, C = comm_logits.shape
-            flat_inputs = comm_logits.view(-1, C)
-            quantised_flat, vq_loss, codebook_loss, quantised_index = self.vq_layer(flat_inputs)
-            comm_output = quantised_flat.view(B, T, N, C)
-            loss += vq_loss
-
-        elif self.comm_type == CommunicationType.AIM:
-            B, T, N, C = comm_logits.shape
-            flat_inputs = comm_logits.view(-1, C)
-            distances = torch.cdist(flat_inputs, self.aim_codebook, p=2)
-            quantised_index = distances.argmin(-1)
-            quantised = self.aim_codebook[quantised_index].view(B, T, N, C)
-            comm_output = comm_logits + (quantised - comm_logits).detach()
-
-        elif self.comm_type == CommunicationType.CONTINUOUS:
-            comm_output = comm_logits
-
-
         if not has_time_dim:
             action_logits = action_logits.squeeze(1)
-            comm_output = comm_output.squeeze(1)
+            comm_logits = comm_logits.squeeze(1)
                 
-        return action_logits, comm_output, codebook_loss, quantised_index, loss, (h_out, c_out)
+        return (
+            action_logits, comm_logits,
+            (h_out, c_out)
+        )
 
     def get_comm_type(self):
         return self.comm_type
+    
+    def set_is_training(self, is_training):
+        self.is_training = is_training
 
 
 class PPO_Centralised_Critic(nn.Module):
-    def __init__(self, num_agents, global_obs_dim, comm_dim, feature_dim=512):
+    def __init__(self, num_agents, global_obs_dim, comm_dim, num_comms=1, feature_dim=512):
         super().__init__()
 
-        self.input_dim = global_obs_dim + comm_dim * num_agents
+        self.input_dim = global_obs_dim + comm_dim * num_agents * num_comms
 
         self.body = nn.Sequential(
             nn.Linear(self.input_dim, feature_dim),
@@ -185,7 +193,7 @@ class PPO_Centralised_Critic(nn.Module):
 
         returns: (values, (new_hidden_state, critic_values))
         """
-        assert x.shape[-1] == self.input_dim, "Input has wrong observation size"
+        assert x.shape[-1] == self.input_dim, f"Input has wrong observation size, expected {self.input_dim}, got {x.shape[-1]}"
 
         features = self.body(x)
         
@@ -223,7 +231,7 @@ class Quantiser(nn.Module):
                 unique, counts = torch.unique(min_distance_index, return_counts=True)
                 self.usage_count[unique] += counts.float()
 
-                dead_codes = torch.where(self.usage_count < 1.0)[0]
+                dead_codes = torch.where(self.usage_count < 1.01)[0]
                 if len(dead_codes) > 0:
                     random_inputs = x[torch.randperm(x.size(0))[:len(dead_codes)]]
                     self.embedding.weight.data[dead_codes] = random_inputs.detach()
@@ -241,7 +249,7 @@ class Quantiser(nn.Module):
         # to allow backprop, effectivly x + constant = quantised
         quantised = x + (quantised - x).detach()
 
-        return quantised, loss, codebook_loss, min_distance_index
+        return quantised, loss, min_distance_index
     
     def compute_metrics(self, quantised_indices):
         
@@ -262,7 +270,7 @@ class Quantiser(nn.Module):
 
 class AIM(nn.Module):
 
-    def __init__(self, obs_dim, hidden_size, latent_dim, vocab_size, commitment_cost=0.5, nudge_dim=None):
+    def __init__(self, obs_dim, hidden_size, latent_dim, vocab_size, commitment_cost=0.5, nudge_dim=None, hq_vae=1):
         super().__init__()
 
         # The codebook
@@ -310,7 +318,7 @@ class AIM(nn.Module):
         nudge_loss = 0.0
         nudge_contribution = 1.0
         recon_contribution = 0.5
-        if nudge is not None:
+        if nudge is not None and hasattr(self, "nudge_head"):
             pred_actions = self.nudge_head(quantised)
             nudge_loss = F.mse_loss(pred_actions, nudge)
             self.nudge += nudge_loss.item() * nudge_contribution

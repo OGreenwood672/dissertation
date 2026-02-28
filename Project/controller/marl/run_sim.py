@@ -3,6 +3,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+from controller.marl.config import CommunicationType
+
 from .logger import CommsLogger, ObsLogger
 
 def run_sim(
@@ -19,6 +21,7 @@ def run_sim(
     T = config.simulation_timesteps
     W = config.worlds_parallised
     N = system['num_agents']
+    NC = config.num_comms
     C = config.communication_size
 
     reward_means = []
@@ -35,7 +38,7 @@ def run_sim(
         for world_id in range(W):
             sim.reset(world_id)
 
-        comm_choice = np.zeros((W, N, C), dtype=np.float32)
+        comm_choice = np.zeros((W, N, NC, C), dtype=np.float32)
         curr_obs = np.array([sim.get_agents_obs(w, comm_choice[w]) for w in range(W)])
         curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))            
 
@@ -51,7 +54,7 @@ def run_sim(
             # Get action logits from the model and update memory and add time dimension for actor model
             obs_tensor = torch.from_numpy(curr_obs).float().to(device)
             with torch.no_grad():
-                action_logits, comms, _, quantised_index, _, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
+                action_logits, comm_logits, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                 if collect_obs_file is not None:
                     global_state_tensor = torch.from_numpy(curr_global_obs).float().to(device)
                     critic_values = critic(global_state_tensor)
@@ -60,12 +63,31 @@ def run_sim(
             # * -- Action Choosing --
             actions = torch.argmax(action_logits, dim=-1)
 
-            if zero_comms:
-                comms = torch.zeros_like(comms)
+            if actor.get_comm_type() == CommunicationType.CONTINUOUS:
+                # * -- Continuous Communication Sampling --
+                comm_std = actor.comm_log_std.exp().squeeze(1).expand_as(comm_logits)
+                comm_dist = torch.distributions.Normal(comm_logits, comm_std)
+                comm_output = comm_dist.sample()
+
+            elif actor.get_comm_type() == CommunicationType.DISCRETE:
+                # * -- Discrete Communication --
+                flat_inputs = comm_logits.view(-1, C)
+                quantised_flat, _, quantised_index = actor.vq_layer(flat_inputs)
+                comm_output = quantised_flat.view(W, N, NC, C)
+
+            elif actor.get_comm_type() == CommunicationType.AIM:
+                # * -- AIM Communication --
+                dist = torch.distributions.Categorical(logits=comm_logits)
+                quantised_index = dist.sample()
+                
+                comm_output = actor.aim_codebook[quantised_index].view(W, N, NC, C)
+
+            elif actor.get_comm_type() == CommunicationType.NONE or zero_comms:
+                comm_output = torch.zeros((W, N, NC, C), device=device) 
 
             # Use chosen actions in env
             action_choice = actions.cpu().numpy()
-            comm_choice = comms.detach().cpu().numpy()
+            comm_choice = comm_output.detach().cpu().numpy()
 
             if collect_obs_file is not None:
                 # Curr_ob needs to be a 2d array with comms removed
@@ -76,6 +98,7 @@ def run_sim(
                     [obs_logs, action_logits.cpu().numpy(), critic_values_logs],
                     axis=-1
                 ).reshape(W * N, sim.get_obs_dim() + sim.get_agent_action_count() + 1)
+                # obs + actions + critic value
 
                 OL.log(record_logs)
 
@@ -86,8 +109,7 @@ def run_sim(
                         CL.log(int(quantised_index[index].detach().cpu().numpy()), curr_obs[world, agent].tolist())
                 
 
-            curr_obs, rewards = sim.parallel_step(action_choice, comm_choice)
-            curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))
+            curr_obs, curr_global_obs, rewards = sim.parallel_step(action_choice, comm_choice)
                             
             reward_means_per_episode.append(np.mean(rewards))
 

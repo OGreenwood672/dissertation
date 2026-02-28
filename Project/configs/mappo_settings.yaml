@@ -1,11 +1,11 @@
 training:
-  training_timesteps: 321
-  simulation_timesteps: 400
+  training_timesteps: 7500
+  simulation_timesteps: 300
   timestep: 0
-  buffer_size: 96 # must be larger than worlds_parallised
-  worlds_parallised: 24
-  seed: 15
-  periodic_save_interval: 20
+  buffer_size: 128
+  worlds_parallised: 32
+  seed: 21
+  periodic_save_interval: 100
 
 ppo_hyperparameters:
   ppo_epochs: 10
@@ -13,7 +13,7 @@ ppo_hyperparameters:
   gae_lambda: 0.95
   clip_coef: 0.2
   vf_coef: 0.5
-  ent_coef: 0.01
+  ent_coef: 0.03
   actor_learning_rate: 0.0001
   critic_learning_rate: 0.0001
 
@@ -22,7 +22,8 @@ architecture:
   feature_dim: 256
 
 experiment:
-  communication_type: aim
-  aim_seed: 15
+  communication_type: continuous
+  aim_seed: 28
   vocab_size: 64
   communication_size: 8
+  num_comms: 4

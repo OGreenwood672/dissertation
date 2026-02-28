@@ -28,6 +28,9 @@ def train(system, config, device):
     W = config.worlds_parallised
     N = system['num_agents']
     C = config.communication_size
+    NC = config.num_comms
+
+    A = system['act_shape'][0]
 
     batch_runs = config.buffer_size // W
 
@@ -37,8 +40,9 @@ def train(system, config, device):
         num_worlds_per_run=W,
         num_agents=N,
         num_obs=system['agent_obs_shape'][0] + system["input_comms_shape"][0],
-        num_comms=C,
-        num_global_obs=sim.get_global_obs_size(0) + C * N, 
+        num_comms=NC,
+        comm_dim=C,
+        num_global_obs=sim.get_global_obs_size(0) + N * NC * C, 
         hidden_state_size=config.lstm_hidden_size,
         device=device
     )
@@ -56,19 +60,19 @@ def train(system, config, device):
 
             logger.update_step(current_training_timestep, batch_run, batch_runs, "Collecting Data")
 
-            buf_obs = np.zeros((T, W, N, system['agent_obs_shape'][0] + system["input_comms_shape"][0]), dtype=np.float32)
-            buf_global_obs = np.zeros((T, W, sim.get_global_obs_size(0) + C * N), dtype=np.float32)
-            buf_actions = np.zeros((T, W, N), dtype=np.float32)
-            buf_rewards = np.zeros((T, W, N), dtype=np.float32)
-            buf_log_probs = np.zeros((T, W, N), dtype=np.float32)
-            buf_c_values = np.zeros((T, W, N), dtype=np.float32)
-            buf_comms = np.zeros((T, W, N, C), dtype=np.float32)
-            buf_hidden_states = np.zeros((T, W, N, 2, config.lstm_hidden_size), dtype=np.float32)     
+            buf_obs = torch.zeros((T, W, N, system['agent_obs_shape'][0] + system["input_comms_shape"][0]), dtype=torch.float32, device=device)
+            buf_global_obs = torch.zeros((T, W, sim.get_global_obs_size(0) + N * NC * C), dtype=torch.float32, device=device)
+            buf_actions = torch.zeros((T, W, N), dtype=torch.float32, device=device)
+            buf_rewards = torch.zeros((T, W, N), dtype=torch.float32, device=device)
+            buf_log_probs = torch.zeros((T, W, N), dtype=torch.float32, device=device)
+            buf_c_values = torch.zeros((T, W, N), dtype=torch.float32, device=device)
+            buf_comms = torch.zeros((T, W, N, NC, C), dtype=torch.float32, device=device)
+            buf_hidden_states = torch.zeros((T, W, N, 2, config.lstm_hidden_size), dtype=torch.float32, device=device)
 
             for world_id in range(W):
                 sim.reset(world_id)
 
-            comm_choice = np.zeros((W, N, C), dtype=np.float32)
+            comm_choice = np.zeros((W, N, NC, C), dtype=np.float32)
             curr_obs = np.array([sim.get_agents_obs(w, comm_choice[w]) for w in range(W)])
             curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))            
 
@@ -82,15 +86,15 @@ def train(system, config, device):
                 h = actor_hidden_states[0].reshape(W, N, -1)
                 c = actor_hidden_states[1].reshape(W, N, -1)
                 hidden_stacked = torch.stack([h, c], dim=2)
-                buf_hidden_states[t] = hidden_stacked.detach().cpu().numpy()
+                buf_hidden_states[t] = hidden_stacked.detach()
 
                 # Get action logits from the model and update memory and add time dimension for actor model
                 obs_tensor = torch.from_numpy(curr_obs).float().to(device)
                 global_state_tensor = torch.from_numpy(curr_global_obs).float().to(device)
                 with torch.no_grad():
-                    action_logits, comm_mean, _, _, _, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
+                    action_logits, comm_logits, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                     values = critic(global_state_tensor)
-
+                
                 # * -- Action Sampling --
                 # Basically softmax to determine chosen action
                 action_dist = torch.distributions.Categorical(logits=action_logits)
@@ -99,38 +103,51 @@ def train(system, config, device):
 
                 if actor.get_comm_type() == CommunicationType.CONTINUOUS:
                     # * -- Continuous Communication Sampling --
-                    comm_std = actor.comm_log_std.exp().expand_as(comm_mean)
-                    comm_dist = torch.distributions.Normal(comm_mean, comm_std)
-                    comms = comm_dist.sample()
-                    comm_log_probs = comm_dist.log_prob(comms).sum(dim=-1) # sum as log(B) + log(C) = log(BC)
+                    comm_std = actor.comm_log_std.exp().squeeze(1).expand_as(comm_logits)
+                    comm_dist = torch.distributions.Normal(comm_logits, comm_std)
+                    comm_output = comm_dist.sample()
+                    comm_log_probs = comm_dist.log_prob(comm_output).sum(dim=[-2, -1]) # sum as log(B) + log(C) = log(BC)
+
                 elif actor.get_comm_type() == CommunicationType.DISCRETE:
                     # * -- Discrete Communication --
-                    comms = comm_mean
                     comm_log_probs = torch.zeros_like(action_log_probs)
+
+                    flat_inputs = comm_logits.view(-1, C)
+                    quantised_flat, vq_loss, quantised_index = actor.vq_layer(flat_inputs)
+                    comm_output = quantised_flat.view(W, N, NC, C)
+
                 elif actor.get_comm_type() == CommunicationType.AIM:
                     # * -- AIM Communication --
-                    comms = comm_mean
-                    comm_log_probs = torch.zeros_like(action_log_probs)
+            
+                    dist = torch.distributions.Categorical(logits=comm_logits)
+                    quantised_index = dist.sample()
+                    comm_log_probs = dist.log_prob(quantised_index).sum(dim=-1)
                     
+                    comm_output = actor.aim_codebook[quantised_index].view(W, N, NC, C)
+
+                elif actor.get_comm_type() == CommunicationType.NONE:
+                    comm_output = torch.zeros((W, N, NC, C), device=device) 
+                    comm_log_probs = torch.zeros_like(action_log_probs)  
+
                 log_probs = action_log_probs + comm_log_probs
 
                 # Use chosen actions in env
                 action_choice = actions.cpu().numpy()
-                comm_choice = comms.detach().cpu().numpy()
+                comm_choice = comm_output.detach().cpu().numpy()
 
-                next_obs, rewards = sim.parallel_step(action_choice, comm_choice)
+                next_obs, next_global_obs, rewards = sim.parallel_step(action_choice, comm_choice)
                                 
                 # Save to current episodes
-                buf_obs[t] = curr_obs
-                buf_global_obs[t] = curr_global_obs
-                buf_actions[t] = action_choice
-                buf_comms[t] = comm_choice
-                buf_log_probs[t] = log_probs.detach().cpu().numpy()
-                buf_rewards[t] = rewards
-                buf_c_values[t] = values.detach().cpu().numpy().squeeze()
+                buf_obs[t] = obs_tensor 
+                buf_global_obs[t] = global_state_tensor
+                buf_rewards[t] = torch.as_tensor(rewards, dtype=torch.float32, device=device)
+                buf_actions[t] = actions
+                buf_comms[t] = comm_output.detach()
+                buf_log_probs[t] = log_probs.detach()
+                buf_c_values[t] = values.detach().squeeze()
 
                 curr_obs = next_obs
-                curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))
+                curr_global_obs = next_global_obs # np.array(sim.get_all_global_obs(comm_choice))
 
                 reward_means.append(np.mean(rewards))
 
@@ -167,11 +184,17 @@ def train(system, config, device):
 
         buffer.compute_advantages(torch.cat(final_batch_values, dim=0), config.gamma, config.gae_lambda)
 
+        buffer.advantages = (buffer.advantages - buffer.advantages.mean()) / (buffer.advantages.std() + 1e-8)
+
         sum_actor_loss = 0
         sum_critic_loss = 0
         sum_entropy_loss = 0
         sum_vq_loss = 0
-        sum_codebook_loss = 0
+
+        sum_returns_prediction_loss = 0
+        sum_predicted_critic_value_loss = 0
+        sum_predicted_intent_loss = 0
+
         communication_entropy = 0
         communication_perplexity = 0
         communication_active_codebook_usage = 0
@@ -194,7 +217,7 @@ def train(system, config, device):
 
                 # [B, T, N]
                 old_log_probs = batch["log_probs"]
-                advantages = batch["advantages"]
+                advantages = batch["advantages"].flatten()
                 returns = batch["returns"]
 
                 h_c_init = batch["a_hidden_states"][:, 0] 
@@ -208,7 +231,9 @@ def train(system, config, device):
                 flat_global_obs = global_obs.view(-1, *global_obs.shape[2:])
                 new_values = critic(flat_global_obs).reshape(-1)
                 
-                all_action_logits, all_comm_means, codebook_loss, quantised_indices, vq_loss, _ = actor(obs, batch_a_hidden_init)
+                all_action_logits, comm_logits, _ = actor(obs, batch_a_hidden_init)
+
+                vq_loss = torch.tensor(0.0)
 
                 # * -- Action Resampling --
                 new_action_dist = torch.distributions.Categorical(logits=all_action_logits)
@@ -217,13 +242,16 @@ def train(system, config, device):
 
                 if actor.get_comm_type() == CommunicationType.CONTINUOUS:
                     # * -- Continuous Communication Resampling --
-                    new_comm_std = actor.comm_log_std.exp().expand_as(all_comm_means)
-                    new_comm_dist = torch.distributions.Normal(all_comm_means, new_comm_std)
-                    new_comm_log_probs = new_comm_dist.log_prob(comms).sum(dim=-1).flatten()
-                    comm_entropy = new_comm_dist.entropy().sum(dim=-1).flatten()
+                    new_comm_std = actor.comm_log_std.exp().expand_as(comm_logits)
+                    new_comm_dist = torch.distributions.Normal(comm_logits, new_comm_std)
+                    new_comm_log_probs = new_comm_dist.log_prob(comms).sum(dim=[-2, -1]).flatten()
+                    comm_entropy = new_comm_dist.entropy().sum(dim=[-2, -1]).flatten()
 
                 elif actor.get_comm_type() == CommunicationType.DISCRETE:
                     # * -- Discrete Communication --
+                    flat_inputs = comm_logits.view(-1, C)
+                    quantised_flat, vq_loss, quantised_indices = actor.vq_layer(flat_inputs)
+
                     new_comm_log_probs = torch.zeros_like(new_action_log_probs)
                     comm_entropy = torch.zeros_like(action_entropy)
 
@@ -235,33 +263,75 @@ def train(system, config, device):
                 
                 elif actor.get_comm_type() == CommunicationType.AIM:
                     # * -- AIM Communication --
-                    new_comm_log_probs = torch.zeros_like(new_action_log_probs)
-                    comm_entropy = torch.zeros_like(action_entropy)
+                    B, _, _, _ = obs.shape
 
-                    batch_entropy, batch_perplexity = AIM.compute_metrics(quantised_indices, config.vocab_size)
+                    distances = torch.cdist(comms.view(-1, C), actor.aim_codebook)
+                    old_quantised_indices = distances.argmin(-1).view(B, T, N, NC)
+
+                    dist = torch.distributions.Categorical(logits=comm_logits)
+
+                    new_comm_log_probs = dist.log_prob(old_quantised_indices).sum(dim=-1).flatten()
+                    comm_entropy = dist.entropy().sum(dim=-1).flatten()
+
+                    comm_output = actor.aim_codebook[old_quantised_indices].view(-1, NC * C)
+
+                    predicted_agents_returns = actor.predict_agents_advantages(comm_output)
+                    predicted_critic_values = actor.predict_critic_value(comm_output)
+
+                    predicted_intent_sender = actor.predict_intent_sender(comm_output)
+
+                    comms_obs = obs[:, :, :, -N * NC * C:].view(B, T, N, N, NC * C)
+                    mask = ~torch.eye(N, dtype=torch.bool, device=actions.device)
+                    other_comms = comms_obs[:, :, mask, :].reshape(-1, NC * C)
+                    predicted_intent_receiver = actor.predict_intent_receiver(other_comms)
+
+                    batch_entropy, batch_perplexity = AIM.compute_metrics(old_quantised_indices, config.vocab_size)
                     communication_entropy += batch_entropy.item()
                     communication_perplexity += batch_perplexity.item()
 
-                entropy = action_entropy + comm_entropy * 5
+                elif actor.get_comm_type() == CommunicationType.NONE:
+                    # * -- No Communication --
+                    new_comm_log_probs = torch.zeros_like(new_action_log_probs)
+                    comm_entropy = torch.zeros_like(action_entropy)
+
+
+                entropy = action_entropy + comm_entropy
                 new_log_probs = new_action_log_probs + new_comm_log_probs                
                                 
-                old_log_probs = old_log_probs.flatten()
-                returns = returns.flatten()
-                advantages = advantages.flatten()
-                actions = actions.flatten()
+                critic_loss = F.mse_loss(new_values, returns.flatten())
 
-                # Critic Loss
-                critic_loss = F.mse_loss(new_values, returns)
-                
-                # PPO Actor Loss
-                advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-                
-                log_ratio = new_log_probs - old_log_probs
+                log_ratio = new_log_probs - old_log_probs.flatten()
                 ratio = log_ratio.exp()
-                
-                loss1 = advantages * ratio
-                loss2 = advantages * torch.clamp(ratio, 1.0 - config.clip_coef, 1.0 + config.clip_coef)
-                actor_loss = -torch.min(loss1, loss2).mean()
+
+                actor_loss = -torch.min(
+                    advantages * ratio,
+                    advantages * torch.clamp(ratio, 1.0 - config.clip_coef, 1.0 + config.clip_coef)
+                ).mean()
+
+                if config.communication_type == CommunicationType.AIM:
+
+                    nudge_coef = 0.05
+
+                    # Predicted advantage values
+                    predicted_returns_loss = F.mse_loss(predicted_agents_returns, returns.view(-1, N).repeat_interleave(N, dim=0))
+
+                    # Predicted critic values
+                    predicted_critic_loss = F.mse_loss(predicted_critic_values, new_values.detach().view(-1, 1))
+
+                    # Action intent vs action
+                    # Sender
+                    intent_loss = F.cross_entropy(predicted_intent_sender, actions.flatten().long())
+                    # Reciever
+                    mask = ~torch.eye(N, dtype=torch.bool, device=actions.device)
+                    other_actions = actions.unsqueeze(2).expand(B, T, N, N)[..., mask].view(B, T, N, N - 1)
+                    intent_loss += F.cross_entropy(predicted_intent_receiver.view(-1, A), other_actions.flatten().long())
+
+                    actor_loss += nudge_coef * (predicted_returns_loss + predicted_critic_loss + intent_loss)
+
+                    sum_returns_prediction_loss += predicted_returns_loss.item()
+                    sum_predicted_critic_value_loss += predicted_critic_loss.item()
+                    sum_predicted_intent_loss += intent_loss.item()
+
                 
                 entropy_loss = -entropy.mean()
                 
@@ -272,8 +342,6 @@ def train(system, config, device):
                 sum_critic_loss += critic_loss.item()
                 sum_entropy_loss += entropy_loss.item()
                 sum_vq_loss += vq_loss.item()
-                if codebook_loss is not None:
-                    sum_codebook_loss += codebook_loss.item()
 
                 update_count += 1
                 
@@ -300,13 +368,17 @@ def train(system, config, device):
 
             communication_entropy_mean=communication_entropy / update_count,
             communication_perplexity_mean=communication_perplexity / update_count,
-            codebook_loss=sum_codebook_loss / update_count,
             communication_active_codebook_usage=communication_active_codebook_usage / update_count,
 
             actor_loss=sum_actor_loss / update_count,
             critic_loss=sum_critic_loss / update_count,
             entropy_loss=sum_entropy_loss / update_count,
             vq_loss=sum_vq_loss / update_count,
+
+            predicted_return_loss=sum_returns_prediction_loss / update_count,
+            predicted_critic_value_loss=sum_predicted_critic_value_loss / update_count,
+            predicted_intent_loss=sum_predicted_intent_loss / update_count
+            
         )
 
     logger.close()
@@ -340,11 +412,11 @@ def train_language(system, config, device):
         print(f"Obs collected: {OBS_DIM * RUNS * W * N * T}")
         print(f"Baseline: {np.mean(rewards)}")
 
-    nudge_feature = NudgeFeature.Critic
+    nudge_feature = None
     nudge_dim = None
     if nudge_feature == NudgeFeature.Critic:
         nudge_dim = 1
-    elif nudge_feature == NudgeFeature.Action:
+    elif nudge_feature == NudgeFeature.Actions:
         nudge_dim = ACTION_COUNT
 
     dataset = ObsData(obs_logs_file, ACTION_COUNT, nudge_feature=nudge_feature)
@@ -388,7 +460,7 @@ def train_language(system, config, device):
         avg_train_loss = train_loss / len(training_loader)
 
         print(f"Nudge Loss {aim.nudge}")
-        print(f"Reocon Loss {aim.recon}")
+        print(f"Recon Loss {aim.recon}")
 
         aim.eval()
         val_loss = 0.0

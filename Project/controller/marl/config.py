@@ -12,6 +12,7 @@ class CommunicationType(str, Enum):
     DISCRETE = "discrete"
     CONTINUOUS = "continuous"
     AIM = "aim"
+    NONE = "none"
 
 
 class MappoConfig(BaseModel):
@@ -43,6 +44,7 @@ class MappoConfig(BaseModel):
     communication_size: int
     aim_seed: int
     vocab_size: int
+    num_comms: int
     
     @classmethod
     def from_yaml(cls, config_path: str):

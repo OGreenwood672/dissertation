@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 
 
 class RolloutBuffer:
@@ -7,7 +6,7 @@ class RolloutBuffer:
     A buffer for storing full episodes.
     It collects `buffer_size` (number of episodes)
     """
-    def __init__(self, total_runs, timesteps_per_run, num_worlds_per_run, num_agents, num_obs, num_comms, num_global_obs, hidden_state_size, device='cpu'):
+    def __init__(self, total_runs, timesteps_per_run, num_worlds_per_run, num_agents, num_obs, comm_dim, num_comms, num_global_obs, hidden_state_size, device='cpu'):
         
         # assert(total_runs % num_worlds_per_run == 0, "total_runs must be divisible by num_worlds_per_run")
 
@@ -32,7 +31,7 @@ class RolloutBuffer:
         self.rewards = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.log_probs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.c_values = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
-        self.comm = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_comms), device=device)
+        self.comm = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_comms, comm_dim), device=device)
         self.a_hidden_states = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, 2, hidden_state_size), device=device)
 
         # Results of GAE
@@ -61,7 +60,7 @@ class RolloutBuffer:
 
 
         def process(key, curr_store):
-            data = torch.from_numpy(episode_data[key]).to(self.device).transpose(0, 1)            
+            data = episode_data[key].to(self.device).transpose(0, 1)            
             curr_store[self.pos : self.pos + self.num_worlds_per_run] = data
             return curr_store
 
@@ -115,7 +114,7 @@ class RolloutBuffer:
             last_value = v
         
     
-    def get_minibatches(self, batch_size=4):
+    def get_minibatches(self, batch_size=16):
         """
         A generator that yields shuffled minibatches from the full batch.
         Assumes self.advantages/self.returns are populated.
