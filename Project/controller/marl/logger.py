@@ -24,8 +24,9 @@ class Logger:
             "timestep",
             "reward_mean", "reward_std",
             "communication_entropy_mean", "communication_perplexity_mean",
-            "codebook_loss", "communication_active_codebook_usage",
-            "actor_loss", "critic_loss", "entropy_loss", "vq_loss"
+            "communication_active_codebook_usage",
+            "actor_loss", "critic_loss", "entropy_loss", "vq_loss",
+            "predicted_return_loss", "predicted_critic_value_loss", "predicted_intent_loss"
         ]
 
         file_exists = os.path.exists(self.save_file)
@@ -33,7 +34,7 @@ class Logger:
         if file_exists:
             self.clear_logs(start_step)
 
-        self.file = open(self.save_file, "a")
+        self.file = open(self.save_file, "a", newline="")
         self.writer = csv.DictWriter(self.file, fieldnames=self.headers)
 
         if not file_exists:
@@ -135,7 +136,10 @@ class Logger:
             ("Actor Loss", "actor_loss", "blue"),
             ("Critic Loss", "critic_loss", "red"),
             ("Perplexity", "communication_perplexity_mean", "magenta"),
-            ("Codebook Usage", "communication_active_codebook_usage", "yellow")
+            ("Codebook Usage", "communication_active_codebook_usage", "yellow"),
+            ("Predicted Return Loss", "predicted_return_loss", "green"),
+            ("Predicted Critic Value Loss", "predicted_critic_value_loss", "red"),
+            ("Predicted Intent Loss", "predicted_intent_loss", "magenta")
         ]
 
         for label, key, color in tracked_metrics:
@@ -184,7 +188,7 @@ class ObsLogger:
         if file_exists:
             os.remove(self.save_file)
 
-        self.file = open(self.save_file, "a")
+        self.file = open(self.save_file, "a", newline="")
         self.writer = csv.writer(self.file)
 
     @LoggingFunctionIdentification("LOGGER")
@@ -210,7 +214,7 @@ class CommsLogger:
         for file in os.listdir(save_folder):
             os.remove(os.path.join(save_folder, file))
 
-        self.save_files = [open(os.path.join(save_folder, f"comms_{i}.csv"), "a") for i in range(vocab_size)]
+        self.save_files = [open(os.path.join(save_folder, f"comms_{i}.csv"), "a", newline="") for i in range(vocab_size)]
 
         self.writers = [csv.writer(file) for file in self.save_files]
 

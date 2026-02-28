@@ -33,7 +33,8 @@ def setup(config_pth, device, mode):
             './configs/simulation.yaml',
             worlds_parallised=config.worlds_parallised
         ), 
-        comm_dim=config.communication_size
+        comm_dim=config.communication_size,
+        num_comms=config.num_comms
     )
 
     num_agents = sim.get_num_agents()
@@ -52,9 +53,9 @@ def setup(config_pth, device, mode):
         num_agents, agent_obs_shape[0] + comms_shape[0], act_shape[0], comm_dim=config.communication_size,
         communication_type=config.communication_type, feature_dim=config.feature_dim,
         lstm_hidden_size=config.lstm_hidden_size, is_training=mode == "train",
-        vocab_size=config.vocab_size, aim_codebook=codebook
+        vocab_size=config.vocab_size, aim_codebook=codebook, num_comms=config.num_comms
     ).to(device)
-    critic = PPO_Critic(num_agents, global_obs_shape[0], config.communication_size, config.feature_dim).to(device)
+    critic = PPO_Critic(num_agents, global_obs_shape[0], config.communication_size, config.num_comms, feature_dim=config.feature_dim).to(device)
 
     actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.actor_learning_rate)
     critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.critic_learning_rate)
@@ -114,10 +115,6 @@ def evaluate_language(system, config, device):
     print(f"Reward Mean over {RUNS} runs: {np.mean(baseline)}")
 
 
-
-
-
-
 def main():
 
     config_pth = './configs/mappo_settings.yaml'
@@ -131,12 +128,16 @@ def main():
     system, config = setup(config_pth, device, mode=args.mode)
 
     if args.mode == "train":
+        system["actor"].set_is_training(True)
         train(system, config, device)
     elif args.mode == "eval":
+        system["actor"].set_is_training(False)
         evaluate(system, config, device)
     elif args.mode == "train-language":
+        system["actor"].set_is_training(False)
         train_language(system, config, device)
     elif args.mode == "eval-language":
+        system["actor"].set_is_training(False)
         evaluate_language(system, config, device)
     else:
         raise ValueError(f"Invalid mode: {args.mode}")

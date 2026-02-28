@@ -1,8 +1,9 @@
 use pyo3::prelude::*;
+use numpy::{IntoPyArray, PyArray1};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use rayon::slice::ParallelSlice;
 use tokio::runtime::Runtime;
-use serde_json;
+use serde_json::{self, Value};
 use tokio::signal;
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
@@ -13,7 +14,7 @@ use crate::websocket::websocket;
 use tokio::task::JoinHandle;
 use std::iter::repeat_with;
 
-#[pyclass] 
+#[pyclass(skip_from_py_object)]
 #[derive(Clone)]
 pub struct SimConfig {
     headless: bool,
@@ -27,7 +28,6 @@ pub struct SimConfig {
 pub struct Simulation {
     worlds: Vec<World>,
     bcast_tx: broadcast::Sender<String>,
-    bcast_is_erring: bool,
     _server_handle: JoinHandle<()>,
     cancel_token: CancellationToken,
     #[expect(unused)]
@@ -83,7 +83,6 @@ impl Simulation {
         Ok(Simulation {
             worlds,
             bcast_tx,
-            bcast_is_erring: false,
             _server_handle,
             cancel_token,
             rt,
@@ -94,7 +93,12 @@ impl Simulation {
         })
     }
 
-    pub fn parallel_step(&mut self, py: Python<'_>, flat_actions: Vec<i32>, flat_world_comms: Vec<f32>) -> PyResult<(Vec<f32>, Vec<f32>)> {
+    pub fn parallel_step<'py>(
+        &mut self,
+        py: Python<'py>,
+        flat_actions: Vec<i32>,
+        flat_world_comms: Vec<f32>
+    ) -> PyResult<(Bound<'py, PyArray1<f32>>, Bound<'py, PyArray1<f32>>, Bound<'py, PyArray1<f32>>)> {
             
         let n_agents = self.worlds[0].get_number_of_agents();
         let n_worlds = self.worlds.len();
@@ -106,63 +110,64 @@ impl Simulation {
 
         let obs_size = self.worlds[0].get_agent_obs_size() as usize + world_comm_length;
         let total_obs_len = n_worlds * n_agents * obs_size;
+        let total_global_obs_len = n_worlds * self.worlds[0].get_global_obs_size() as usize;
         let total_rew_len = n_worlds * n_agents;
 
-        Python::detach(py, || {
-            let results: Vec<_> = self.worlds.par_iter_mut()
-                .zip(flat_actions.par_chunks(n_agents))
-                .zip(flat_world_comms.par_chunks(world_comm_length))
-                .map(|((world, world_actions), world_comms)| {
+        let results: Vec<(Vec<f32>, Vec<f32>, Vec<f32>, Option<Value>)> = self.worlds.par_iter_mut()
+            .enumerate()
+            .zip(flat_actions.par_chunks(n_agents))
+            .zip(flat_world_comms.par_chunks(world_comm_length))
+            .map(|(((world_id, world), world_actions), world_comms)| {
 
-                    let agent_actions = ToActions::to_actions(world_actions.to_vec());
+                let agent_actions = ToActions::to_actions(world_actions.to_vec());
 
-                    world.apply_actions(agent_actions);
-                    world.spread_rewards(0.4);
-                    
-                    let mut obs = world.get_agents_obs();
-                    let rewards = world.get_agents_reward();
+                world.apply_actions(agent_actions);
+                world.spread_rewards(0.4);
+                
+                let obs = world.get_agents_obs();
+                let mut global_obs = world.get_global_obs();
+                let rewards = world.get_agents_reward();
 
-                    let mut flat_world_obs = Vec::with_capacity(obs.len() * (obs[0].len() + world_comms.len()));
+                let mut flat_world_obs = Vec::with_capacity(obs.len() * (obs[0].len() + world_comms.len()));
 
-                    for agent_obs in obs.iter_mut() {
-                        agent_obs.extend_from_slice(world_comms);
-                        flat_world_obs.extend_from_slice(agent_obs);                    }
-
-                    (flat_world_obs, rewards)
-                })
-                .collect();
-            
-            let mut all_obs = Vec::with_capacity(total_obs_len);
-            let mut all_rewards = Vec::with_capacity(total_rew_len);
-
-            for (w_obs, w_rew) in results {
-                all_obs.extend(w_obs);
-                all_rewards.extend(w_rew);
-            }
-
-            if !self.config.headless {
-
-                for (world_id, world) in self.worlds.iter().enumerate() {
-                    let world_state_with_id = serde_json::json!({ "world_id": world_id, "world_state": world.get_state() });
-                    let json_state = serde_json::to_string(&world_state_with_id)
-                        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("failed to serialize world state: {}", e)))?;
-
-                    if let Err(_) = self.bcast_tx.send(json_state) {
-                        if !self.bcast_is_erring {
-                            // println!("[DEBUG] Broadcast error: {}", e);
-                            self.bcast_is_erring = true;
-                        }
-                    } else {
-                        if self.bcast_is_erring {
-                            // println!("[DEBUG] Broadcast recovered");
-                            self.bcast_is_erring = false;
-                        }
-                    }
+                for mut agent_obs in obs {
+                    agent_obs.extend_from_slice(world_comms);
+                    flat_world_obs.extend_from_slice(&agent_obs);
                 }
-            }
 
-            Ok((all_obs, all_rewards))
-        })
+                global_obs.extend_from_slice(world_comms);
+
+                let json_state = if !self.config.headless { 
+                    Some(serde_json::json!({ "world_id": world_id as f32, "world_state": world.get_state() }))
+                } else { 
+                    None
+                };
+
+                (flat_world_obs, global_obs, rewards, json_state)
+            })
+            .collect();
+            
+        let mut all_obs = Vec::with_capacity(total_obs_len);
+        let mut all_global_obs = Vec::with_capacity(total_global_obs_len);
+        let mut all_rewards = Vec::with_capacity(total_rew_len);
+
+        for (w_obs, w_global_obs, w_rew, json_state) in results {
+            all_obs.extend(w_obs);
+            all_global_obs.extend(w_global_obs);
+            all_rewards.extend(w_rew);
+
+            if let Some(state) = json_state {
+                let state_string = serde_json::to_string(&state)
+                        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("failed to serialize world state: {}", e)))?;
+                let _ = self.bcast_tx.send(state_string);
+            }
+        }
+
+        let obs_numpy: Bound<'py, PyArray1<f32>> = all_obs.into_pyarray(py);
+        let global_obs_numpy: Bound<'py, PyArray1<f32>> = all_global_obs.into_pyarray(py);
+        let rewards_numpy: Bound<'py, PyArray1<f32>> = all_rewards.into_pyarray(py);
+
+        Ok((obs_numpy, global_obs_numpy, rewards_numpy))
 
     }
 
@@ -221,7 +226,7 @@ impl Simulation {
         let world_comm_length = flat_world_comms.len() / self.worlds.len();
 
         Python::detach(py, || {
-            let results: Vec<_> = self.worlds.par_iter()
+            let results: Vec<f32> = self.worlds.par_iter()
                 .zip(flat_world_comms.par_chunks(world_comm_length))
                 .flat_map(|(world, world_comms)| {
                     let mut obs = world.get_global_obs();
@@ -232,7 +237,7 @@ impl Simulation {
                 })
                 .collect();
             
-            Ok(results)
+            Ok::<Vec<f32>, PyErr>(results)
         })
 
     }
