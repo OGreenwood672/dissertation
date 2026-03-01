@@ -10,6 +10,7 @@ from .logger import CommsLogger, ObsLogger
 def run_sim(
         system, config, device, episodes,
         zero_comms=False, collect_obs_file=None,
+        noise=None,
         collect_comms_folder=None
     ):
         
@@ -54,14 +55,22 @@ def run_sim(
             # Get action logits from the model and update memory and add time dimension for actor model
             obs_tensor = torch.from_numpy(curr_obs).float().to(device)
             with torch.no_grad():
-                action_logits, comm_logits, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
+                action_logits, comm_logits, lstm_output, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
                 if collect_obs_file is not None:
                     global_state_tensor = torch.from_numpy(curr_global_obs).float().to(device)
                     critic_values = critic(global_state_tensor)
 
 
             # * -- Action Choosing --
-            actions = torch.argmax(action_logits, dim=-1)
+            greedy_actions = torch.argmax(action_logits, dim=-1)
+
+            # epsilon-greedy action selection
+            if noise is not None and noise > 0.0:
+                random_actions = torch.randint(0, action_logits.shape[-1], size=(W, N), device=device)
+                mask = torch.rand((W, N), device=device) < noise
+                actions = torch.where(mask, random_actions, greedy_actions)
+            else:
+                actions = greedy_actions
 
             if actor.get_comm_type() == CommunicationType.CONTINUOUS:
                 # * -- Continuous Communication Sampling --
@@ -77,10 +86,22 @@ def run_sim(
 
             elif actor.get_comm_type() == CommunicationType.AIM:
                 # * -- AIM Communication --
-                dist = torch.distributions.Categorical(logits=comm_logits)
-                quantised_index = dist.sample()
-                
-                comm_output = actor.aim_codebook[quantised_index].view(W, N, NC, C)
+                codewords = torch.zeros((W, N, NC, actor.hq_levels, C), device=device)
+
+                comm_conditions = lstm_output.squeeze(1)
+
+                for i in range(actor.hq_levels):
+
+                    comm_logits = getattr(actor, f"comm_head_{i}")(comm_conditions).reshape(W, N, NC, actor.vocab_size)
+
+                    dist = torch.distributions.Categorical(logits=comm_logits)
+                    quantised_index = dist.sample()
+
+                    codewords[:, :, :, i, :] = actor.aim_codebook[i, quantised_index].view(W, N, NC, C)
+
+                    comm_conditions = torch.cat([comm_conditions, codewords[:, :, :, i, :].reshape(W, N, NC * C)], dim=-1)
+
+                comm_output = codewords.sum(dim=-2)
 
             elif actor.get_comm_type() == CommunicationType.NONE or zero_comms:
                 comm_output = torch.zeros((W, N, NC, C), device=device) 
@@ -106,6 +127,7 @@ def run_sim(
                 for world in range(W):
                     for agent in range(N):
                         index = world * N + agent
+                        # todo: only currently works with discrete - only need with discrete though
                         CL.log(int(quantised_index[index].detach().cpu().numpy()), curr_obs[world, agent].tolist())
                 
 

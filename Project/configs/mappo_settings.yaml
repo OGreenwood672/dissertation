@@ -4,7 +4,7 @@ training:
   timestep: 0
   buffer_size: 128
   worlds_parallised: 32
-  seed: 21
+  seed: -1
   periodic_save_interval: 100
 
 ppo_hyperparameters:
@@ -21,9 +21,17 @@ architecture:
   lstm_hidden_size: 64
   feature_dim: 256
 
-experiment:
-  communication_type: continuous
-  aim_seed: 28
+communication_type: discrete
+
+language:
   vocab_size: 64
-  communication_size: 8
-  num_comms: 4
+  communication_size: 5
+  num_comms: 2
+
+create-aim-language:
+  aim_seed: 1
+  hq_layers: 1
+  aim_learning_rate: 0.0001
+  obs_runs: 10
+  obs_runs_noise: 0.2
+  aim_batch_size: 32

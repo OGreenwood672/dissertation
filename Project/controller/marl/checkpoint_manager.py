@@ -51,6 +51,7 @@ class CheckpointManager:
 
         self.result_path = result_path
         self.seed = seed
+        self.config.seed = seed
 
     def load_config(self):
         config_path = self.result_path + "/config.json"

@@ -13,6 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from numpy import sqrt, save, load
 import os
+import numpy as np
 
 from .config import CommunicationType
 
@@ -37,6 +38,8 @@ class PPO_Actor(nn.Module):
         self.hidden_size = lstm_hidden_size
         self.comm_type = communication_type
         self.num_comms = num_comms
+        self.vocab_size = vocab_size
+        self.hq_levels = None
 
         # Main body
         self.body = nn.Sequential(
@@ -75,6 +78,8 @@ class PPO_Actor(nn.Module):
             aim_codebook = torch.tensor(aim_codebook, dtype=torch.float32)
             self.register_buffer('aim_codebook', aim_codebook)
 
+            self.hq_levels = aim_codebook.shape[0]
+
             # Teaching the fixed codebook
             # Sender must understand what its sending
             # Predict other agent rewards
@@ -84,13 +89,12 @@ class PPO_Actor(nn.Module):
             # Predict critic value
             self.predict_critic_value = nn.Linear(comm_dim * num_comms, 1)
 
-            self.comm_head = nn.Linear(lstm_hidden_size, vocab_size * num_comms)
+            for hq_level in range(self.hq_levels):
+                setattr(self, f"comm_head_{hq_level}", nn.Linear(lstm_hidden_size + comm_dim * hq_level * num_comms, num_comms * vocab_size))
 
             # Intent Predictors
             self.predict_intent_sender = nn.Linear(comm_dim * num_comms, action_dim)
             self.predict_intent_receiver = nn.Linear(comm_dim * num_comms, action_dim)
-
-
 
         elif communication_type == CommunicationType.NONE:
             self.comm_head = nn.Linear(lstm_hidden_size, comm_dim * num_comms)
@@ -141,18 +145,20 @@ class PPO_Actor(nn.Module):
         action_logits = self.action_head(lstm_output)
 
         if self.comm_type == CommunicationType.NONE:
-            comm_logits = torch.zeros(B, T, N, self.comm_head.out_features, device=x.device)
+            comm_logits = torch.zeros(B, T, N, self.comm_head.out_features, device=x.device).reshape(B, T, N, self.num_comms, -1)
+        elif self.comm_type != CommunicationType.AIM:
+            comm_logits = self.comm_head(lstm_output).reshape(B, T, N, self.num_comms, -1)
         else:
-            comm_logits = self.comm_head(lstm_output)
-        comm_logits = comm_logits.reshape(B, T, N, self.num_comms, -1)
+            comm_logits = None
         
         if not has_time_dim:
             action_logits = action_logits.squeeze(1)
-            comm_logits = comm_logits.squeeze(1)
+            if comm_logits is not None:
+                comm_logits = comm_logits.squeeze(1)
                 
         return (
             action_logits, comm_logits,
-            (h_out, c_out)
+            lstm_output, (h_out, c_out)
         )
 
     def get_comm_type(self):
@@ -273,11 +279,14 @@ class AIM(nn.Module):
     def __init__(self, obs_dim, hidden_size, latent_dim, vocab_size, commitment_cost=0.5, nudge_dim=None, hq_vae=1):
         super().__init__()
 
-        # The codebook
-        self.embedding = nn.Embedding(vocab_size, latent_dim)
+        self.hq_vae = hq_vae
 
-        # codebook initialisation
-        self.embedding.weight.data.uniform_(-0.5, 0.5)
+        self.embeddings = nn.ModuleList([
+            nn.Embedding(vocab_size, latent_dim) for _ in range(hq_vae)
+        ])
+
+        for emb in self.embeddings:
+            emb.weight.data.uniform_(-0.5, 0.5)
 
         self.commitment_cost = commitment_cost
 
@@ -305,36 +314,37 @@ class AIM(nn.Module):
     def forward(self, x, nudge=None):
         latent = self.encoder(x)
 
-        # Quantise
-        distances = torch.cdist(latent, self.embedding.weight, p=2)
+        total_loss = torch.tensor(0.0, device=x.device)
+        
+        curr_residual = latent
+        code_sum = torch.zeros_like(latent, device=x.device)
+        for codebook_layer in range(self.hq_vae):
+            embedding = self.embeddings[codebook_layer]
 
-        min_distance_index = distances.argmin(-1)
+            distances = torch.cdist(curr_residual, embedding.weight)
 
-        quantised = self.embedding(min_distance_index)
-        quantised = latent + (quantised - latent).detach()
+            min_distance_index = distances.argmin(-1)
 
+            quantised = embedding(min_distance_index)
+
+            codebook_loss = F.mse_loss(quantised, curr_residual.detach())
+            commitment_loss = F.mse_loss(quantised.detach(), curr_residual)
+
+            total_loss += codebook_loss + self.commitment_cost * commitment_loss
+
+            code_sum = code_sum + quantised
+            curr_residual = curr_residual - quantised
+        
+        quantised = latent + (code_sum - latent).detach()
         reconstructed = self.decoder(quantised)
 
-        nudge_loss = 0.0
-        nudge_contribution = 1.0
-        recon_contribution = 0.5
-        if nudge is not None and hasattr(self, "nudge_head"):
-            pred_actions = self.nudge_head(quantised)
-            nudge_loss = F.mse_loss(pred_actions, nudge)
-            self.nudge += nudge_loss.item() * nudge_contribution
-
-        recon_loss = F.mse_loss(reconstructed, x)
-        codebook_loss = F.mse_loss(quantised.detach(), latent)
-        commitment_loss = F.mse_loss(quantised, latent.detach())
-
-        self.recon += recon_loss.item()
-
-        total_loss = recon_loss * recon_contribution + codebook_loss + commitment_loss * self.commitment_cost + nudge_loss * nudge_contribution
+        total_loss += F.mse_loss(reconstructed, x) * 0.5
 
         return total_loss
     
     def get_codebook(self):
-        return self.embedding.weight.detach().cpu().numpy()
+        codebooks = [emb.weight.detach().cpu().numpy() for emb in self.embeddings]
+        return np.stack(codebooks)
     
     def save_codebook(self, save_folder):
         codebook = self.get_codebook()
@@ -349,18 +359,27 @@ class AIM(nn.Module):
             folder_path = result_path + folders[0]
 
         assert os.path.exists(folder_path)
-        embedding = load(folder_path + "/codebook.npy")
+        embeddings = load(folder_path + "/codebook.npy")
 
-        return embedding
+        return embeddings
     
     @staticmethod
     def compute_metrics(quantised_indices, vocab_size):
-        counts = torch.bincount(quantised_indices.flatten(), minlength=vocab_size).float()
+        entropies = []
+        perplexities = []
         
-        probs = counts / counts.sum()
+        for i in range(quantised_indices.shape[-1]):
+
+            indices = quantised_indices[..., i]
+
+            counts = torch.bincount(indices.flatten().long(), minlength=vocab_size).float()
+            
+            probs = counts / (counts.sum() + 1e-10)
+            
+            entropy = -torch.sum(probs * torch.log(probs + 1e-10))
+            entropies.append(entropy.item())
+            
+            perplexity = torch.exp(entropy)
+            perplexities.append(perplexity.item())
         
-        entropy = -torch.sum(probs * torch.log(probs + 1e-10))
-        
-        perplexity = torch.exp(entropy)
-        
-        return entropy, perplexity
+        return sum(entropies) / len(entropies), sum(perplexities) / len(perplexities)
