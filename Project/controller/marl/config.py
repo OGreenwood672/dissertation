@@ -17,7 +17,7 @@ class CommunicationType(str, Enum):
 
 class MappoConfig(BaseModel):
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict()
 
     timestep: float
     buffer_size: int
@@ -41,10 +41,17 @@ class MappoConfig(BaseModel):
     feature_dim: int
 
     communication_type: CommunicationType
+
     communication_size: int
-    aim_seed: int
     vocab_size: int
     num_comms: int
+
+    aim_seed: int
+    aim_learning_rate: float
+    aim_batch_size: int
+    hq_layers: int
+    obs_runs: int
+    obs_runs_noise: float
     
     @classmethod
     def from_yaml(cls, config_path: str):
@@ -52,18 +59,18 @@ class MappoConfig(BaseModel):
         raw_config = load_yaml(config_path)
         
         config = {}
-        for section in raw_config.values():
-            if isinstance(section, dict):
-                config.update(section)
+        while raw_config.items():
+            k, v = raw_config.popitem()
+            if isinstance(v, dict):
+                raw_config.update(v)
             else:
-                config = raw_config
-                break
-        
+                config[k] = v
+
         if "communication_type" in config:
             config["communication_type"] = CommunicationType(config["communication_type"])
 
         valid_keys = {k: v for k, v in config.items() if k in cls.__annotations__}
-        
+
         return cls(**valid_keys)
     
     @classmethod

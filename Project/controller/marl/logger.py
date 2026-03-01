@@ -7,6 +7,7 @@ from rich.panel import Panel
 from rich.progress import Progress, BarColumn, TaskProgressColumn, TextColumn
 from rich.columns import Columns
 
+from controller.marl.config import CommunicationType
 from logging_utils.decorators import LoggingFunctionIdentification
 
 
@@ -42,6 +43,7 @@ class Logger:
             self.file.flush()
 
         self.console = Console()
+        self.console.clear()
         self.live = Live(None, console=self.console, auto_refresh=False, redirect_stdout=True)
         self.live.start()
         
@@ -92,27 +94,63 @@ class Logger:
 
     def generate_config_table(self):
 
-        table = Table(show_header=False, box=None, expand=True)
-        table.add_column("Param", style="dim")
-        table.add_column("Value", style="bold cyan", justify="right")
+        def make_panel(title, params):
+            table = Table(show_header=False, box=None)
+            table.add_column("Param", style="dim")
+            table.add_column("Value", style="bold cyan", justify="right")
+            for label, value in params:
+                table.add_row(label, str(value))
 
-        params = [
+            return Panel(table, title=f"[bold]{title}[/]", border_style="white")
+
+        training_params = [
+            ("Train Timesteps", f"{self.config.training_timesteps}"),
+            ("Sim Timesteps", f"{self.config.simulation_timesteps}"),
+            ("Timestep", f"{self.config.timestep}"),
+            ("Buffer Size", f"{self.config.buffer_size}"),
+            ("Parallel Worlds", f"{self.config.worlds_parallised}"),
+            ("Seed", f"{self.config.seed}"),
+            ("Save Interval", f"{self.config.periodic_save_interval}"),
+        ]
+        
+        ppo_params = [
+            ("PPO Epochs", f"{self.config.ppo_epochs}"),
+            ("Gamma", f"{self.config.gamma}"),
+            ("GAE Lambda", f"{self.config.gae_lambda}"),
+            ("Clip Coef", f"{self.config.clip_coef}"),
+            ("VF Coef", f"{self.config.vf_coef}"),
+            ("Entropy Coef", f"{self.config.ent_coef}"),
             ("Actor LR", f"{self.config.actor_learning_rate:.1e}"),
             ("Critic LR", f"{self.config.critic_learning_rate:.1e}"),
-            ("Entropy Coef", f"{self.config.ent_coef}"),
-            ("Clip Coef", f"{self.config.clip_coef}"),
-            ("Batch Size", f"{self.config.buffer_size}"),
-            ("PPO Epochs", f"{self.config.ppo_epochs}"),
-            ("Parallel Worlds", f"{self.config.worlds_parallised}"),
-            ("Comm Type", f"{self.config.communication_type.name}"),
-            ("Comm Size", f"{self.config.communication_size}"),
-            ("Seed", f"{self.config.seed}"),
         ]
 
-        for label, value in params:
-            table.add_row(label, value)
-            
-        return Panel(table, title="[bold]Hyperparameters[/]", border_style="white")
+        arch_params = [
+            ("LSTM Hidden", f"{self.config.lstm_hidden_size}"),
+            ("Feature Dim", f"{self.config.feature_dim}"),
+        ]
+
+        lang_params = [
+            ("Vocab Size", f"{self.config.vocab_size}"),
+            ("Comm Size", f"{self.config.communication_size}"),
+            ("Num Comms", f"{self.config.num_comms}"),
+        ]
+
+        aim_params = [
+            ("AIM Seed", f"{self.config.aim_seed}"),
+            ("HQ Layers", f"{getattr(self.config, 'hq_layers', getattr(self.config, 'hq_levels', 1))}"), # Safe fallback
+            ("AIM LR", f"{self.config.aim_learning_rate:.1e}"),
+            ("Obs Runs", f"{self.config.obs_runs}"),
+            ("Obs Noise", f"{self.config.obs_runs_noise}"),
+            ("AIM Batch Size", f"{self.config.aim_batch_size}"),
+        ]
+
+        return Columns([
+            make_panel("Training", training_params),
+            make_panel("PPO Hyperparameters", ppo_params),
+            make_panel("Architecture", arch_params),
+            make_panel("Language", lang_params),
+            make_panel("Create AIM Language", aim_params)
+        ])
         
     def generate_dashboard_layout(self, timestep, batch_run, total_batch_runs, status):
         
@@ -127,20 +165,31 @@ class Logger:
         metrics_table = Table(show_header=True, header_style="bold magenta", expand=True, box=None)
         metrics_table.add_column("Metric", style="dim")
         metrics_table.add_column("Value", justify="right")
-        metrics_table.add_column("Trend (30 steps)", justify="left")
+        metrics_table.add_column("Trend (Past 30 steps)", justify="left")
 
         tracked_metrics = [
             ("Mean Reward", "reward_mean", "green"),
             ("Std Reward", "reward_std", "green"),
-            ("Entropy", "communication_entropy_mean", "cyan"),
             ("Actor Loss", "actor_loss", "blue"),
             ("Critic Loss", "critic_loss", "red"),
-            ("Perplexity", "communication_perplexity_mean", "magenta"),
-            ("Codebook Usage", "communication_active_codebook_usage", "yellow"),
-            ("Predicted Return Loss", "predicted_return_loss", "green"),
-            ("Predicted Critic Value Loss", "predicted_critic_value_loss", "red"),
-            ("Predicted Intent Loss", "predicted_intent_loss", "magenta")
         ]
+
+        if (
+            self.config.communication_type == CommunicationType.DISCRETE or
+            self.config.communication_type == CommunicationType.AIM
+        ):
+            tracked_metrics.extend([
+                ("Entropy", "communication_entropy_mean", "cyan"),
+                ("Perplexity", "communication_perplexity_mean", "magenta"),
+                ("Codebook Usage", "communication_active_codebook_usage", "yellow"),
+            ])
+
+            if self.config.communication_type == CommunicationType.AIM:
+                tracked_metrics.extend([
+                    ("Predicted Return Loss", "predicted_return_loss", "green"),
+                    ("Predicted Critic Value Loss", "predicted_critic_value_loss", "red"),
+                    ("Predicted Intent Loss", "predicted_intent_loss", "magenta")
+                ])
 
         for label, key, color in tracked_metrics:
             last_entry = self.recent_history[-1] if self.recent_history else {}
@@ -164,13 +213,13 @@ class Logger:
         
         monitor_panel = Panel(
             monitor_group, 
-            title=f"[bold]Training Monitor - Step {timestep}[/]", 
+            title=f"[bold]Training - Comm Type is {self.config.communication_type.upper()} - Step {timestep}[/]", 
             border_style="blue"
         )
 
         config_panel = self.generate_config_table()
 
-        return Columns([config_panel, monitor_panel], expand=True)
+        return Columns([config_panel, monitor_panel])
 
 
     def close(self):

@@ -6,7 +6,7 @@ class RolloutBuffer:
     A buffer for storing full episodes.
     It collects `buffer_size` (number of episodes)
     """
-    def __init__(self, total_runs, timesteps_per_run, num_worlds_per_run, num_agents, num_obs, comm_dim, num_comms, num_global_obs, hidden_state_size, device='cpu'):
+    def __init__(self, total_runs, timesteps_per_run, num_worlds_per_run, num_agents, num_obs, comm_dim, num_comms, num_global_obs, hidden_state_size, hq_levels=None, device='cpu'):
         
         # assert(total_runs % num_worlds_per_run == 0, "total_runs must be divisible by num_worlds_per_run")
 
@@ -31,7 +31,10 @@ class RolloutBuffer:
         self.rewards = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.log_probs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.c_values = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
-        self.comm = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_comms, comm_dim), device=device)
+        if hq_levels is None:
+            self.comm = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_comms, comm_dim), device=device)
+        else:
+            self.comm = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_comms, hq_levels), device=device)
         self.a_hidden_states = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, 2, hidden_state_size), device=device)
 
         # Results of GAE

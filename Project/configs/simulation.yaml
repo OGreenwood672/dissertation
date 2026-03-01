@@ -1,11 +1,11 @@
-arena_width: 20
-arena_height: 20
+arena_width: 18
+arena_height: 18
 
 headless: true
 websocket_url: ws://127.0.0.1:3000
 websocket_path: ws
 agent_agent_visibility: 1
-agent_station_visibility: 4
+agent_station_visibility: 3
 initial_agent_layout: random
 agents:
   - id: 1
