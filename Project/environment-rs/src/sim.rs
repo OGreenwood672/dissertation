@@ -122,7 +122,7 @@ impl Simulation {
                 let agent_actions = ToActions::to_actions(world_actions.to_vec());
 
                 world.apply_actions(agent_actions);
-                world.spread_rewards(0.4);
+                world.spread_rewards(0.0);
                 
                 let obs = world.get_agents_obs();
                 let mut global_obs = world.get_global_obs();
@@ -130,8 +130,7 @@ impl Simulation {
 
                 let mut flat_world_obs = Vec::with_capacity(obs.len() * (obs[0].len() + world_comms.len()));
 
-                for mut agent_obs in obs {
-                    agent_obs.extend_from_slice(world_comms);
+                for agent_obs in obs {
                     flat_world_obs.extend_from_slice(&agent_obs);
                 }
 

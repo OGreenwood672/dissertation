@@ -136,7 +136,6 @@ class Logger:
         ]
 
         aim_params = [
-            ("AIM Seed", f"{self.config.aim_seed}"),
             ("HQ Layers", f"{getattr(self.config, 'hq_layers', getattr(self.config, 'hq_levels', 1))}"), # Safe fallback
             ("AIM LR", f"{self.config.aim_learning_rate:.1e}"),
             ("Obs Runs", f"{self.config.obs_runs}"),

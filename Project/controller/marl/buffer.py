@@ -29,7 +29,8 @@ class RolloutBuffer:
         self.global_obs = torch.zeros((self.buffer_size, timesteps_per_run, num_global_obs), device=device)
         self.actions = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.rewards = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
-        self.log_probs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
+        self.action_log_probs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
+        self.comm_log_probs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.c_values = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         if hq_levels is None:
             self.comm = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_comms, comm_dim), device=device)
@@ -70,7 +71,8 @@ class RolloutBuffer:
         self.obs = process("obs", self.obs)
         self.actions = process("actions", self.actions)
         self.rewards = process("rewards", self.rewards)
-        self.log_probs = process("log_probs", self.log_probs)
+        self.action_log_probs = process("action_log_probs", self.action_log_probs)
+        self.comm_log_probs = process("comm_log_probs", self.comm_log_probs)
         self.c_values = process("c_values", self.c_values)
         self.global_obs = process("global_obs", self.global_obs)
         self.comm = process("comm", self.comm)
@@ -133,7 +135,8 @@ class RolloutBuffer:
                 "obs": self.obs[mb_indices],
                 "actions": self.actions[mb_indices],
                 "rewards": self.rewards[mb_indices],
-                "log_probs": self.log_probs[mb_indices],
+                "action_log_probs": self.action_log_probs[mb_indices],
+                "comm_log_probs": self.comm_log_probs[mb_indices],
                 "c_values": self.c_values[mb_indices],
                 "advantages": self.advantages[mb_indices],
                 "returns": self.returns[mb_indices],

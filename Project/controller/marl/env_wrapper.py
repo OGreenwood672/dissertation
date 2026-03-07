@@ -20,7 +20,7 @@ class SimWrapper:
 
         flat_obs, flat_global_obs, flat_rewards = self._sim.parallel_step(flat_actions, flat_comms)
 
-        obs = flat_obs.reshape(n_worlds, self.get_num_agents(), self.get_obs_dim() + self.get_world_comms_size())
+        obs = flat_obs.reshape(n_worlds, self.get_num_agents(), self.get_obs_dim())
         global_obs = flat_global_obs.reshape(n_worlds, self.get_global_obs_dim() + self.get_world_comms_size())
         rewards = flat_rewards.reshape(n_worlds, self.get_num_agents())
 
@@ -41,14 +41,8 @@ class SimWrapper:
     def get_agent_action_count(self):
         return self._action_count
 
-    def get_agent_obs(self, world_id, agent_id, world_comms=None):
-
-        if isinstance(world_comms, torch.Tensor):
-            world_comms = world_comms.detach().cpu().numpy()
-
-        world_comms = world_comms.flatten()
-
-        return np.concatenate([self._sim.get_agent_obs(world_id, agent_id), world_comms])
+    def get_agent_obs(self, world_id, agent_id):
+        return self._sim.get_agent_obs(world_id, agent_id)
     
     def get_world_comms_size(self):
         return self._num_agents * self._comm_dim * self._num_comms
@@ -59,8 +53,8 @@ class SimWrapper:
     def get_agent_reward(self, world_id, agent_id):
         return self._sim.get_agent_reward(world_id, agent_id)
     
-    def get_agents_obs(self, world_id, world_comms=None):
-        return [self.get_agent_obs(world_id, agent_id, world_comms) for agent_id in range(self._num_agents)]
+    def get_agents_obs(self, world_id):
+        return [self.get_agent_obs(world_id, agent_id) for agent_id in range(self._num_agents)]
     
     def get_agents_reward(self, world_id):
         return [self.get_agent_reward(world_id, agent_id) for agent_id in range(self._num_agents)]
