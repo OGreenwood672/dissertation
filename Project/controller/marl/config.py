@@ -46,12 +46,19 @@ class MappoConfig(BaseModel):
     vocab_size: int
     num_comms: int
 
-    aim_seed: int
     aim_learning_rate: float
+    kl_weight: float
+    min_temperature: float
+    init_temperature: float
     aim_batch_size: int
+    commitment_cost: float
     hq_layers: int
     obs_runs: int
     obs_runs_noise: float
+    ae_epochs: int
+
+    autoencoder_type: str
+
     
     @classmethod
     def from_yaml(cls, config_path: str):

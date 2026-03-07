@@ -40,7 +40,7 @@ def run_sim(
             sim.reset(world_id)
 
         comm_choice = np.zeros((W, N, NC, C), dtype=np.float32)
-        curr_obs = np.array([sim.get_agents_obs(w, comm_choice[w]) for w in range(W)])
+        curr_obs = np.array([sim.get_agents_obs(w) for w in range(W)])
         curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))            
 
         # Reset hidden states for the recurrent model
@@ -54,8 +54,11 @@ def run_sim(
 
             # Get action logits from the model and update memory and add time dimension for actor model
             obs_tensor = torch.from_numpy(curr_obs).float().to(device)
+            comm_choice_tensor = torch.from_numpy(comm_choice).float().to(device)
             with torch.no_grad():
-                action_logits, comm_logits, lstm_output, actor_hidden_states = actor(obs_tensor, actor_hidden_states)
+                if config.communication_type == CommunicationType.NONE:
+                    comm_choice_tensor = None
+                action_logits, comm_logits, lstm_output, actor_hidden_states = actor(obs_tensor, actor_hidden_states, comm_choice_tensor)
                 if collect_obs_file is not None:
                     global_state_tensor = torch.from_numpy(curr_global_obs).float().to(device)
                     critic_values = critic(global_state_tensor)
@@ -112,11 +115,9 @@ def run_sim(
 
             if collect_obs_file is not None:
                 # Curr_ob needs to be a 2d array with comms removed
-                obs_logs = curr_obs[:, :, :-sim.get_world_comms_size()]
                 critic_values_logs = critic_values.detach().cpu().numpy()[:, :, np.newaxis]
-                
                 record_logs = np.concatenate(
-                    [obs_logs, action_logits.cpu().numpy(), critic_values_logs],
+                    [curr_obs, action_logits.cpu().numpy(), critic_values_logs],
                     axis=-1
                 ).reshape(W * N, sim.get_obs_dim() + sim.get_agent_action_count() + 1)
                 # obs + actions + critic value

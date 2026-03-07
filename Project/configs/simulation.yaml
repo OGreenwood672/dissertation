@@ -1,5 +1,5 @@
-arena_width: 18
-arena_height: 18
+arena_width: 16
+arena_height: 16
 
 headless: true
 websocket_url: ws://127.0.0.1:3000

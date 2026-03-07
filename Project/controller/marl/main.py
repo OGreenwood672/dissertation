@@ -5,10 +5,11 @@ import numpy as np
 from .config import CommunicationType
 import environment.environment as environment
 from .checkpoint_manager import CheckpointManager
-from .models import AIM, PPO_Actor, PPO_Centralised_Critic as PPO_Critic
+from .models import Encoder, PPO_Actor, PPO_Critic
 from .env_wrapper import SimWrapper
-from .train import train, train_language
+from .train import train
 from .run_sim import run_sim
+from .train_ae import train_language
 
 
 def get_args():
@@ -43,17 +44,17 @@ def setup(config_pth, device, mode):
     global_obs_shape = (sim.get_global_obs_size(0),)
     act_shape = (sim.get_agent_action_count(),)
 
-    # load codebook
-    codebook = None
+    # load encoder
+    encoder = None
     if config.communication_type == CommunicationType.AIM:
-        codebook = AIM.load_codebook(config.aim_seed)
-
+        encoder = Encoder.load(config)
 
     actor = PPO_Actor(
-        num_agents, agent_obs_shape[0] + comms_shape[0], act_shape[0], comm_dim=config.communication_size,
-        communication_type=config.communication_type, feature_dim=config.feature_dim,
+        num_agents, agent_obs_shape[0], act_shape[0], comm_dim=config.communication_size,
+        communication_type=config.communication_type,
         lstm_hidden_size=config.lstm_hidden_size, is_training=mode == "train",
-        vocab_size=config.vocab_size, aim_codebook=codebook, num_comms=config.num_comms
+        vocab_size=config.vocab_size, num_comms=config.num_comms,
+        encoder=encoder, device=device
     ).to(device)
     critic = PPO_Critic(num_agents, global_obs_shape[0], config.communication_size, config.num_comms, feature_dim=config.feature_dim).to(device)
 
@@ -85,7 +86,6 @@ def setup(config_pth, device, mode):
         "agent_obs_shape": agent_obs_shape,
         "input_comms_shape": comms_shape,
         "act_shape": act_shape,
-        "codebook": codebook
     }, config
 
 
