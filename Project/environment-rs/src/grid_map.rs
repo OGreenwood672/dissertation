@@ -77,6 +77,15 @@ impl GridMap {
     //     &self.cells[location.y as usize][location.x as usize].stations
     // }
 
+    pub fn reset(&mut self) {
+        for row in &mut self.cells {
+            for cell in row {
+                cell.agents.clear();
+                cell.stations.clear();
+                cell.visited = false;
+            }
+        }
+    }
 
     pub fn move_agent(&mut self, id: i32, old_location: Location, new_location: Location) {
         self.remove_agent(id, old_location);

@@ -1,6 +1,6 @@
 {
-    "arena_width": 25,
-    "arena_height": 25,
+    "arena_width": 16,
+    "arena_height": 16,
     "headless": false,
     "websocket_url": "ws://127.0.0.1:3000",
     "websocket_path": "ws",

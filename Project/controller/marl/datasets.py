@@ -11,7 +11,7 @@ class NudgeFeature(str, Enum):
 
 class ObsData(Dataset):
 
-    # OBS, actions [5], critic value [1]
+    # OBS, actions [5], critic value [1], reward [1]
 
     def __init__(self, obs_log_path, action_count):
         self.obs = np.genfromtxt(obs_log_path, skip_header=1, delimiter=",").astype(np.float32)
@@ -24,5 +24,6 @@ class ObsData(Dataset):
         
         row = self.obs[idx]
 
-        return torch.from_numpy(row[:-self.action_count - 1])
-        
+        target_reward = torch.from_numpy(row[-1:]) * 100.0
+
+        return torch.from_numpy(row[:-self.action_count - 1 - 1]), target_reward

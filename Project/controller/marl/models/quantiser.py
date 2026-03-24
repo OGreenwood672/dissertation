@@ -6,12 +6,11 @@ import torch.nn as nn
 
 class Quantiser(nn.Module):
 
-    def __init__(self, vocab_size, comm_dim, commitment_cost=0.25, is_training=False):
+    def __init__(self, vocab_size, comm_dim, commitment_cost=0.25):
         super().__init__()
         self.vocab_size = vocab_size
         self.comm_dim = comm_dim
         self.commitment_cost = commitment_cost
-        self.is_training = is_training
 
         # The codebook
         self.embedding = nn.Embedding(vocab_size, comm_dim)
@@ -28,7 +27,7 @@ class Quantiser(nn.Module):
         min_distance_index = distances.argmin(-1)
 
         # Dead Code Revival
-        if self.is_training:
+        if self.training:
             with torch.no_grad():
                 unique, counts = torch.unique(min_distance_index, return_counts=True)
                 self.usage_count[unique] += counts.float()

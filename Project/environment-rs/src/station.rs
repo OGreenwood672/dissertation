@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use serde::{Deserialize, Serialize};
 
 use crate::location::Location;
@@ -25,6 +27,7 @@ pub struct Station {
     location: Location,
     station_type: StationType,
     resource: ResourceType,
+    is_found: AtomicBool,
 }
 
 #[derive(Serialize)]
@@ -35,7 +38,7 @@ pub struct StationState {
 
 impl Station {
     pub fn new(id: i32, location: Location, station_type: StationType, resource: ResourceType) -> Self {
-        Station { id, location, station_type, resource }
+        Station { id, location, station_type, resource, is_found: AtomicBool::new(false) }
     }
 
     pub fn get_self_observations(&self, width: u32, height: u32) -> Vec<f32> {
@@ -72,6 +75,14 @@ impl Station {
     
     pub fn get_resource(&self) -> &ResourceType {
         &self.resource
+    }
+
+    pub fn get_is_found(&self) -> bool {
+        self.is_found.load(Ordering::Relaxed)
+    }
+
+    pub fn set_found(&self) {
+        self.is_found.store(true, Ordering::Relaxed);
     }
 }
 

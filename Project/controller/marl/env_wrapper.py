@@ -18,13 +18,14 @@ class SimWrapper:
         flat_comms = world_comms.astype(np.float32).ravel()
         flat_actions = actions.ravel()
 
-        flat_obs, flat_global_obs, flat_rewards = self._sim.parallel_step(flat_actions, flat_comms)
+        flat_obs, flat_global_obs, flat_targets, flat_rewards = self._sim.parallel_step(flat_actions, flat_comms)
 
         obs = flat_obs.reshape(n_worlds, self.get_num_agents(), self.get_obs_dim())
         global_obs = flat_global_obs.reshape(n_worlds, self.get_global_obs_dim() + self.get_world_comms_size())
+        targets = flat_targets.reshape(n_worlds, self.get_num_agents() * 3)
         rewards = flat_rewards.reshape(n_worlds, self.get_num_agents())
 
-        return obs, global_obs, rewards
+        return obs, global_obs, targets, rewards
 
     def reset(self, world_id):
         return self._sim.reset(world_id)
@@ -43,6 +44,9 @@ class SimWrapper:
 
     def get_agent_obs(self, world_id, agent_id):
         return self._sim.get_agent_obs(world_id, agent_id)
+    
+    def get_agent_obs_mask(self, world_id):
+        return self._sim.get_agent_obs_mask(world_id)
     
     def get_world_comms_size(self):
         return self._num_agents * self._comm_dim * self._num_comms

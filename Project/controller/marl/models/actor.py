@@ -3,19 +3,23 @@
 
 import torch
 from torch import nn
+from typing import Tuple, Optional
 
 from controller.marl.config import CommunicationType
+from controller.marl.models.encoders.encoder import Encoder
 from controller.marl.models.quantiser import Quantiser
 from .utils import init_layer
 
 
 class PPO_Actor(nn.Module):
+    __constants__ = ['comm_type_str']
+
     def __init__(
             self,
             num_agents, obs_dim, action_dim, comm_dim,
             communication_type=CommunicationType.CONTINUOUS,
             feature_dim=256, lstm_hidden_size=64, vocab_size=64,
-            is_training=False, num_comms=1,
+            num_comms=1,
             encoder=None, device=None
         ):
         super().__init__()
@@ -23,32 +27,41 @@ class PPO_Actor(nn.Module):
         self.obs_dim = obs_dim
         self.hidden_size = lstm_hidden_size
         self.comm_type = communication_type
+        self.comm_type_str = communication_type.name
         self.num_comms = num_comms
         self.vocab_size = vocab_size
         self.hq_levels = None
         self.comm_dim = comm_dim
-        self.is_training = is_training
         self.device = device
 
         # Main body
         if communication_type == CommunicationType.AIM:
             assert encoder is not None
-            self.encoder = encoder
+            self.base_encoder = nn.Identity()
+            self.aim_encoder = encoder
             # Freeze pre-trained encoder
-            for parameter in self.encoder.parameters():
+            for parameter in self.aim_encoder.parameters():
                 parameter.requires_grad = False
 
         else:
-            self.encoder = nn.Sequential(
+            self.base_encoder = nn.Sequential(
                 init_layer(nn.Linear(obs_dim, feature_dim)),
                 nn.ReLU(),
                 init_layer(nn.Linear(feature_dim, comm_dim * num_comms)),
                 nn.ReLU(),
             )
-
+            self.aim_encoder = Encoder(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "sq-vae")
 
         self.body = nn.Sequential(
-            init_layer(nn.Linear(comm_dim * num_comms * (1 if communication_type == CommunicationType.NONE else num_agents), lstm_hidden_size)),
+            init_layer(nn.Linear(
+                (
+                    comm_dim *
+                    num_comms *
+                    (1 if communication_type == CommunicationType.NONE else (num_agents)) +
+                    (comm_dim * num_comms if communication_type == CommunicationType.AIM else 0)
+                ),
+                lstm_hidden_size
+            )),
             nn.ReLU(),
             init_layer(nn.Linear(lstm_hidden_size, lstm_hidden_size)),
             nn.ReLU(),
@@ -61,7 +74,26 @@ class PPO_Actor(nn.Module):
         )
         
         # Output for actions
-        self.action_head = nn.Linear(lstm_hidden_size, action_dim)
+        action_input_dim = lstm_hidden_size
+        if communication_type == CommunicationType.AIM:
+             action_input_dim += comm_dim * num_comms
+        self.action_head = nn.Sequential(
+            init_layer(nn.Linear(action_input_dim, lstm_hidden_size)),
+            nn.ReLU(),
+            init_layer(nn.Linear(lstm_hidden_size, action_dim))
+        )
+
+        self.register_buffer('agent_mask', ~torch.eye(num_agents, dtype=torch.bool).unsqueeze(0).unsqueeze(0))
+
+        self.comm_head = nn.Identity()
+        self.comm_heads = nn.Identity()
+        self.vq_layer = nn.Identity()
+        self.predict_agents_returns = nn.Identity()
+        self.predict_critic_value = nn.Identity()
+        self.predict_intent_sender = nn.Identity()
+        self.predict_intent_receiver = nn.Identity()
+        self.predict_intent_sender_goal = nn.Identity()
+        self.predict_intent_receiver_goal = nn.Identity()
 
         if communication_type == CommunicationType.CONTINUOUS:
             # noise to learn
@@ -71,7 +103,7 @@ class PPO_Actor(nn.Module):
             self.comm_head = nn.Linear(lstm_hidden_size, comm_dim * num_comms)
 
         elif communication_type == CommunicationType.DISCRETE:
-            self.vq_layer = Quantiser(vocab_size, comm_dim=comm_dim, is_training=is_training)
+            self.vq_layer = Quantiser(vocab_size, comm_dim=comm_dim)
             self.comm_head = nn.Linear(lstm_hidden_size, comm_dim * num_comms)
 
         elif communication_type == CommunicationType.AIM:
@@ -89,21 +121,27 @@ class PPO_Actor(nn.Module):
             # Predict critic value
             self.predict_critic_value = nn.Linear(comm_dim * num_comms + lstm_hidden_size, 1)
 
-            for hq_level in range(self.hq_levels):
-                setattr(self, f"comm_head_{hq_level}", nn.Linear(lstm_hidden_size + comm_dim * hq_level * num_comms, num_comms * vocab_size))
+            self.comm_heads = nn.ModuleList([
+                nn.Linear(lstm_hidden_size + comm_dim * hq_level * num_comms, num_comms * vocab_size)
+                for hq_level in range(self.hq_levels)
+            ])
 
             # Intent Predictors
-            self.predict_intent_sender = nn.Linear(comm_dim * num_comms + lstm_hidden_size, action_dim)
-            self.predict_intent_receiver = nn.Linear(comm_dim * num_comms + lstm_hidden_size, action_dim)
+            # self.predict_intent_sender = nn.Linear(comm_dim * num_comms + lstm_hidden_size, action_dim)
+            # self.predict_intent_receiver = nn.Linear(comm_dim * num_comms + lstm_hidden_size, action_dim)
+
+            self.predict_intent_sender_goal = nn.Linear(comm_dim * num_comms + lstm_hidden_size, 2)
+            self.predict_intent_receiver_goal = nn.Linear(comm_dim * num_comms + lstm_hidden_size, 2)
+
 
         elif communication_type == CommunicationType.NONE:
             self.comm_head = nn.Linear(lstm_hidden_size, comm_dim * num_comms)
         
-
-    def init_hidden(self, batch_size=1):
+    @torch.jit.export
+    def init_hidden(self, batch_size: int = 1) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Initializes the hidden states for all agents.
-        Returns a list of N (h, c) tuples.
+        Returns a tuple of (h, c).
         """
         length = batch_size * self.num_agents
 
@@ -112,7 +150,7 @@ class PPO_Actor(nn.Module):
         return (h, c)
     
 
-    def forward(self, x, hidden_states, world_comms=None):
+    def forward(self, x: torch.Tensor, hidden_states: Tuple[torch.Tensor, torch.Tensor], world_comms: Optional[torch.Tensor] = None):
         """
         Processes observations and hidden states.
         
@@ -136,32 +174,52 @@ class PPO_Actor(nn.Module):
         assert N == self.num_agents, f"Input has wrong number of agents: Got {N}, Expected {self.num_agents}"
         assert O == self.obs_dim, f"Input has wrong observation size: Got {O}, Expected {self.obs_dim}"
         
-        if world_comms is not None:
+        h_out, c_out = hidden_states
+        if self.comm_type_str == "AIM":
+            assert world_comms is not None
             world_comms = world_comms.reshape(B, T, N, self.num_comms * self.comm_dim)
 
-            _, self_comm = self.encoder(x)
+            _, environment_obs = self.aim_encoder(x)
+            # environment_obs = self.encoder(x)
 
-            mask = torch.eye(N, dtype=torch.bool, device=x.device)
-            new_comms = world_comms.unsqueeze(2).repeat(1, 1, N, 1, 1)
-            new_comms[:, :, mask] = self_comm
-            new_comms = new_comms.reshape(B, T, N, self.num_comms * self.comm_dim * N).transpose(1, 2).contiguous().reshape(B * N, T, self.comm_dim * self.num_comms * N)
+            expanded_comms = world_comms.unsqueeze(2).expand(B, T, N, N, self.num_comms * self.comm_dim)
+            # other_comms = expanded_comms[:, :, :, self.agent_mask, :].reshape(B, T, N, N - 1, -1)
+            other_comms = expanded_comms[self.agent_mask.expand(B, T, N, N)].view(B, T, N, N - 1, -1)
+
+            self_comm = torch.zeros(B, T, N, 1, self.num_comms * self.comm_dim, device=x.device)
+
+            comms = torch.cat([self_comm, other_comms], dim=-2)
+            comms = comms.reshape(B, T, N, N * self.num_comms * self.comm_dim)
+
+            x = torch.cat([environment_obs, comms], dim=-1)
+            x = x.transpose(1, 2).contiguous()
+            x = x.reshape(B * N, T, self.comm_dim * self.num_comms * N + self.comm_dim * self.num_comms)
+
+            x = self.body(x)
+            x, (h_out, c_out) = self.lstm(x, hidden_states)
+
+            # [B*N, T, Hidden] -> [B, N, T, Hidden] -> [B, T, N, Hidden]
+            x = x.reshape(B, N, T, -1).transpose(1, 2)
+            
+            action_input = torch.cat([x, other_comms.sum(-2)], dim=-1)
+            action_logits = self.action_head(action_input)
+
+
+        # elif self.comm_type_str == "NONE":
         else:
-            new_comms = self.encoder(x).transpose(1, 2).contiguous().reshape(B * N, T, self.comm_dim * self.num_comms)
-
-        # lstm_output, (h_out, c_out) = self.lstm(new_comms, hidden_states)
-        output = self.body(new_comms)
-        output, (h_out, c_out) = self.lstm(output, hidden_states)
-
-
-        # [B*N, T, Hidden] -> [B, N, T, Hidden] -> [B, T, N, Hidden]
-        output = output.reshape(B, N, T, -1).transpose(1, 2)
+            features = self.base_encoder(x).transpose(1, 2).contiguous().reshape(B * N, T, self.comm_dim * self.num_comms)
+            x = self.body(features)
+            x, (h_out, c_out) = self.lstm(x, hidden_states)
+            
+            # [B*N, T, Hidden] -> [B, N, T, Hidden] -> [B, T, N, Hidden]
+            x = x.reshape(B, N, T, -1).transpose(1, 2)
         
-        action_logits = self.action_head(output)
+            action_logits = self.action_head(x)
 
-        if self.comm_type == CommunicationType.NONE:
-            comm_logits = torch.zeros(B, T, N, self.comm_head.out_features, device=x.device).reshape(B, T, N, self.num_comms, -1)
-        elif self.comm_type != CommunicationType.AIM:
-            comm_logits = self.comm_head(output).reshape(B, T, N, self.num_comms, -1)
+        if self.comm_type_str == "NONE":
+            comm_logits = torch.zeros(B, T, N, self.num_comms * self.comm_dim, device=x.device).reshape(B, T, N, self.num_comms, -1)
+        elif self.comm_type_str != "AIM":
+            comm_logits = self.comm_head(x).reshape(B, T, N, self.num_comms, -1)
         else:
             comm_logits = None
         
@@ -172,13 +230,7 @@ class PPO_Actor(nn.Module):
                 
         return (
             action_logits, comm_logits,
-            output, (h_out, c_out)
+            x, (h_out, c_out)
             # output, (None, None)
         )
-
-    def get_comm_type(self):
-        return self.comm_type
-    
-    def set_is_training(self, is_training):
-        self.is_training = is_training
 

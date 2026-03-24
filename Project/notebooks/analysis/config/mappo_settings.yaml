@@ -1,0 +1,44 @@
+training:
+  training_timesteps: 30000
+  simulation_timesteps: 300
+  timestep: 0
+  buffer_size: 128
+  worlds_parallised: 32
+  seed: 193
+  periodic_save_interval: 100
+
+ppo_hyperparameters:
+  ppo_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_coef: 0.2
+  vf_coef: 0.5
+  ent_coef: 0.01
+  actor_learning_rate: 0.0002
+  critic_learning_rate: 0.0001
+
+architecture:
+  lstm_hidden_size: 256
+  feature_dim: 256
+
+communication_type: AIM
+
+language:
+  vocab_size: 256
+  communication_size: 64
+  num_comms: 1
+  autoencoder_type: "sq-vae"
+  hq_layers: 3
+  aim_learning_rate: 0.0001
+  obs_runs: 40
+  obs_runs_noise: 0.15
+  aim_batch_size: 32
+  ae_epochs: 10
+
+vqvae:
+  commitment_cost: 0.25
+
+sqvae:
+  kl_weight: 0.001
+  min_temperature: 0.1
+  init_temperature: 1.0

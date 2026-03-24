@@ -21,7 +21,7 @@ def set_priors(model, dataloader, device='cuda'):
     latents = []
     collected_samples = 0
     with torch.no_grad():
-        for batch_obs in dataloader:
+        for batch_obs, _ in dataloader:
             
             batch_obs = batch_obs.to(device)
             
@@ -51,6 +51,8 @@ def set_priors(model, dataloader, device='cuda'):
 
 def train_language(system, config, device):
 
+    torch.set_flush_denormal(True)
+
     W = config.worlds_parallised
     N = system['num_agents']
     T = config.simulation_timesteps
@@ -59,11 +61,14 @@ def train_language(system, config, device):
     VOCAB_SIZE = config.vocab_size
     NC = config.num_comms
     ACTION_COUNT = system['act_shape'][0]
+    HQ_LAYERS = config.hq_layers
+
+    obs_mask = system["sim"].get_agent_obs_mask(0)
 
     cm = system["checkpoint_manager"]
 
     # Load obs logs
-    obs_logs_file = cm.get_result_path() + "/obs_log.csv"
+    obs_logs_file = cm.get_result_path() / "obs_log.csv"
     if (
         (os.path.exists(obs_logs_file) and input(f"Obs logs already exist, would you like to overwrite? (y/N) ").lower() == "y")
         or not os.path.exists(obs_logs_file)
@@ -71,7 +76,7 @@ def train_language(system, config, device):
 
         RUNS = config.obs_runs
 
-        rewards = run_sim(system, config, device, RUNS, noise=config.obs_runs_noise, collect_obs_file=obs_logs_file)
+        rewards = run_sim(system, config, device, RUNS, collect_obs_file=obs_logs_file)
 
         print(f"Obs collected: {RUNS * W * N * T}")
         print(f"Baseline: {np.mean(rewards)}")
@@ -91,14 +96,14 @@ def train_language(system, config, device):
     )
 
     num_training_steps = config.ae_epochs * (len(training_loader) // config.aim_batch_size)
-
+    
     aim = AIM(
-        OBS_DIM,
+        OBS_DIM, ACTION_COUNT,
         512, COMM_DIM * NC, VOCAB_SIZE,
         commitment_cost=0.25,
-        num_training_steps=num_training_steps, hq_vae=config.hq_layers,
+        num_training_steps=num_training_steps, hq_vae=HQ_LAYERS,
         init_temperature=config.init_temperature, min_temperature=config.min_temperature,
-        autoencoder_type=config.autoencoder_type
+        autoencoder_type=config.autoencoder_type, obs_mask=torch.tensor(obs_mask, dtype=torch.bool, device=device)
     ).to(device)
 
     set_priors(aim, prior_loader, device='cuda')
@@ -110,12 +115,13 @@ def train_language(system, config, device):
         train_loss = 0.0
         aim.train()
 
-        for batch_obs in training_loader:
+        for batch_obs, batch_rewards in training_loader:
 
             batch_obs = batch_obs.to(device)
+            batch_rewards = batch_rewards.to(device)
 
             optimizer.zero_grad()
-            loss = aim(batch_obs)
+            loss = aim(batch_obs, None)
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(aim.parameters(), max_norm=1.0)
@@ -129,11 +135,12 @@ def train_language(system, config, device):
         val_loss = 0.0
         
         with torch.no_grad():
-            for batch_obs in validation_loader:
+            for batch_obs, batch_rewards in validation_loader:
 
                 batch_obs = batch_obs.to(device)
+                batch_rewards = batch_rewards.to(device)
 
-                loss = aim(batch_obs) 
+                loss = aim(batch_obs, None) 
                 val_loss += loss.item()
                 
         avg_val_loss = val_loss / len(validation_loader)
@@ -144,14 +151,26 @@ def train_language(system, config, device):
     test_loss = 0.0
 
     with torch.no_grad():
-        for batch_obs in test_loader:
+        for batch_obs, batch_rewards in test_loader:
 
             batch_obs = batch_obs.to(device)
+            batch_rewards = batch_rewards.to(device)
 
-            loss = aim(batch_obs)
+            loss = aim(batch_obs, None)
             test_loss += loss.item()
+
+        # show_loader = DataLoader(test_set, batch_size=1, shuffle=True)
+        # for obs, action in show_loader:
+        #     print("OBS", obs)
+        #     print("Action", action)
+        #     construction_loss, reward_loss, reconstructed, quantised = aim.check(obs.to(device), action.to(device))
+        #     print("Reconstruction Loss", construction_loss)
+        #     print("Reward Loss", reward_loss)
+        #     print("Quantised", quantised)
+        #     print("Reconstructed", reconstructed)
+        #     print("\n")
 
     print(f"Final Test Set Loss: {test_loss / len(test_loader):.4f}")
 
     # save language
-    aim.save_encoder()
+    aim.save()

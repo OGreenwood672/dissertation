@@ -49,21 +49,23 @@ class SQ_VAE(nn.Module):
         curr_residual = latent
         code_sum = torch.zeros_like(latent)
         
-        for hq_level in range(self.hq_vae):
-            
+        for hq_level, (embedding, logit_scale) in enumerate(zip(self.embeddings, self.logit_scales)):
+
             if hq_level > 0:
                 scale = curr_residual.std(dim=-1, keepdim=True) + 1e-5
                 scaled_input = curr_residual / scale
             else:
                 scaled_input = curr_residual
-                scale = 1.0
+                scale = torch.tensor(1.0, dtype=curr_residual.dtype, device=curr_residual.device)
 
             flat_input = scaled_input.view(-1, self.latent_dim)
 
-            x_norm = F.normalize(flat_input, p=2, dim=-1)
-            embed_norm = F.normalize(self.embeddings[hq_level].weight, p=2, dim=-1)
+            x_norm = F.normalize(flat_input, p=2.0, dim=-1)
 
-            logits = torch.matmul(x_norm, embed_norm.t()) * self.logit_scales[hq_level]
+            bounded_weight = torch.sigmoid(embedding.weight) 
+            embed_norm = F.normalize(bounded_weight , p=2.0, dim=-1)
+
+            logits = torch.matmul(x_norm, embed_norm.t()) * logit_scale
                         
             temp = self.temperatures[hq_level].item()
             
@@ -79,7 +81,7 @@ class SQ_VAE(nn.Module):
                 indices = logits.argmax(dim=-1)
                 soft_one_hot = F.one_hot(indices, self.vocab_size).float()
                 
-            quantised_scaled = (soft_one_hot @ self.embeddings[hq_level].weight).view_as(scaled_input)
+            quantised_scaled = (soft_one_hot @ bounded_weight).view_as(scaled_input)
 
             probs = F.softmax(logits / temp, dim=-1)
             log_probs = F.log_softmax(logits / temp, dim=-1)
@@ -98,7 +100,8 @@ class SQ_VAE(nn.Module):
             code_sum = code_sum + quantised
             curr_residual = curr_residual - quantised
         
-        quantised = latent + (code_sum - latent).detach()
+        # quantised = latent + (code_sum - latent).detach()
+        quantised = code_sum
         
         # if self.training:
         return loss, quantised

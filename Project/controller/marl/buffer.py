@@ -27,6 +27,7 @@ class RolloutBuffer:
 
         self.obs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_obs), device=device)
         self.global_obs = torch.zeros((self.buffer_size, timesteps_per_run, num_global_obs), device=device)
+        self.targets = torch.zeros((self.buffer_size, timesteps_per_run, num_agents * 3), device=device)
         self.actions = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.rewards = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.action_log_probs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
@@ -70,6 +71,7 @@ class RolloutBuffer:
 
         self.obs = process("obs", self.obs)
         self.actions = process("actions", self.actions)
+        self.targets = process("targets", self.targets)
         self.rewards = process("rewards", self.rewards)
         self.action_log_probs = process("action_log_probs", self.action_log_probs)
         self.comm_log_probs = process("comm_log_probs", self.comm_log_probs)
@@ -133,6 +135,7 @@ class RolloutBuffer:
 
             yield {
                 "obs": self.obs[mb_indices],
+                "targets": self.targets[mb_indices],
                 "actions": self.actions[mb_indices],
                 "rewards": self.rewards[mb_indices],
                 "action_log_probs": self.action_log_probs[mb_indices],

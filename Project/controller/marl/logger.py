@@ -27,7 +27,8 @@ class Logger:
             "communication_entropy_mean", "communication_perplexity_mean",
             "communication_active_codebook_usage",
             "actor_loss", "critic_loss", "entropy_loss", "vq_loss",
-            "predicted_return_loss", "predicted_critic_value_loss", "predicted_intent_loss"
+            "predicted_return_loss", "predicted_critic_value_loss", "predicted_intent_loss",
+            "lstm_grad_norm", "comm_grad_norm", "action_grad_norm"
         ]
 
         file_exists = os.path.exists(self.save_file)
@@ -171,6 +172,9 @@ class Logger:
             ("Std Reward", "reward_std", "green"),
             ("Actor Loss", "actor_loss", "blue"),
             ("Critic Loss", "critic_loss", "red"),
+            ("LSTM Grad Norm", "lstm_grad_norm", "yellow"),
+            ("Comm Grad Norm", "comm_grad_norm", "yellow"),
+            ("Action Grad Norm", "action_grad_norm", "yellow"),
         ]
 
         if (
@@ -279,7 +283,7 @@ class CommsLogger:
             writer.close()
     
 def get_line_graph(data, key):
-
+    
     y = [float(row[key]) for row in data]
 
     if not y:

@@ -9,10 +9,10 @@ def load_yaml(filepath):
 
 from enum import Enum
 class CommunicationType(str, Enum):
-    DISCRETE = "discrete"
-    CONTINUOUS = "continuous"
-    AIM = "aim"
-    NONE = "none"
+    DISCRETE = "DISCRETE"
+    CONTINUOUS = "CONTINUOUS"
+    AIM = "AIM"
+    NONE = "NONE"
 
 
 class MappoConfig(BaseModel):

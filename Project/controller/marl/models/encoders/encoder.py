@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from controller.marl.config import MappoConfig
+from project_paths import LANGUAGES_DIR
 
 from .vq_vae import VQ_VAE
 from .sq_vae import SQ_VAE
@@ -88,48 +89,16 @@ class Encoder(nn.Module):
         }
         json.dump(config, open(os.path.join(save_folder, "config.json"), "w"))
 
-    def save(self):
+    def save(self, save_folder):
 
-        result_folder = f"./results/languages/"
-        if not os.path.exists(result_folder):
-            os.makedirs(result_folder)
-
-        new_folder = os.path.join(result_folder, self.get_folder_name())
-        os.makedirs(new_folder)
-
-        self.save_codebook(new_folder)
-        self.save_encoder(new_folder)
-        self.save_config(new_folder)
-
-
-    @staticmethod
-    def get_folder_name():
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        return str(timestamp)
-
+        self.save_codebook(save_folder)
+        self.save_encoder(save_folder)
+        self.save_config(save_folder)
 
     @classmethod
-    def load(cls, config: MappoConfig, is_training=False):
+    def load(cls, folder_path):
 
-        result_path = "./results/languages/"
-
-        for folder in os.listdir(result_path)[::-1]:
-            check_config = json.load(open(os.path.join(result_path, folder, "config.json"), "r"))
-
-            for key, value in config:
-                if key in check_config and check_config[key] != value:
-                    break
-            else:
-                folder_path = os.path.join(result_path, folder)
-                found = True
-                break
-
-        if not found:
-            raise ValueError(f"No matching folder found")
-
-        print(f"Loading languag from folder: {folder_path}")
-        
-        ae_config = json.load(open(os.path.join(folder_path, "config.json"), "r"))
+        ae_config = json.load(open(folder_path / "config.json", "r"))
 
         encoder = cls(
             ae_config["obs_dim"], ae_config["hidden_size"], ae_config["latent_dim"], ae_config["vocab_size"],
@@ -138,11 +107,11 @@ class Encoder(nn.Module):
             ae_config["autoencoder_type"]
         )
         
-        embeddings = np.load(folder_path + "/codebook.npy")
+        embeddings = np.load(folder_path / "codebook.npy")
         for i, embedding_weights in enumerate(embeddings):
             encoder.get_embedding(i).weight.data = torch.tensor(embedding_weights, dtype=torch.float32)
 
-        encoder_path = folder_path + "/encoder.pt"
+        encoder_path = folder_path / "encoder.pt"
         assert os.path.exists(encoder_path)
 
         encoder.encoder.load_state_dict(torch.load(encoder_path))

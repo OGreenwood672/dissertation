@@ -6,17 +6,19 @@ import torch
 
 from .config import MappoConfig
 
+from project_paths import RESULTS_DIR
+
+
 
 class CheckpointManager:
 
-    def __init__(self, config: MappoConfig | str, default_load_previous: bool = False):
+    def __init__(self, config: MappoConfig, default_load_previous: bool = False):
 
-        if isinstance(config, str):
-            self.config = MappoConfig.from_yaml('./configs/mappo_settings.yaml')
+        self.config = config
 
         seed = self.config.seed
         
-        result_path = "./results/" + self.config.communication_type.value + "/"
+        result_path = RESULTS_DIR / self.config.communication_type.value
         
         os.makedirs(result_path, exist_ok=True)
         
@@ -29,20 +31,20 @@ class CheckpointManager:
                     seed = test_used_seed
                     break
                 test_used_seed += 1
-            result_path += self.get_folder_name(seed)
+            result_path = result_path / self.get_folder_name(seed)
             self.gen_result_folder(result_path, self.config)
             self.is_new_run = True
         
         # find largest seed
         elif seed == -1 and default_load_previous:
             used_seeds = list(map(lambda x: int(re.search(r"seed_(\d+)", x).group(1)), os.listdir(result_path)))
-            result_path += self.get_folder_name(max(used_seeds))
+            result_path = result_path / self.get_folder_name(max(used_seeds))
             self.is_new_run = False
 
         else: # Seed given
             folders = list(filter(lambda x: x.endswith(str(f"seed_{seed}")), os.listdir(result_path)))
             if len(folders) > 0:
-                result_path += folders[0]
+                result_path = result_path / folders[0]
                 self.is_new_run = False
             else:
                 result_path += self.get_folder_name(seed)
@@ -51,10 +53,9 @@ class CheckpointManager:
 
         self.result_path = result_path
         self.seed = seed
-        self.config.seed = seed
 
     def load_config(self):
-        config_path = self.result_path + "/config.json"
+        config_path = self.result_path / "config.json"
         return MappoConfig.from_json(config_path)
 
     def get_config(self):
@@ -63,7 +64,7 @@ class CheckpointManager:
 
     def load_checkpoint_models(self, checkpoint_step=None):
 
-        checkpoints_path = self.result_path + "/checkpoints"
+        checkpoints_path = self.result_path / "checkpoints"
 
         if checkpoint_step is None:
             avaliable_checkpoints = list(map(lambda x: int(re.search(r"checkpoint_(\d+)", x).group(1)), os.listdir(checkpoints_path)))
@@ -72,7 +73,7 @@ class CheckpointManager:
             checkpoint_step = max(avaliable_checkpoints)
 
 
-        model_path = self.result_path + "/checkpoints/checkpoint_" + str(checkpoint_step) + ".pth"
+        model_path = self.result_path / "checkpoints" / ("checkpoint_" + str(checkpoint_step) + ".pth")
         try:
             checkpoint = torch.load(model_path)
         except:
@@ -95,7 +96,7 @@ class CheckpointManager:
             "step": step
         }
 
-        save_path = self.result_path + "/checkpoints/checkpoint_" + str(step) + ".pth"
+        save_path = self.result_path / "checkpoints" / ("checkpoint_" + str(step) + ".pth")
         torch.save(state, save_path)
 
     @staticmethod
@@ -107,10 +108,10 @@ class CheckpointManager:
         os.makedirs(result_path)
 
         # generate config (hyperparams)
-        json.dump(config.get_dict(), open(result_path + "/config.json", "w"))
+        json.dump(config.get_dict(), open(result_path / "config.json", "w"))
 
         # generate checkpoints folder
-        os.makedirs(result_path + "/checkpoints")
+        os.makedirs(result_path / "checkpoints")
     
 
     def get_seed(self):

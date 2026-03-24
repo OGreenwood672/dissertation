@@ -3,7 +3,7 @@ use std::vec::Vec;
 use serde::Serialize;
 
 use crate::location::Location;
-use crate::resource::{ResourceType, one_hot_vector_from_resource};
+use crate::resource::{RESOURCE_COUNT, ResourceType, one_hot_vector_from_resource};
 use crate::station::{Station, StationType};
 
 #[derive(Clone, PartialEq)]
@@ -64,6 +64,7 @@ pub struct Agent {
     pub location: Location,
     pub curr_reward: f32,
     pub agent_targets: Vec<AgentTarget>,
+    collection_count: i32,
 }
 
 // actions: move up, down, left, right, interact, 
@@ -114,6 +115,7 @@ impl Agent {
             location,
             curr_reward: 0.0,
             agent_targets,
+            collection_count: 0,
         };
         agent.reset_targets();
 
@@ -156,6 +158,10 @@ impl Agent {
         self.curr_reward = reward;
     }
 
+    pub fn add_curr_reward(&mut self, reward: f32) {
+        self.curr_reward += reward;
+    }
+
     pub fn get_location(&self) -> &Location {
         &self.location
     }
@@ -167,9 +173,29 @@ impl Agent {
         }
     }
 
-    pub fn get_current_target_locations(&self) -> Vec<Location> {
-        self.agent_targets.iter().filter(|target| target.is_current_target && target.is_found).map(|target| target.location).collect()
+    pub fn get_inputs(&self) -> Vec<ResourceType> {
+        self.agent_targets.iter().filter(|target| target.station_type == StationType::PickUp).map(|target| target.resource.clone()).collect()
     }
+
+    pub fn get_curr_output(&self) -> Option<ResourceType> {
+        self.agent_targets.iter().find(|target| target.station_type == StationType::DropOff && target.is_collected).map(|target| target.resource.clone())
+    }
+
+
+    pub fn get_current_targets(&self) -> Vec<&AgentTarget> {
+        self.agent_targets.iter().filter(|target| target.is_current_target && target.is_found).map(|target| target).collect()
+    }
+
+    pub fn is_needed(&self, resource: Option<ResourceType>) -> bool {
+        if let Some(resource) = resource {
+            self.agent_targets.iter().any(|target| {
+                target.resource == resource && !target.is_collected
+            })
+        } else {
+            false
+        }
+    }
+
 
 
     fn take_resource(&mut self, resource: ResourceType) {
@@ -181,6 +207,7 @@ impl Agent {
         // Successfully given output to agent
         // Now have to target inputs again
         self.reset_targets();
+        self.add_curr_reward(0.7);
     }
 
     fn reset_targets(&mut self) {
@@ -240,7 +267,7 @@ impl Agent {
                 obs.push(targets[i].is_found as i32 as f32);
                 obs.push(targets[i].is_collected as i32 as f32);
             } else {
-                obs.push(0.0);
+                obs.extend(vec![0.0; RESOURCE_COUNT]);
                 obs.push(0.0);
                 obs.push(0.0);
             }
@@ -257,7 +284,7 @@ impl Agent {
 
         const COMBINE_REWARD: f32 = 1.0;
         const BASIC_REWARD: f32 = 0.7;
-        const FOUND_REWARD: f32 = 0.1;
+        const FOUND_REWARD: f32 = 0.5;
 
         let mut successful_interaction = false;
         let mut dropped_off = false;
@@ -295,6 +322,7 @@ impl Agent {
             } else {
                 reward += BASIC_REWARD;
             }
+            self.collection_count += 1;
         }
         if dropped_off {
             self.reset_targets();
@@ -310,7 +338,7 @@ impl Agent {
 
         const COMBINE_REWARD: f32 = 1.0;
         const BASIC_REWARD: f32 = 0.7;
-        const FOUND_REWARD: f32 = 0.1;
+        const FOUND_REWARD: f32 = 0.5;
 
 
         let mut successful_interaction = false;
@@ -326,15 +354,24 @@ impl Agent {
                 );
 
                 if !target.is_found { // Hard code in agent memory, but note it is an agent - will move
-                    target.set_found(agent.location, false);
                     reward += FOUND_REWARD;
                 }
+                target.set_found(agent.location, false);
+
                 if target.is_current_target && target.station_type == StationType::PickUp && other_agent_has_item {
                     agent.take_resource(target.resource);
                     successful_interaction = true;
                     target.collect();
                 }
+            } else if target.station_type == StationType::DropOff && agent.get_inputs().contains(&target.resource) {
+
+                if !target.is_found { // Hard code in agent memory, but note it is an agent - will move
+                    reward += FOUND_REWARD;
+                }
+                target.set_found(agent.location, false);
+
             }
+                
         }
 
         if successful_interaction {
@@ -343,6 +380,7 @@ impl Agent {
             } else {
                 reward += BASIC_REWARD;
             }
+            self.collection_count += 1;
         }
 
         reward
@@ -350,13 +388,15 @@ impl Agent {
     }
 
     pub fn get_inventory_reward(&self) -> f32 {
-        let mut reward = 0.0;
-        for target in &self.agent_targets {
-            if target.is_collected {
-                reward += 0.005; 
-            }
-        }
-        reward
+        // let mut reward = 0.0;
+        // for target in &self.agent_targets {
+        //     if target.is_collected {
+        //         reward += 0.005; 
+        //     }
+        // }
+        // reward
+
+        self.collection_count as f32 * 0.004
     }
 
 }

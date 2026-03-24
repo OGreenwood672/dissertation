@@ -119,6 +119,7 @@ impl World {
 
         self.reset_agents();
         self.reset_stations();
+        self.map.reset();
 
         for agent in &self.agents {
             self.map.add_agent(agent.id, agent.location);
@@ -130,7 +131,12 @@ impl World {
 
     pub fn apply_actions(&mut self, actions: Vec<Action>) {
 
-        const INVALID_MOVE_REWARD: f32 = -0.05;
+        const INVALID_MOVE_REWARD: f32 = -0.02;
+
+        for agent in &mut self.agents {
+            agent.set_curr_reward(0.0);
+        }
+
 
         for (index, action) in actions.into_iter().enumerate() {
             let original_location = self.agents[index].location.clone();
@@ -174,17 +180,17 @@ impl World {
                 }
                 Action::Interact => self.interact(index),
             };
-            if let Some(desired_location) = self.get_desired_target(index) {
-                reward += self.direction_reward(original_location, self.agents[index].location, desired_location);
+            if let Some(desired_target) = self.get_known_desired_target(index) {
+                reward += self.direction_reward(original_location, self.agents[index].location, desired_target);
             }
             if !self.map.has_location_been_visited(self.agents[index].location) {
-                reward += 0.005;
+                reward += 0.002;
                 self.map.set_location_visited(self.agents[index].location);
             }
 
-            reward += self.agents[index].get_inventory_reward();
+            // reward += self.agents[index].get_inventory_reward();
 
-            self.agents[index].set_curr_reward(reward);
+            self.agents[index].add_curr_reward(reward);
         }
 
     }
@@ -228,13 +234,77 @@ impl World {
         }
     }
 
-    fn get_desired_target(&self, agent_index: usize) -> Option<Location> {
+    pub fn get_agents_targets(&self) -> Vec<Vec<f32>> {
+        // Target location and flag if it exists
+        (0..self.agents.len()).map(|agent| {
+            // if let Some(target) = self.get_possible_known_desired_target(agent) {
+            if let Some(target) = self.get_known_desired_target(agent) {
+                vec![
+                    // (target.x - self.agents[agent].location.x) as f32 / self.context.width as f32,
+                    // (target.y - self.agents[agent].location.y) as f32 / self.context.height as f32,
+                    (target.x) as f32 / self.context.width as f32,
+                    (target.y) as f32 / self.context.height as f32,
+                    1.0
+                ]
+            } else {
+                vec![0.0, 0.0, 0.0]
+            }
+        }).collect()
+    }
+
+    fn get_possible_known_desired_target(&self, agent_index: usize) -> Option<Location> {
         let agent = &self.agents[agent_index];
 
         // Get location closest to agent.location
-        agent.get_current_target_locations().into_iter().min_by_key(|location| {
-            agent.location.distance_squared(*location)
-        })
+        // agent.get_current_targets().into_iter().min_by_key(|target| {
+        //     agent.location.distance_squared(target.location)
+        // })
+
+        let station_needed: Option<Location> = self.stations.iter().filter(|station| {
+            agent.is_needed(Some(*station.get_resource())) && station.get_is_found()
+        }).min_by_key(|station| {
+            agent.location.distance_squared(*station.get_location())
+        }).map(|station| *station.get_location());
+
+        let agent_needed: Option<Location> = self.agents.iter().filter(|other_agent| {
+            agent_index != other_agent.id as usize &&
+            (
+                agent.is_needed(other_agent.get_curr_output()) ||
+                other_agent.is_needed(agent.get_curr_output())
+            )
+        }).min_by_key(|other_agent| {
+            agent.location.distance_squared(other_agent.location)
+        }).map(|other_agent| other_agent.location);
+
+        // Return closest target coords
+        match (station_needed, agent_needed) {
+            (Some(station_needed), Some(agent_needed)) => {
+                if agent.location.distance_squared(station_needed) < agent.location.distance_squared(agent_needed) {
+                    Some(station_needed)
+                } else {
+                    Some(agent_needed)
+                }
+            }
+            (Some(station_needed), None) => {
+                Some(station_needed)
+            }
+            (None, Some(agent_needed)) => {
+                Some(agent_needed)
+            }
+            (None, None) => {
+                None
+            }
+        }
+
+    }
+
+    fn get_known_desired_target(&self, agent_index: usize) -> Option<Location> {
+        let agent = &self.agents[agent_index];
+
+        // Get location closest to agent.location
+        agent.get_current_targets().into_iter().min_by_key(|target| {
+            agent.location.distance_squared(target.location)
+        }).map(|target| target.location)
 
     }
 
@@ -249,7 +319,7 @@ impl World {
         let cosine_similarity = Location::cosine_similarity(original_location, new_location, desired_target);
 
         // Near 1 is the right direction
-        cosine_similarity * 0.001
+        cosine_similarity * 0.005
  
     }
 
@@ -270,7 +340,7 @@ impl World {
             .filter(|(_, t_agent)| t_agent.id != agent.id) // Filter out self
             .filter_map(|(index, t_agent)| {
                 let dist_sq = agent.location.distance_squared(t_agent.location);
-                if dist_sq <= self.context.agent_agent_visibility as u64 {
+                if dist_sq <= (self.context.agent_agent_visibility as u64).pow(2) {
                     Some((index, dist_sq))
                 } else {
                     None
@@ -307,39 +377,27 @@ impl World {
         }
     }
 
-    pub fn get_agent_obs_size(&self) -> u32 {
-        
-        const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
-        const OBS_PER_INVENTORY_PIECE: u32 = 2 + RESOURCE_COUNT as u32;
-        let target_size = self.context.max_inputs + self.context.max_outputs;
-        let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
-
-        const SELF_AGENT_OBS_SIZE: u32 = 2;
-        const TARGET_OBS_SIZE: u32 = 6 + RESOURCE_COUNT as u32;
-        
-        SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * target_size + obs_size
-
-    }
-
-    fn get_agent_observation(&self, agent: &Agent) -> Vec<f32> {
+    fn get_agent_observation(&self, agent_index: usize) -> Vec<f32> {
 
         const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
         const OBS_PER_INVENTORY_PIECE: u32 = 2 + RESOURCE_COUNT as u32;
-        let target_size = self.context.max_inputs + self.context.max_outputs;
-        let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
+        let max_targets = self.context.max_inputs + self.context.max_outputs;
+        let other_obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * max_targets;
 
         const SELF_AGENT_OBS_SIZE: u32 = 2;
         const TARGET_OBS_SIZE: u32 = 6 + RESOURCE_COUNT as u32;
-        let total_obs_size: u32 = SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * target_size + obs_size;
+        let total_obs_size: u32 = SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * max_targets + other_obs_size;
 
         let mut obs = Vec::with_capacity(total_obs_size as usize);
+
+        let agent = &self.agents[agent_index];
         
         // Agent Location (0-1)
         obs.push(agent.location.x as f32 / self.context.width as f32);
         obs.push(agent.location.y as f32 / self.context.height as f32);
 
         // Agent's own hardcoded memory of the world
-        for i in 0..target_size as usize {
+        for i in 0..max_targets as usize {
             if i < agent.agent_targets.len() {
                 // Target's resource
                 obs.extend(one_hot_vector_from_resource(agent.agent_targets[i].resource));
@@ -348,8 +406,8 @@ impl World {
                 obs.push(agent.agent_targets[i].is_found as i32 as f32);
 
                 // station/agent last known location - relative
-                obs.push((agent.agent_targets[i].location.x - agent.location.x) as f32 / self.context.width as f32);
-                obs.push((agent.agent_targets[i].location.y - agent.location.y) as f32 / self.context.height as f32);
+                obs.push(((agent.agent_targets[i].location.x - agent.location.x) as f32 + self.context.width as f32) / (2.0 * self.context.width as f32));
+                obs.push(((agent.agent_targets[i].location.y - agent.location.y) as f32 + self.context.height as f32) / (2.0 * self.context.height as f32));
                 // If we have it, was it a static station or a moving agent
                 obs.push(f32::from(&agent.agent_targets[i].station_type));
                 
@@ -376,17 +434,21 @@ impl World {
                 let t_station = &self.stations[station_index];
                 let mut station_obs = t_station.get_self_observations(self.context.width, self.context.height);
                 // Add padding
-                station_obs.resize(obs_size as usize, 0.0);
+                station_obs.resize(other_obs_size as usize, 0.0);
+
+                // Set is found
+                t_station.set_found();
+
                 station_obs
             }
             Some(Entity::Agent(agent_index)) => {
                 let t_agent = &self.agents[agent_index];
-                t_agent.get_self_observations(self.context.width, self.context.height, target_size)
+                t_agent.get_self_observations(self.context.width, self.context.height, max_targets)
             }
-            None => vec![0.0; obs_size as usize]
+            None => vec![0.0; other_obs_size as usize]
         };
 
-        assert!(entity_obs.len() as u32 == obs_size);
+        assert!(entity_obs.len() as u32 == other_obs_size);
 
         obs.extend(entity_obs);
         
@@ -399,12 +461,55 @@ impl World {
         ACTION_COUNT
     }
 
+    pub fn get_agent_obs_size(&self) -> u32 {
+        
+        const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
+        const OBS_PER_INVENTORY_PIECE: u32 = 2 + RESOURCE_COUNT as u32;
+        let target_size = self.context.max_inputs + self.context.max_outputs;
+        let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
+
+        const SELF_AGENT_OBS_SIZE: u32 = 2;
+        const TARGET_OBS_SIZE: u32 = 6 + RESOURCE_COUNT as u32;
+        
+        SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * target_size + obs_size
+
+    }
+
+    pub fn get_agent_obs_mask(&self) -> Vec<bool> {
+        // True is for discrete obs
+        // False is for continuous obs
+        let mut obs_mask = vec![true; self.get_agent_obs_size() as usize];
+
+        const SELF_OBS: usize = 2;
+
+        // Self Coords
+        obs_mask[0] = false;
+        obs_mask[1] = false;
+
+        let max_targets = self.context.max_inputs + self.context.max_outputs;
+        const TARGET_OBS_SIZE: usize = 6 + RESOURCE_COUNT;
+        // self targets coords
+        for i in 0..max_targets {
+            obs_mask[SELF_OBS + RESOURCE_COUNT as usize + 1 + i as usize * TARGET_OBS_SIZE] = false;
+            obs_mask[SELF_OBS + RESOURCE_COUNT as usize + 2 + i as usize * TARGET_OBS_SIZE] = false;
+        }
+
+        let previous_obs_size = SELF_OBS + (max_targets as usize * TARGET_OBS_SIZE);
+
+        obs_mask[previous_obs_size + 1] = false;
+        obs_mask[previous_obs_size + 2] = false;
+
+        obs_mask
+
+    }
+
     pub fn get_agent_obs(&self, agent_index: usize) -> Vec<f32> {
-        self.get_agent_observation(&self.agents[agent_index])
+        self.get_agent_observation(agent_index)
     }
 
     pub fn get_agents_obs(&self) -> Vec<Vec<f32>> {
-        self.agents.iter().map(|agent| self.get_agent_observation(agent)).collect()
+        (0..self.agents.len()).map(|agent| self.get_agent_observation(agent)).collect()
+
     }
 
     pub fn get_agent_reward(&self, agent_index: usize) -> f32 {
