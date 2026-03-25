@@ -7,13 +7,13 @@ from rich.panel import Panel
 from rich.progress import Progress, BarColumn, TaskProgressColumn, TextColumn
 from rich.columns import Columns
 
-from controller.marl.config import CommunicationType
+from controller.marl.config import CommunicationType, Config
 from logging_utils.decorators import LoggingFunctionIdentification
 
 
 class Logger:
 
-    def __init__(self, save_folder, config, start_step=0):
+    def __init__(self, save_folder, config: Config, start_step=0):
 
         self.config = config
         self.recent_history = []
@@ -105,43 +105,43 @@ class Logger:
             return Panel(table, title=f"[bold]{title}[/]", border_style="white")
 
         training_params = [
-            ("Train Timesteps", f"{self.config.training_timesteps}"),
-            ("Sim Timesteps", f"{self.config.simulation_timesteps}"),
-            ("Timestep", f"{self.config.timestep}"),
-            ("Buffer Size", f"{self.config.buffer_size}"),
-            ("Parallel Worlds", f"{self.config.worlds_parallised}"),
-            ("Seed", f"{self.config.seed}"),
-            ("Save Interval", f"{self.config.periodic_save_interval}"),
+            ("Train Timesteps", f"{self.config.training.training_timesteps}"),
+            ("Sim Timesteps", f"{self.config.training.simulation_timesteps}"),
+            ("Timestep", f"{self.config.training.timestep}"),
+            ("Buffer Size", f"{self.config.training.buffer_size}"),
+            ("Parallel Worlds", f"{self.config.training.worlds_parallised}"),
+            ("Seed", f"{self.config.training.seed}"),
+            ("Save Interval", f"{self.config.training.periodic_save_interval}"),
         ]
         
         ppo_params = [
-            ("PPO Epochs", f"{self.config.ppo_epochs}"),
-            ("Gamma", f"{self.config.gamma}"),
-            ("GAE Lambda", f"{self.config.gae_lambda}"),
-            ("Clip Coef", f"{self.config.clip_coef}"),
-            ("VF Coef", f"{self.config.vf_coef}"),
-            ("Entropy Coef", f"{self.config.ent_coef}"),
-            ("Actor LR", f"{self.config.actor_learning_rate:.1e}"),
-            ("Critic LR", f"{self.config.critic_learning_rate:.1e}"),
+            ("PPO Epochs", f"{self.config.mappo.ppo_epochs}"),
+            ("Gamma", f"{self.config.mappo.gamma}"),
+            ("GAE Lambda", f"{self.config.mappo.gae_lambda}"),
+            ("Clip Coef", f"{self.config.mappo.clip_coef}"),
+            ("VF Coef", f"{self.config.mappo.vf_coef}"),
+            ("Entropy Coef", f"{self.config.mappo.ent_coef}"),
+            ("Actor LR", f"{self.config.mappo.actor_learning_rate:.1e}"),
+            ("Critic LR", f"{self.config.mappo.critic_learning_rate:.1e}"),
         ]
 
         arch_params = [
-            ("LSTM Hidden", f"{self.config.lstm_hidden_size}"),
-            ("Feature Dim", f"{self.config.feature_dim}"),
+            ("LSTM Hidden", f"{self.config.actor.lstm_hidden_size}"),
+            ("Feature Dim", f"{self.config.actor.feature_dim}"),
         ]
 
         lang_params = [
-            ("Vocab Size", f"{self.config.vocab_size}"),
-            ("Comm Size", f"{self.config.communication_size}"),
-            ("Num Comms", f"{self.config.num_comms}"),
+            ("Vocab Size", f"{self.config.comms.vocab_size}"),
+            ("Comm Size", f"{self.config.comms.communication_size}"),
+            ("Num Comms", f"{self.config.comms.num_comms}"),
         ]
 
         aim_params = [
-            ("HQ Layers", f"{getattr(self.config, 'hq_layers', getattr(self.config, 'hq_levels', 1))}"), # Safe fallback
-            ("AIM LR", f"{self.config.aim_learning_rate:.1e}"),
-            ("Obs Runs", f"{self.config.obs_runs}"),
-            ("Obs Noise", f"{self.config.obs_runs_noise}"),
-            ("AIM Batch Size", f"{self.config.aim_batch_size}"),
+            ("HQ Layers", f"{self.config.comms.hq_layers}"),
+            ("AIM LR", f"{self.config.aim_training.aim_learning_rate:.1e}"),
+            ("Obs Runs", f"{self.config.aim_training.obs_runs}"),
+            ("Obs Noise", f"{self.config.aim_training.obs_runs_noise}"),
+            ("AIM Batch Size", f"{self.config.aim_training.aim_batch_size}"),
         ]
 
         return Columns([
@@ -178,8 +178,8 @@ class Logger:
         ]
 
         if (
-            self.config.communication_type == CommunicationType.DISCRETE or
-            self.config.communication_type == CommunicationType.AIM
+            self.config.comms.communication_type == CommunicationType.DISCRETE or
+            self.config.comms.communication_type == CommunicationType.AIM
         ):
             tracked_metrics.extend([
                 ("Entropy", "communication_entropy_mean", "cyan"),
@@ -187,7 +187,7 @@ class Logger:
                 ("Codebook Usage", "communication_active_codebook_usage", "yellow"),
             ])
 
-            if self.config.communication_type == CommunicationType.AIM:
+            if self.config.comms.communication_type == CommunicationType.AIM:
                 tracked_metrics.extend([
                     ("Predicted Return Loss", "predicted_return_loss", "green"),
                     ("Predicted Critic Value Loss", "predicted_critic_value_loss", "red"),
@@ -216,7 +216,7 @@ class Logger:
         
         monitor_panel = Panel(
             monitor_group, 
-            title=f"[bold]Training - Comm Type is {self.config.communication_type.upper()} - Step {timestep}[/]", 
+            title=f"[bold]Training - Comm Type is {self.config.comms.communication_type.upper()} - Step {timestep}[/]", 
             border_style="blue"
         )
 

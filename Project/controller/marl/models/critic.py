@@ -2,12 +2,20 @@
 
 from torch import nn
 
+from controller.marl.config import CommConfig, CriticHyperparameters
+
 
 class PPO_Critic(nn.Module):
-    def __init__(self, num_agents, global_obs_dim, comm_dim, num_comms=1, feature_dim=512):
+    def __init__(
+            self,
+            num_agents, global_obs_dim,
+            critic_config: CriticHyperparameters, comm_config: CommConfig
+        ):
         super().__init__()
 
-        self.input_dim = global_obs_dim + comm_dim * num_agents * num_comms
+        self.input_dim = global_obs_dim + comm_config.communication_size * num_agents * comm_config.num_comms
+
+        feature_dim = critic_config.feature_dim
 
         self.body = nn.Sequential(
             nn.Linear(self.input_dim, feature_dim),

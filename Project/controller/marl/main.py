@@ -5,7 +5,7 @@ import numpy as np
 from controller.marl.models.aim import AIM
 from project_paths import PROJECT_ROOT
 
-from .config import CommunicationType, MappoConfig
+from .config import CommunicationType, Config
 import environment.environment as environment
 from .checkpoint_manager import CheckpointManager
 from .models import Encoder, PPO_Actor, PPO_Critic
@@ -21,11 +21,11 @@ def get_args():
     
     return parser.parse_args()    
 
-def setup(config, device, mode):
+def setup(config: Config, device: torch.device, mode: str):
 
     cm = CheckpointManager(config, default_load_previous=mode == "eval")
     SEED = cm.get_seed()
-    config.seed = SEED
+    config.training.seed = SEED
 
     np.random.seed(SEED)
     torch.manual_seed(SEED)
@@ -35,38 +35,25 @@ def setup(config, device, mode):
     sim = SimWrapper(
         environment.Simulation(
             './configs/simulation.yaml',
-            worlds_parallised=config.worlds_parallised
+            worlds_parallised=config.training.worlds_parallised
         ), 
-        comm_dim=config.communication_size,
-        num_comms=config.num_comms
+        comm_dim=config.comms.communication_size,
+        num_comms=config.comms.num_comms
     )
 
-    num_agents = sim.get_num_agents()
+    num_agents = len(config.simulation.agents)
     agent_obs_shape = (sim.get_agent_obs_size(0),)
     comms_shape = (sim.get_world_comms_size(),)
     global_obs_shape = (sim.get_global_obs_size(0),)
     act_shape = (sim.get_agent_action_count(),)
 
-    # load encoder
-    encoder = None
-    aim = None
-    if config.communication_type == CommunicationType.AIM:
-        folder = AIM.get_folder(config)
-        encoder = Encoder.load(folder)
-        aim = AIM.load(folder, config, obs_mask=sim.get_agent_obs_mask(0), obs_dim=agent_obs_shape[0], action_count=act_shape[0])
-        
-
     actor = PPO_Actor(
-        num_agents, agent_obs_shape[0], act_shape[0], comm_dim=config.communication_size,
-        communication_type=config.communication_type,
-        lstm_hidden_size=config.lstm_hidden_size,
-        vocab_size=config.vocab_size, num_comms=config.num_comms,
-        encoder=encoder, device=device
+        num_agents, agent_obs_shape[0], act_shape[0], config.actor, config.comms, device=device
     ).to(device)
-    critic = PPO_Critic(num_agents, global_obs_shape[0], config.communication_size, config.num_comms, feature_dim=config.feature_dim).to(device)
+    critic = PPO_Critic(num_agents, global_obs_shape[0], config.critic, config.comms).to(device)
 
-    actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.actor_learning_rate)
-    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.critic_learning_rate)
+    actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.mappo.actor_learning_rate)
+    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.mappo.critic_learning_rate)
 
     start_step = 0
     if not cm.is_new_run:
@@ -93,7 +80,6 @@ def setup(config, device, mode):
         "agent_obs_shape": agent_obs_shape,
         "input_comms_shape": comms_shape,
         "act_shape": act_shape,
-        "aim": aim
     }, config
 
 def setup_language_analysis(config, device):
@@ -194,7 +180,7 @@ def evaluate_language(system, config, device):
 
 def main():
 
-    config_pth = './configs/mappo_settings.yaml'
+    config_pth = PROJECT_ROOT / "configs"
 
     args = get_args()
 
@@ -202,7 +188,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    config = MappoConfig.from_yaml(config_pth)
+    config = Config.from_yaml(config_pth)
 
     system, config = setup(config, device, mode=args.mode)
 

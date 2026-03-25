@@ -1,5 +1,6 @@
-# from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod
 
 
-# class Comms(ABC):
+class Comms(ABC):
 
+    pass

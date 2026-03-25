@@ -2,14 +2,12 @@
 from datetime import datetime
 import json
 
-from numpy import save, load
 import os
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from controller.marl.config import MappoConfig
+from controller.marl.config import AIMConfig, CommConfig
 from project_paths import LANGUAGES_DIR
 
 from .encoders.encoder import Encoder
@@ -29,41 +27,37 @@ class AIM(nn.Module):
 
     def __init__(
             self, 
-            obs_dim, action_count,
-            hidden_size, latent_dim, vocab_size,
-            commitment_cost=0.5,
-            num_training_steps=None, hq_vae=1,
-            init_temperature=1, min_temperature=0.1,
-            autoencoder_type="vq-vae", kl_weight=0.001,
+            obs_dim,
+            comm_config: CommConfig, aim_config: AIMConfig,
             obs_mask=None
         ):
         super().__init__()
 
         self.encoder = Encoder(
             obs_dim,
-            hidden_size, latent_dim, vocab_size,
-            commitment_cost=commitment_cost,
-            hq_vae=hq_vae, num_training_steps=num_training_steps,
-            init_temperature=init_temperature, min_temperature=min_temperature,
-            autoencoder_type=autoencoder_type, kl_weight=kl_weight
+            aim_config.hidden_size, comm_config.communication_size, comm_config.vocab_size,
+            commitment_cost=aim_config.commitment_cost,
+            hq_vae=comm_config.hq_layers, num_training_steps=aim_config.ae_epochs,
+            init_temperature=aim_config.init_temperature, min_temperature=aim_config.min_temperature,
+            autoencoder_type=aim_config.autoencoder_type, kl_weight=aim_config.kl_weight
         )
 
         self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, hidden_size // 2),
+            nn.Linear(comm_config.communication_size, aim_config.hidden_size // 2),
             nn.ReLU(),
-            nn.Linear(hidden_size // 2, hidden_size),
+            nn.Linear(aim_config.hidden_size // 2, aim_config.hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, obs_dim)
+            nn.Linear(aim_config.hidden_size, obs_dim)
         )
 
         self.reward_head = nn.Sequential(
-            nn.Linear(latent_dim, 128),
+            nn.Linear(comm_config.communication_size, 128),
             nn.ReLU(),
             nn.Linear(128, 1)
         )
 
-        self.vocab_size = vocab_size
-        self.latent_dim = latent_dim
+        self.aim_config = aim_config
+        self.comm_config = comm_config
         self.obs_mask = obs_mask
 
 
@@ -167,15 +161,15 @@ class AIM(nn.Module):
         torch.save(self.decoder.state_dict(), os.path.join(save_folder, "decoder.pt"))
 
     @classmethod
-    def load(cls, saved_folder, config: MappoConfig, obs_mask=None, obs_dim=0, action_count=5):
+    def load(cls, saved_folder, aim_config: AIMConfig, comm_config: CommConfig, obs_mask=None, obs_dim=0, action_count=5):
 
         aim = cls(
-            obs_dim, action_count,
-            512, config.communication_size * config.num_comms, config.vocab_size,
-            commitment_cost=config.commitment_cost,
-            hq_vae=config.hq_layers, num_training_steps=config.ae_epochs,
-            init_temperature=config.init_temperature, min_temperature=config.min_temperature,
-            autoencoder_type=config.autoencoder_type, kl_weight=config.kl_weight, obs_mask=obs_mask
+            obs_dim,
+            aim_config.hidden_size, comm_config.communication_size, comm_config.vocab_size,
+            commitment_cost=aim_config.commitment_cost,
+            hq_vae=comm_config.hq_layers, num_training_steps=aim_config.ae_epochs,
+            init_temperature=aim_config.init_temperature, min_temperature=aim_config.min_temperature,
+            autoencoder_type=aim_config.autoencoder_type, kl_weight=aim_config.kl_weight
         )
 
         aim.encoder = Encoder.load(saved_folder)
@@ -197,7 +191,9 @@ class AIM(nn.Module):
                 check_config = json.load(json_file)
 
                 for key, value in config:
+                    if key == "autoencoder_type": value = value.value
                     if key in check_config and check_config[key] != value:
+                        print("Issue is", key, check_config[key], value)
                         break
                 else:
                     folder_path = LANGUAGES_DIR / folder

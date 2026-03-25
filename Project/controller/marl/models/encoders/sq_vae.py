@@ -44,6 +44,15 @@ class SQ_VAE(nn.Module):
             self.logit_scales.append(nn.Parameter(torch.tensor(10.0)))
 
     def forward(self, latent):
+        loss, quantised = self.quantise(latent)
+        return loss, quantised
+
+    @torch.no_grad()
+    def encode(self, latent):
+        _, quantised = self.quantise(latent)
+        return quantised
+
+    def quantise(self, latent):
         loss = torch.tensor(0.0, device=latent.device)
 
         curr_residual = latent

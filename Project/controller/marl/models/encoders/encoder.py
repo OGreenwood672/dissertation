@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from controller.marl.config import MappoConfig
+from controller.marl.config import GenerativeLangType
 from project_paths import LANGUAGES_DIR
 
 from .vq_vae import VQ_VAE
@@ -51,15 +51,18 @@ class Encoder(nn.Module):
             nn.Linear(hidden_size // 2, latent_dim),
         )
 
-        if autoencoder_type == "vq-vae":
+        if autoencoder_type == GenerativeLangType.VQ_VAE:
             self.latent_handler = VQ_VAE(vocab_size, latent_dim, hq_vae, commitment_cost)
-        elif autoencoder_type == "sq-vae":
+        elif autoencoder_type == GenerativeLangType.SQ_VAE:
             self.latent_handler = SQ_VAE(vocab_size, latent_dim, init_temperature, min_temperature, num_training_steps, hq_vae)
         else:
             raise ValueError(f"Unknown autoencoder type: {autoencoder_type}")
 
     def forward(self, x):
         return self.latent_handler(self.encoder(x))
+
+    def encode(self, x):
+        return self.latent_handler.encode(self.encoder(x))
     
     def get_codebooks(self):
         return np.array([self.get_embedding(i).weight.detach().cpu().numpy() for i in range(self.hq_vae)])
@@ -96,7 +99,7 @@ class Encoder(nn.Module):
         self.save_config(save_folder)
 
     @classmethod
-    def load(cls, folder_path):
+    def load(cls, folder_path, device):
 
         ae_config = json.load(open(folder_path / "config.json", "r"))
 
@@ -105,15 +108,15 @@ class Encoder(nn.Module):
             ae_config["commitment_cost"], ae_config["hq_vae"], ae_config["kl_weight"],
             ae_config["init_temperature"], ae_config["min_temperature"], ae_config["num_training_steps"],
             ae_config["autoencoder_type"]
-        )
-        
+        ).to(device)
+
         embeddings = np.load(folder_path / "codebook.npy")
         for i, embedding_weights in enumerate(embeddings):
-            encoder.get_embedding(i).weight.data = torch.tensor(embedding_weights, dtype=torch.float32)
+            encoder.get_embedding(i).weight.data = torch.tensor(embedding_weights, dtype=torch.float32, device=device)
 
         encoder_path = folder_path / "encoder.pt"
         assert os.path.exists(encoder_path)
 
-        encoder.encoder.load_state_dict(torch.load(encoder_path))
+        encoder.encoder.load_state_dict(torch.load(encoder_path, map_location=device))
 
         return encoder

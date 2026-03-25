@@ -1,0 +1,2 @@
+lstm_hidden_size: 512
+feature_dim: 512

@@ -4,7 +4,7 @@ import re
 import json
 import torch
 
-from .config import MappoConfig
+from .config import Config
 
 from project_paths import RESULTS_DIR
 
@@ -12,13 +12,11 @@ from project_paths import RESULTS_DIR
 
 class CheckpointManager:
 
-    def __init__(self, config: MappoConfig, default_load_previous: bool = False):
+    def __init__(self, config: Config, default_load_previous: bool = False):
 
-        self.config = config
-
-        seed = self.config.seed
+        seed = config.training.seed
         
-        result_path = RESULTS_DIR / self.config.communication_type.value
+        result_path = RESULTS_DIR / config.comms.communication_type.value
         
         os.makedirs(result_path, exist_ok=True)
         
@@ -32,7 +30,7 @@ class CheckpointManager:
                     break
                 test_used_seed += 1
             result_path = result_path / self.get_folder_name(seed)
-            self.gen_result_folder(result_path, self.config)
+            self.gen_result_folder(result_path, config)
             self.is_new_run = True
         
         # find largest seed
@@ -48,19 +46,18 @@ class CheckpointManager:
                 self.is_new_run = False
             else:
                 result_path += self.get_folder_name(seed)
-                self.gen_result_folder(result_path, self.config)
+                self.gen_result_folder(result_path, config)
                 self.is_new_run = True
 
         self.result_path = result_path
         self.seed = seed
 
-    def load_config(self):
-        config_path = self.result_path / "config.json"
-        return MappoConfig.from_json(config_path)
+    # def load_config(self):
+    #     config_path = self.result_path / "config.json"
+    #     return MappoConfig.from_json(config_path)
 
-    def get_config(self):
-        return self.config
-
+    # def get_config(self):
+    #     return self.config
 
     def load_checkpoint_models(self, checkpoint_step=None):
 
@@ -104,11 +101,12 @@ class CheckpointManager:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         return f"{timestamp}_seed_{seed}"
     
-    def gen_result_folder(self, result_path, config: MappoConfig):
+    def gen_result_folder(self, result_path, config: Config):
         os.makedirs(result_path)
 
         # generate config (hyperparams)
-        json.dump(config.get_dict(), open(result_path / "config.json", "w"))
+        os.makedirs(result_path / "configs")
+        config.save(result_path / "configs")
 
         # generate checkpoints folder
         os.makedirs(result_path / "checkpoints")

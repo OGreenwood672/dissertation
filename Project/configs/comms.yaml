@@ -1,0 +1,7 @@
+communication_type: aim
+
+vocab_size: 256
+num_comms: 1
+autoencoder_type: "sq-vae"
+hq_layers: 3
+communication_size: 64
