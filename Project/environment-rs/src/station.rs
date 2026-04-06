@@ -69,6 +69,11 @@ impl Station {
         &self.location
     }
 
+    // For testing
+    pub fn set_location(&mut self, location: Location) {
+        self.location = location;
+    }
+
     pub fn get_station_type(&self) -> &StationType {
         &self.station_type
     }
@@ -93,4 +98,100 @@ impl From<&Station> for StationState {
             location: station.location,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    #[test]
+    fn test_station_type_to_f32() {
+        let station_type = StationType::PickUp;
+        assert_eq!(f32::from(&station_type), 0.0);
+    }
+
+    #[test]
+    fn test_station_new() {
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::PickUp, ResourceType::Burger);
+        assert_eq!(station.id, 1);
+        assert_eq!(station.location, Location { x: 0, y: 0 });
+        assert_eq!(station.station_type, StationType::PickUp);
+        assert_eq!(station.resource, ResourceType::Burger);
+        assert!(!station.is_found.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn test_station_get_self_observations() {
+        let station = Station::new(1, Location { x: 5, y: 5 }, StationType::PickUp, ResourceType::Burger);
+        let obs = station.get_self_observations(10, 10);
+        assert_eq!(obs.len(), 13);
+        assert_eq!(obs[0], 1.0);
+        assert_eq!(obs[1], 0.5);
+        assert_eq!(obs[2], 0.5);
+        assert_eq!(obs[3], 0.0);
+        assert_eq!(obs[4], 0.0);
+        assert_eq!(obs[5], 1.0);
+        assert_eq!(obs[6], 0.0);
+        assert_eq!(obs[7], 0.0);
+        assert_eq!(obs[8], 0.0);
+        assert_eq!(obs[9], 0.0);
+        assert_eq!(obs[10], 0.0);
+        assert_eq!(obs[11], 0.0);
+        assert_eq!(obs[12], 0.0);
+    }
+
+    #[test]
+    fn test_station_get_id() {
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::PickUp, ResourceType::Burger);
+        assert_eq!(station.get_id(), 1);
+    }
+
+    #[test]
+    fn test_station_get_location() {
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::DropOff, ResourceType::Burger);
+        assert_eq!(station.get_location(), &Location { x: 0, y: 0 });
+    }
+
+    #[test]
+    fn test_station_get_station_type() {
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::DropOff, ResourceType::Burger);
+        assert_eq!(station.get_station_type(), &StationType::DropOff);
+    }
+
+    #[test]
+    fn test_station_get_resource() {
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::PickUp, ResourceType::Burger);
+        assert_eq!(station.get_resource(), &ResourceType::Burger);
+    }
+
+    #[test]
+    fn test_station_get_is_found() {
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::PickUp, ResourceType::Burger);
+        assert!(!station.get_is_found());
+    }
+
+    #[test]
+    fn test_station_set_found() {
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::PickUp, ResourceType::Burger);
+        station.set_found();
+        assert!(station.get_is_found());
+    }
+
+    #[test]
+    fn test_station_from_station_state() {
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::PickUp, ResourceType::Burger);
+        let station_state = StationState::from(&station);
+        assert_eq!(station_state.id, 1);
+        assert_eq!(station_state.location, Location { x: 0, y: 0 });
+    }
+
+    #[test]
+    fn test_station_set_location() {
+        let mut station = Station::new(1, Location { x: 0, y: 0 }, StationType::PickUp, ResourceType::Burger);
+        station.set_location(Location { x: 1, y: 1 });
+        assert_eq!(station.location, Location { x: 1, y: 1 });
+    }
+
+    
 }

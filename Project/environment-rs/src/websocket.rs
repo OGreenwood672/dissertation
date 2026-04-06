@@ -22,3 +22,55 @@ pub fn websocket(
             })
         })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::broadcast;
+    use warp::test::ws;
+
+    #[tokio::test]
+    async fn test_websocket_relays_broadcast_messages() {
+        let (tx, _rx) = broadcast::channel(16);
+        let filter = websocket(tx.clone());
+        let mut client = ws()
+            .path("/ws")
+            .handshake(filter)
+            .await
+            .expect("handshake");
+
+        let test_msg = "hello from rust".to_string();
+        tx.send(test_msg.clone()).unwrap();
+
+        let msg = tokio::time::timeout(std::time::Duration::from_millis(100), client.recv())
+            .await
+            .expect("Timeout waiting for message")
+            .expect("Client received None");
+
+        assert!(msg.is_text());
+        assert_eq!(msg.to_str().unwrap(), test_msg);
+    }
+
+    #[tokio::test]
+    async fn test_websocket_handles_multiple_messages() {
+        let (tx, _rx) = broadcast::channel(16);
+        let filter = websocket(tx.clone());
+
+        let mut client = ws()
+            .path("/ws")
+            .handshake(filter)
+            .await
+            .expect("handshake");
+
+        tx.send("MSG".into()).unwrap();
+        tx.send("SECOND MSG".into()).unwrap();
+
+        let binding = client.recv().await.unwrap();
+        let m1 = binding.to_str().unwrap();
+        let binding = client.recv().await.unwrap();
+        let m2 = binding.to_str().unwrap();
+
+        assert_eq!(m1, "MSG");
+        assert_eq!(m2, "SECOND MSG");
+    }
+}

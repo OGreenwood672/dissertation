@@ -3,16 +3,18 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
+import pandas as pd
 
-from controller.marl.config import CommunicationType
+from controller.marl.buffer import RolloutBuffer
+from controller.marl.config import CommunicationType, Config
 
 from .logger import CommsLogger, ObsLogger
 
 def run_sim(
-        system, config, device, episodes,
+        system, config: Config, device: torch.device, episodes,
         zero_comms=False, collect_obs_file=None,
         noise=None,
-        collect_comms_folder=None,
+        collect_comms_folder=None, optimal=False
     ):
         
     sim = system['sim']
@@ -20,13 +22,18 @@ def run_sim(
     critic = system['critic'].eval()
 
 
-    T = config.simulation_timesteps
-    W = config.worlds_parallised
+    T = config.training.simulation_timesteps
+    W = config.training.worlds_parallised
     N = system['num_agents']
-    NC = config.num_comms
-    C = config.communication_size
+    NC = config.comms.num_comms
+    C = config.comms.communication_size
+    O = system['agent_obs_shape'][0]
+    GO = sim.get_global_obs_dim()
 
-    comm_type = config.communication_type
+    if optimal:
+        comm_type = CommunicationType.NONE
+    else:
+        comm_type = config.comms.communication_type
 
     reward_means = []
     rewards = None
@@ -35,8 +42,23 @@ def run_sim(
         OL = ObsLogger(collect_obs_file)
 
     if collect_comms_folder is not None:
-        CL = CommsLogger(collect_comms_folder, config.vocab_size)
+        CL = CommsLogger(collect_comms_folder, config.comms.vocab_size)
 
+    buffer = RolloutBuffer(
+        total_runs=episodes * W,
+        timesteps_per_run=T,
+        num_worlds_per_run=W,
+        num_agents=N,
+        num_obs=system['agent_obs_shape'][0],
+        num_comms=NC,
+        comm_dim=C,
+        num_global_obs=GO + N * NC * C, 
+        hidden_state_size=config.actor.lstm_hidden_size,
+        hq_levels=config.comms.hq_layers if comm_type == CommunicationType.AIM else None,
+        device=device,
+    )
+
+    final_batch_values = []
 
     for _ in tqdm(range(episodes), desc="Running Simulation"):
 
@@ -45,113 +67,150 @@ def run_sim(
 
         comm_choice = np.zeros((W, N, NC, C), dtype=np.float32)
         curr_obs = np.array([sim.get_agents_obs(w) for w in range(W)])
-        curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))            
+        curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))
+        curr_targets = np.array(sim.get_curr_targets())
 
-        # Reset hidden states for the recurrent model
         actor_hidden_states = actor.init_hidden(batch_size=W)
+
+        buf_obs = torch.zeros((T, W, N, system['agent_obs_shape'][0]), dtype=torch.float32, device=device)
+        buf_global_obs = torch.zeros((T, W, GO + N * NC * C), dtype=torch.float32, device=device)
+        buf_targets = torch.zeros((T, W, N, 3), dtype=torch.float32, device=device)
+        buf_actions = torch.zeros((T, W, N), dtype=torch.float32, device=device)
+        buf_rewards = torch.zeros((T, W, N), dtype=torch.float32, device=device)
+        buf_c_values = torch.zeros((T, W, N), dtype=torch.float32, device=device)
 
         reward_means_per_episode = []
         
-        for _ in tqdm(range(T), desc="Running Episode", leave=False):
+        for t in tqdm(range(T), desc="Running Episode", leave=False):
 
             start = time()
 
-            # Get action logits from the model and update memory and add time dimension for actor model
             obs_tensor = torch.from_numpy(curr_obs).float().to(device)
             comm_choice_tensor = torch.from_numpy(comm_choice).float().to(device)
-            with torch.no_grad():
-                if config.communication_type == CommunicationType.NONE:
-                    comm_choice_tensor = None
-                action_logits, comm_logits, lstm_output, actor_hidden_states = actor(obs_tensor, actor_hidden_states, comm_choice_tensor)
-                if collect_obs_file is not None:
-                    global_state_tensor = torch.from_numpy(curr_global_obs).float().to(device)
+            global_state_tensor = torch.from_numpy(curr_global_obs).float().to(device)
+            target_tensor = torch.from_numpy(curr_targets).float().to(device)            
+
+            if not optimal:
+                with torch.no_grad():
+
+                    if comm_type == CommunicationType.NONE:
+                        comm_choice_tensor = None
+
+                    action_logits, comm_logits, lstm_output, actor_hidden_states = actor(obs_tensor, actor_hidden_states, comm_choice_tensor)
                     critic_values = critic(global_state_tensor)
 
 
-            # * -- Action Choosing --
-            greedy_actions = torch.argmax(action_logits, dim=-1)
+                # * -- Action Choosing --
+                greedy_actions = torch.argmax(action_logits, dim=-1)
+
+                comm_output, _, _ = actor.comm_protocol.get_comms_during_rollout(lstm_output)
+                
+            else:
+                greedy_actions = torch.tensor(sim.get_optimal_actions(), device=device)
+                critic_values = torch.zeros((W, N), device=device)
+                comm_output = torch.zeros((W, N, NC, C), device=device)
 
             # epsilon-greedy action selection
             if noise is not None and noise > 0.0:
-                random_actions = torch.randint(0, action_logits.shape[-1], size=(W, N), device=device)
+                random_actions = torch.randint(0, sim.get_agent_action_count(), (W, N), device=device)
                 mask = torch.rand((W, N), device=device) < noise
                 actions = torch.where(mask, random_actions, greedy_actions)
             else:
                 actions = greedy_actions
-
-            if comm_type == CommunicationType.CONTINUOUS:
-                # * -- Continuous Communication Sampling --
-                comm_std = actor.comm_log_std.exp().squeeze(1).expand_as(comm_logits)
-                comm_dist = torch.distributions.Normal(comm_logits, comm_std)
-                comm_output = comm_dist.sample()
-
-            elif comm_type == CommunicationType.DISCRETE:
-                # * -- Discrete Communication --
-                flat_inputs = comm_logits.view(-1, C)
-                quantised_flat, _, quantised_index = actor.vq_layer(flat_inputs)
-                comm_output = quantised_flat.view(W, N, NC, C)
-
-            elif comm_type == CommunicationType.AIM:
-                # * -- AIM Communication --
-                codewords = torch.zeros((W, N, NC, actor.hq_levels, C), device=device)
-
-                comm_conditions = lstm_output.squeeze(1)
-
-                for hq_level in range(actor.hq_levels):
-
-                    comm_logits = actor.comm_heads[hq_level](comm_conditions).reshape(W, N, NC, actor.vocab_size)
-
-                    probs = F.softmax(comm_logits.float(), dim=-1)
-
-                    quantised_index = torch.multinomial(probs.view(-1, actor.vocab_size), 1).view(W, N, NC)
-                    
-                    codewords[:, :, :, hq_level, :] = actor.aim_codebook[hq_level, quantised_index].view(W, N, NC, C)
-
-                    comm_conditions = torch.cat([comm_conditions, codewords[:, :, :, hq_level, :].reshape(W, N, NC * C)], dim=-1)
-
-                comm_output = codewords.sum(dim=-2)
-
-            elif comm_type == CommunicationType.NONE or zero_comms:
-                comm_output = torch.zeros((W, N, NC, C), device=device) 
+            
+            buf_obs[t] = obs_tensor
+            buf_global_obs[t] = global_state_tensor
+            buf_targets[t] = target_tensor
+            buf_actions[t] = actions
+            buf_c_values[t] = critic_values
 
             # Use chosen actions in env
             action_choice = actions.cpu().numpy()
             comm_choice = comm_output.detach().cpu().numpy()
 
-            if collect_obs_file is not None:
-                # Curr_ob needs to be a 2d array with comms removed
-                critic_values_logs = critic_values.detach().cpu().numpy()[:, :, np.newaxis]
-                if rewards is None:
-                    reward_logs = np.zeros_like(critic_values_logs)
-                else:
-                    reward_logs = np.array(rewards).reshape(W, N, 1)
-                record_logs = np.concatenate(
-                    [curr_obs, action_logits.cpu().numpy(), critic_values_logs, reward_logs],
-                    axis=-1
-                ).reshape(W * N, sim.get_obs_dim() + sim.get_agent_action_count() + 1 + 1)
-                # obs + actions + critic value
+            # if collect_obs_file is not None:
+            #     # Curr_ob needs to be a 2d array with comms removed
+            #     # critic_values_logs = critic_values.detach().cpu().numpy()[:, :, np.newaxis]
+            #     # if rewards is None:
+            #     #     reward_logs = np.zeros((W, N, 1))
+            #     # else:
+            #     #     reward_logs = np.array(rewards).reshape(W, N, 1)
+            #     record_logs = np.concatenate(
+            #         # [curr_obs, action_logits.cpu().numpy(), critic_values_logs, reward_logs],
+            #         [curr_obs, curr_global_obs, action_logits.cpu().numpy(), curr_targets.cpu().numpy()],
+            #         axis=-1
+            #     ).reshape(W * N, O + GO + 1 + 3)
+            #     # obs + actions + critic value
 
-                OL.log(record_logs)
+            #     OL.log(record_logs)
 
-            if collect_comms_folder is not None:
-                for world in range(W):
-                    for agent in range(N):
-                        index = world * N + agent
-                        # todo: only currently works with discrete - only need with discrete though
-                        CL.log(int(quantised_index[index].detach().cpu().numpy()), curr_obs[world, agent].tolist())
+            # if collect_comms_folder is not None:
+            #     for world in range(W):
+            #         for agent in range(N):
+            #             index = world * N + agent
+            #             # todo: only currently works with discrete - only need with discrete though
+            #             CL.log(int(quantised_index[index].detach().cpu().numpy()), curr_obs[world, agent].tolist())
                 
 
-            curr_obs, curr_global_obs, _, rewards = sim.parallel_step(action_choice, comm_choice)
-                            
+            curr_obs, curr_global_obs, curr_targets, rewards = sim.parallel_step(action_choice, comm_choice)
+            
+            buf_rewards[t] = torch.tensor(rewards, dtype=torch.float32, device=device) 
             reward_means_per_episode.append(np.mean(rewards))
 
             end = time()
-            if end - start < config.timestep:
-                sleep(config.timestep - (end - start))
+            if end - start < config.training.timestep:
+                sleep(config.training.timestep - (end - start))
+
+        global_state_tensor = torch.tensor(np.stack(curr_global_obs)).float().to(device)
+        if global_state_tensor.ndim == 2:
+            global_state_tensor = global_state_tensor.unsqueeze(1)
+                    
+        with torch.no_grad():
+            batch_last_vals = critic(global_state_tensor)
+        
+        if batch_last_vals.ndim == 3:
+            batch_last_vals = batch_last_vals.squeeze(1)
+        final_batch_values.append(batch_last_vals)
+
+        batch_data = {
+            "obs": buf_obs,
+            "global_obs": buf_global_obs,
+            "targets": buf_targets,
+            "actions": buf_actions,
+            "rewards": buf_rewards,
+            "c_values": buf_c_values,
+        }
+        buffer.add_episodes(batch_data)
             
         reward_means.append(np.mean(reward_means_per_episode))
 
+    # with torch.no_grad():
+    #     final_global_tensor = torch.from_numpy(curr_global_obs).float().to(device)
+    #     last_value = critic(final_global_tensor).squeeze(-1) if not optimal else torch.zeros((W, N), device=device)
+    
+    buffer.compute_advantages(torch.cat(final_batch_values, dim=0), config.mappo.gamma, config.mappo.gae_lambda)
+
     if collect_obs_file is not None:
-        OL.close()
+        print(f"Exporting Buffer to {collect_obs_file}...")
+        
+        flat_obs = buffer.obs.view(-1, O).cpu().numpy()
+        flat_global_obs = buffer.global_obs.unsqueeze(2).expand(-1, -1, N, -1).reshape(-1, GO + N * NC * C).cpu().numpy()
+        flat_actions = buffer.actions.view(-1, 1).cpu().numpy()
+        flat_targets = buffer.targets.view(-1, N, 3).reshape(-1, 3).cpu().numpy()
+        flat_c_values = buffer.c_values.view(-1, 1).cpu().numpy()
+        flat_returns = buffer.returns.view(-1, 1).cpu().numpy()
+
+        record_logs = np.concatenate([
+            flat_obs, 
+            flat_global_obs, 
+            flat_actions, 
+            flat_targets, 
+            flat_c_values,
+            flat_returns
+        ], axis=-1)
+
+        df = pd.DataFrame(record_logs)
+        df.to_csv(collect_obs_file, index=False, header=False)
+        print("Done!")
     
     return np.mean(reward_means)

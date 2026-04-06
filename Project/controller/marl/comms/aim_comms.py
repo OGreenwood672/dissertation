@@ -13,7 +13,7 @@ from .comms import Comms
 
 class AimComms(Comms, nn.Module):
 
-    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, num_agents: int, device: torch.device):
+    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, device: torch.device, **kwargs):
         nn.Module.__init__(self)
 
         self.device = device
@@ -21,7 +21,7 @@ class AimComms(Comms, nn.Module):
 
         self.config = config
         self.actor_config = actor_config
-        self.num_agents = num_agents
+        self.num_agents = kwargs["num_agents"]
 
 
         folder = AIM.get_folder(config)
@@ -35,7 +35,7 @@ class AimComms(Comms, nn.Module):
         # Teaching the fixed codebook
         # Sender must understand what its sending
         # Predict other agent rewards
-        self.predict_agents_returns = nn.Linear(config.communication_size * config.num_comms + actor_config.lstm_hidden_size, num_agents)
+        self.predict_agents_returns = nn.Linear(config.communication_size * config.num_comms + actor_config.lstm_hidden_size, self.num_agents)
         
         # Reciever must understand how it is getting effected
         # Predict critic value
@@ -54,13 +54,17 @@ class AimComms(Comms, nn.Module):
         self.predict_intent_sender_goal = nn.Linear(config.communication_size * config.num_comms + actor_config.lstm_hidden_size, 2)
         self.predict_intent_receiver_goal = nn.Linear(config.communication_size * config.num_comms + actor_config.lstm_hidden_size, 2)
 
-        self.percieve_out_features = config.communication_size * config.num_comms
+        self.obs_external_mask = kwargs["obs_external_mask"]
+
+        self.percieve_out_features = (~self.obs_external_mask).sum().item() + config.communication_size * config.num_comms
         self.out_features = config.communication_size * config.num_comms
 
 
     def percieve(self, x: torch.Tensor):
         self.encoder.eval()
-        return self.encoder.encode(x)
+        internal = x[..., ~self.obs_external_mask]
+        external = x[..., self.obs_external_mask]
+        return torch.cat([internal, self.encoder.encode(external)], dim=-1)
     
     def get_comm_logits(self, x: torch.Tensor):
         return None
@@ -128,7 +132,8 @@ class AimComms(Comms, nn.Module):
 
             comm_conditions = torch.cat([comm_conditions, codewords[:, :, :, :, hq_level, :].reshape(B, T, N, NC * C)], dim=-1)
 
-        codewords = codewords.detach() + soft_codewords - soft_codewords.detach()
+        # codewords = codewords.detach() + soft_codewords - soft_codewords.detach()
+        codewords = soft_codewords + (codewords - soft_codewords).detach()
         comm_output = codewords.sum(dim=-2).view(-1, NC * C)
 
         return comm_output, new_comm_log_probs, comm_entropy
@@ -157,7 +162,6 @@ class AimComms(Comms, nn.Module):
     def get_reciever_context(self, x, comms, mask):
 
         B, T, N, _ = x.shape
-        assert N == 3, f"{x.shape}"
 
         NC = self.config.num_comms
         C = self.config.communication_size
@@ -165,10 +169,11 @@ class AimComms(Comms, nn.Module):
         expanded_comms = comms.view(B, T, N, NC * C).unsqueeze(2).expand(B, T, N, N, NC * C)
         other_comms = expanded_comms[mask.expand(B, T, N, N)].reshape(B, T, N, N - 1, NC * C).detach().reshape(-1, NC * C)
 
-        lstm_expanded = x.unsqueeze(2).expand(B, T, N, N, self.actor_config.lstm_hidden_size)
-        other_lstm = lstm_expanded[mask.expand(B, T, N, N)].reshape(B, T, N, N - 1, self.actor_config.lstm_hidden_size).reshape(-1, self.actor_config.lstm_hidden_size)
+        # lstm_expanded = x.unsqueeze(2).expand(B, T, N, N, self.actor_config.lstm_hidden_size)
+        # other_lstm = lstm_expanded[mask.expand(B, T, N, N)].reshape(B, T, N, N - 1, self.actor_config.lstm_hidden_size).reshape(-1, self.actor_config.lstm_hidden_size)
+        lstm_output = x.unsqueeze(3).expand(B, T, N, N - 1, self.actor_config.lstm_hidden_size).reshape(-1, self.actor_config.lstm_hidden_size)
 
-        return torch.cat([other_comms, other_lstm], dim=-1)
+        return torch.cat([other_comms, lstm_output], dim=-1)
 
     def receiver_goal_loss(self, context, true_targets, true_target_exists, mask):
         
@@ -191,7 +196,7 @@ class AimComms(Comms, nn.Module):
         return predicted_reciever_goal_loss
 
 
-    def auxillery_losses(self, x, comm_output, all_comms, true_returns, new_critic_values, targets):
+    def get_loss(self, x, comm_output, all_comms, true_returns, new_critic_values, targets):
 
         sender_context = self.get_sender_context(comm_output, x)
 
@@ -208,6 +213,6 @@ class AimComms(Comms, nn.Module):
         receiver_context = self.get_reciever_context(x, all_comms, mask)
         predicted_reciever_goal_loss = self.receiver_goal_loss(receiver_context, true_targets, true_target_exists, mask)
 
-        intent_loss = predicted_sender_goal_loss# + predicted_reciever_goal_loss
+        intent_loss = predicted_sender_goal_loss + predicted_reciever_goal_loss
 
-        return predicted_returns_loss, predicted_critic_loss, intent_loss
+        return (0.01 * (predicted_returns_loss + predicted_critic_loss + intent_loss)).item()

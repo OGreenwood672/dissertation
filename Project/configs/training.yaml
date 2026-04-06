@@ -1,6 +1,6 @@
 training:
-  training_timesteps: 30000
-  simulation_timesteps: 350
+  training_timesteps: 25001
+  simulation_timesteps: 300
   timestep: 0
   buffer_size: 128
   worlds_parallised: 32

@@ -22,7 +22,7 @@ class Quantiser(nn.Module):
 
     def forward(self, x):
         
-        distances = torch.cdist(x, self.embedding.weight, p=2)
+        distances = torch.cdist(x, self.embedding.weight, p=2.0)
 
         min_distance_index = distances.argmin(-1)
 
@@ -34,9 +34,9 @@ class Quantiser(nn.Module):
 
                 dead_codes = torch.where(self.usage_count < 1.01)[0]
                 if len(dead_codes) > 0:
-                    random_inputs = x[torch.randperm(x.size(0))[:len(dead_codes)]]
+                    random_inputs = x[torch.randint(0, x.size(0), (len(dead_codes),), device=x.device)]
                     self.embedding.weight.data[dead_codes] = random_inputs.detach()
-                    self.usage_count[dead_codes] = 10.0 
+                    self.usage_count[dead_codes] = 10.0
                 
                 self.usage_count *= 0.99
 

@@ -8,9 +8,12 @@ import torch
 from torch.utils.data import DataLoader
 
 
+from controller.marl.config import AimTrainingConfig, Config
 from controller.marl.run_sim import run_sim
 from controller.marl.datasets import ObsData
 from controller.marl.models.aim import AIM
+
+from project_paths import RESULTS_DIR
 
 
 def set_priors(model, dataloader, device='cuda'):
@@ -35,7 +38,7 @@ def set_priors(model, dataloader, device='cuda'):
     for hq_level in range(model.encoder.hq_vae):
         
         kmeans = MiniBatchKMeans(
-            n_clusters=model.vocab_size, 
+            n_clusters=model.comm_config.vocab_size, 
             batch_size=1024,
             n_init="auto",
         )
@@ -49,68 +52,84 @@ def set_priors(model, dataloader, device='cuda'):
     model.encoder.train()
 
 
-def train_language(system, config, device):
+def train_language(system, config: Config, device: torch.device, use_optimal: bool = False):
 
     torch.set_flush_denormal(True)
 
-    W = config.worlds_parallised
+    W = config.training.worlds_parallised
     N = system['num_agents']
-    T = config.simulation_timesteps
+    T = config.training.simulation_timesteps
     OBS_DIM = system['agent_obs_shape'][0]
-    COMM_DIM = config.communication_size
-    VOCAB_SIZE = config.vocab_size
-    NC = config.num_comms
+    COMM_DIM = config.comms.communication_size
+    VOCAB_SIZE = config.comms.vocab_size
+    NC = config.comms.num_comms
     ACTION_COUNT = system['act_shape'][0]
-    HQ_LAYERS = config.hq_layers
+    HQ_LAYERS = config.comms.hq_layers
 
-    obs_mask = system["sim"].get_agent_obs_mask(0)
+    obs_external_mask = torch.tensor(system["sim"].get_agent_external_obs_mask(0), dtype=torch.bool, device=device)
+    obs_mask = torch.tensor(system["sim"].get_agent_obs_mask(0), dtype=torch.bool, device=device)[obs_external_mask]
+
+
+    OBS_DIM = obs_external_mask.sum().int().item()
 
     cm = system["checkpoint_manager"]
 
-    # Load obs logs
-    obs_logs_file = cm.get_result_path() / "obs_log.csv"
-    if (
-        (os.path.exists(obs_logs_file) and input(f"Obs logs already exist, would you like to overwrite? (y/N) ").lower() == "y")
-        or not os.path.exists(obs_logs_file)
-    ):
 
-        RUNS = config.obs_runs
+    if not use_optimal:
+        # Load obs logs
+        obs_logs_file = cm.get_result_path() / "obs_log.csv"
+        if (
+            (os.path.exists(obs_logs_file) and input(f"Obs logs already exist, would you like to overwrite? (y/N) ").lower() == "y")
+            or not os.path.exists(obs_logs_file)
+        ):
 
-        rewards = run_sim(system, config, device, RUNS, collect_obs_file=obs_logs_file)
+            RUNS = config.aim_training.obs_runs
 
-        print(f"Obs collected: {RUNS * W * N * T}")
-        print(f"Baseline: {np.mean(rewards)}")
+            system["actor"].eval()
+            system["critic"].eval()
+
+            rewards = run_sim(system, config, device, RUNS, collect_obs_file=obs_logs_file)
+
+            print(f"Obs collected: {RUNS * W * N * T}")
+            print(f"Baseline: {np.mean(rewards)}")
+        
+    else:
+        obs_logs_file = RESULTS_DIR / "obs_log.csv"
+        if (
+            (os.path.exists(obs_logs_file) and input(f"Obs logs already exist, would you like to overwrite? (y/N) ").lower() == "y")
+            or not os.path.exists(obs_logs_file)
+        ):
+
+            RUNS = config.aim_training.obs_runs
+
+            rewards = run_sim(system, config, device, RUNS, collect_obs_file=obs_logs_file, optimal=True, noise=config.aim_training.obs_runs_noise)
+
+            print(f"Obs collected: {RUNS * W * N * T}")
+            print(f"Baseline: {np.mean(rewards)}")
 
     print("Loading datapoints...")
 
-    dataset = ObsData(obs_logs_file, ACTION_COUNT)
+    dataset = ObsData(obs_logs_file, obs_external_mask, device)
     prior_set, train_set, val_set, test_set = torch.utils.data.random_split(dataset, [0.1, 0.7, 0.1, 0.1])
 
     print(f"Using {len(train_set)} datapoints for training...")
 
     prior_loader, training_loader, validation_loader, test_loader = (
-        DataLoader(prior_set, batch_size=config.aim_batch_size, shuffle=True),
-        DataLoader(train_set, batch_size=config.aim_batch_size, shuffle=True),
-        DataLoader(val_set, batch_size=config.aim_batch_size, shuffle=False),
-        DataLoader(test_set, batch_size=config.aim_batch_size, shuffle=False)
+        DataLoader(prior_set, batch_size=config.aim_training.aim_batch_size, shuffle=True),
+        DataLoader(train_set, batch_size=config.aim_training.aim_batch_size, shuffle=True),
+        DataLoader(val_set, batch_size=config.aim_training.aim_batch_size, shuffle=False),
+        DataLoader(test_set, batch_size=config.aim_training.aim_batch_size, shuffle=False)
     )
 
-    num_training_steps = config.ae_epochs * (len(training_loader) // config.aim_batch_size)
+    num_training_steps = config.aim_training.ae_epochs * (len(training_loader) // config.aim_training.aim_batch_size)
     
-    aim = AIM(
-        OBS_DIM, ACTION_COUNT,
-        512, COMM_DIM * NC, VOCAB_SIZE,
-        commitment_cost=0.25,
-        num_training_steps=num_training_steps, hq_vae=HQ_LAYERS,
-        init_temperature=config.init_temperature, min_temperature=config.min_temperature,
-        autoencoder_type=config.autoencoder_type, obs_mask=torch.tensor(obs_mask, dtype=torch.bool, device=device)
-    ).to(device)
+    aim = AIM(OBS_DIM, config.comms, config.aim_training, obs_mask=obs_mask).to(device)
 
     set_priors(aim, prior_loader, device='cuda')
 
-    optimizer = torch.optim.Adam(aim.parameters(), lr=config.aim_learning_rate)
+    optimizer = torch.optim.Adam(aim.parameters(), lr=config.aim_training.aim_learning_rate)
 
-    for epoch in range(config.ae_epochs):
+    for epoch in range(config.aim_training.ae_epochs):
 
         train_loss = 0.0
         aim.train()
@@ -145,7 +164,7 @@ def train_language(system, config, device):
                 
         avg_val_loss = val_loss / len(validation_loader)
 
-        print(f"Epoch {epoch+1}/{config.ae_epochs} | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
+        print(f"Epoch {epoch+1}/{config.aim_training.ae_epochs} | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
 
     aim.eval()
     test_loss = 0.0
@@ -158,17 +177,6 @@ def train_language(system, config, device):
 
             loss = aim(batch_obs, None)
             test_loss += loss.item()
-
-        # show_loader = DataLoader(test_set, batch_size=1, shuffle=True)
-        # for obs, action in show_loader:
-        #     print("OBS", obs)
-        #     print("Action", action)
-        #     construction_loss, reward_loss, reconstructed, quantised = aim.check(obs.to(device), action.to(device))
-        #     print("Reconstruction Loss", construction_loss)
-        #     print("Reward Loss", reward_loss)
-        #     print("Quantised", quantised)
-        #     print("Reconstructed", reconstructed)
-        #     print("\n")
 
     print(f"Final Test Set Loss: {test_loss / len(test_loader):.4f}")
 

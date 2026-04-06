@@ -3,10 +3,10 @@ use std::vec::Vec;
 use serde::{Serialize};
 
 use crate::agent::{ACTION_COUNT, Action, Agent, AgentState};
-use crate::station::{Station, StationState};
+use crate::station::{Station, StationState, StationType};
 use crate::config::{AgentConfig, Config, StationConfig};
 use crate::location::{Layout, Location, get_location};
-use crate::resource::{RESOURCE_COUNT, one_hot_vector_from_resource};
+use crate::resource::{RESOURCE_COUNT, one_hot_vector_from_resource, ResourceType};
 use crate::grid_map::{Entity, GridMap};
 
 
@@ -80,7 +80,7 @@ impl World {
             self.context.agent_layout,
             self.context.width, self.context.height,
             self.context.agent_configs.len() as u32,
-             0
+             0.0
         ).into_iter();
 
         self.agents = self.context.agent_configs.iter().map(|agent: &AgentConfig| Agent::new(
@@ -103,7 +103,7 @@ impl World {
             self.context.width,
             self.context.height,
             self.context.station_configs.len() as u32,
-            1
+            0.2
         ).into_iter();
 
         self.stations = self.context.station_configs.iter().map(|station: &StationConfig| Station::new(
@@ -127,6 +127,32 @@ impl World {
         for station in &self.stations {
             self.map.add_station(station.get_id(), station.get_location().clone());
         }
+    }
+
+    pub fn get_optimal_actions(&self) -> Vec<Action> {
+        (0..self.agents.len()).map(|agent_index| {
+            let target = self.get_desired_target(agent_index);
+            if let Some(target) = target {
+                let distance_vector: Location = target - self.agents[agent_index].location;
+                if distance_vector.magnitude() == 0.0 {
+                    Action::Interact
+                } else if distance_vector.x.abs() > distance_vector.y.abs() {
+                    if distance_vector.x > 0 {
+                        Action::MoveRight
+                    } else {
+                        Action::MoveLeft
+                    }
+                } else {
+                    if distance_vector.y > 0 {
+                        Action::MoveDown
+                    } else {
+                        Action::MoveUp
+                    }
+                }
+            } else {
+                Action::Interact // Do Nothing
+            }
+        }).collect()
     }
 
     pub fn apply_actions(&mut self, actions: Vec<Action>) {
@@ -178,11 +204,13 @@ impl World {
                         0.0
                     }
                 }
-                Action::Interact => self.interact(index),
+                Action::Interact => {
+                    self.interact(index)
+                },
             };
-            if let Some(desired_target) = self.get_known_desired_target(index) {
-                reward += self.direction_reward(original_location, self.agents[index].location, desired_target);
-            }
+            // if let Some(desired_target) = self.get_known_desired_target(index) {
+            //     reward += self.direction_reward(original_location, self.agents[index].location, desired_target);
+            // }
             if !self.map.has_location_been_visited(self.agents[index].location) {
                 reward += 0.002;
                 self.map.set_location_visited(self.agents[index].location);
@@ -206,7 +234,12 @@ impl World {
 
     fn interact(&mut self, agent_index: usize) -> f32 { // Returns reward
 
-        let nearest_entity = self.get_nearest_visible_entity(&self.agents[agent_index]);
+        let nearest_entity = self.get_nearest_visible_entity(
+            &self.agents[agent_index],
+            1.5,
+            1.5,
+            false
+        );
         // let nearest_entity = self.map.get_nearest_visible_entity(
         //     self.agents[agent_index].id,
         //     self.agents[agent_index].location,
@@ -252,26 +285,73 @@ impl World {
         }).collect()
     }
 
-    fn get_possible_known_desired_target(&self, agent_index: usize) -> Option<Location> {
+    // fn get_possible_known_desired_target(&self, agent_index: usize) -> Option<Location> {
+    //     let agent = &self.agents[agent_index];
+
+    //     // Get location closest to agent.location
+    //     // agent.get_current_targets().into_iter().min_by_key(|target| {
+    //     //     agent.location.distance_squared(target.location)
+    //     // })
+
+    //     let station_needed: Option<Location> = self.stations.iter().filter(|station| {
+    //         agent.is_needed(Some(*station.get_resource())) && station.get_is_found()
+    //     }).min_by_key(|station| {
+    //         agent.location.distance_squared(*station.get_location())
+    //     }).map(|station| *station.get_location());
+
+    //     let agent_needed: Option<Location> = self.agents.iter().filter(|other_agent| {
+    //         agent_index != other_agent.id as usize &&
+    //         (
+    //             agent.is_needed(other_agent.get_curr_output()) ||
+    //             other_agent.is_needed(agent.get_curr_output())
+    //         )
+    //     }).min_by_key(|other_agent| {
+    //         agent.location.distance_squared(other_agent.location)
+    //     }).map(|other_agent| other_agent.location);
+
+    //     // Return closest target coords
+    //     match (station_needed, agent_needed) {
+    //         (Some(station_needed), Some(agent_needed)) => {
+    //             if agent.location.distance_squared(station_needed) < agent.location.distance_squared(agent_needed) {
+    //                 Some(station_needed)
+    //             } else {
+    //                 Some(agent_needed)
+    //             }
+    //         }
+    //         (Some(station_needed), None) => {
+    //             Some(station_needed)
+    //         }
+    //         (None, Some(agent_needed)) => {
+    //             Some(agent_needed)
+    //         }
+    //         (None, None) => {
+    //             None
+    //         }
+    //     }
+
+    // }
+
+    
+    fn get_desired_target(&self, agent_index: usize) -> Option<Location> {
         let agent = &self.agents[agent_index];
 
-        // Get location closest to agent.location
-        // agent.get_current_targets().into_iter().min_by_key(|target| {
-        //     agent.location.distance_squared(target.location)
-        // })
-
         let station_needed: Option<Location> = self.stations.iter().filter(|station| {
-            agent.is_needed(Some(*station.get_resource())) && station.get_is_found()
+            agent.is_needed(*station.get_resource(), *station.get_station_type())
         }).min_by_key(|station| {
             agent.location.distance_squared(*station.get_location())
         }).map(|station| *station.get_location());
 
         let agent_needed: Option<Location> = self.agents.iter().filter(|other_agent| {
-            agent_index != other_agent.id as usize &&
-            (
-                agent.is_needed(other_agent.get_curr_output()) ||
-                other_agent.is_needed(agent.get_curr_output())
-            )
+            if let Some(other_agent_output) = other_agent.get_curr_output() {
+                agent_index != other_agent.id as usize &&
+                (
+                    agent.is_needed(other_agent_output, StationType::PickUp)
+                    // ||
+                    // other_agent.is_needed(agent.get_curr_output())
+                )
+            } else {
+                false
+            }
         }).min_by_key(|other_agent| {
             agent.location.distance_squared(other_agent.location)
         }).map(|other_agent| other_agent.location);
@@ -323,12 +403,17 @@ impl World {
  
     }
 
-    fn get_nearest_visible_entity(&self, agent: &Agent) -> Option<Entity> {
+    fn get_nearest_visible_entity(&self, agent: &Agent, agent_agent_visibility: f32, agent_station_visibility: f32, blind_required: bool) -> Option<Entity> {
 
         let nearest_station = self.stations.iter().enumerate()
             .filter_map(|(index, t_station)| {
+
+                if blind_required && *t_station.get_station_type() == StationType::PickUp && agent.get_inputs().contains(t_station.get_resource()) {
+                    return None;
+                }
+
                 let dist_sq = agent.location.distance_squared(*t_station.get_location());
-                if dist_sq <= (self.context.agent_station_visibility as u64).pow(2) {
+                if dist_sq <= agent_station_visibility.powi(2).ceil() as u64  {
                     Some((index, dist_sq))
                 } else {
                     None
@@ -339,8 +424,13 @@ impl World {
         let nearest_agent = self.agents.iter().enumerate()
             .filter(|(_, t_agent)| t_agent.id != agent.id) // Filter out self
             .filter_map(|(index, t_agent)| {
+
+                if blind_required && agent.get_inputs().contains(&t_agent.get_output()) {
+                    return None;
+                }
+
                 let dist_sq = agent.location.distance_squared(t_agent.location);
-                if dist_sq <= (self.context.agent_agent_visibility as u64).pow(2) {
+                if dist_sq <= agent_agent_visibility.powi(2).ceil() as u64 {
                     Some((index, dist_sq))
                 } else {
                     None
@@ -385,7 +475,7 @@ impl World {
         let other_obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * max_targets;
 
         const SELF_AGENT_OBS_SIZE: u32 = 2;
-        const TARGET_OBS_SIZE: u32 = 6 + RESOURCE_COUNT as u32;
+        const TARGET_OBS_SIZE: u32 = 3 + RESOURCE_COUNT as u32;
         let total_obs_size: u32 = SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * max_targets + other_obs_size;
 
         let mut obs = Vec::with_capacity(total_obs_size as usize);
@@ -403,11 +493,11 @@ impl World {
                 obs.extend(one_hot_vector_from_resource(agent.agent_targets[i].resource));
 
                 // Has the agent come across this station/agent
-                obs.push(agent.agent_targets[i].is_found as i32 as f32);
+                // obs.push(agent.agent_targets[i].is_found as i32 as f32);
 
                 // station/agent last known location - relative
-                obs.push(((agent.agent_targets[i].location.x - agent.location.x) as f32 + self.context.width as f32) / (2.0 * self.context.width as f32));
-                obs.push(((agent.agent_targets[i].location.y - agent.location.y) as f32 + self.context.height as f32) / (2.0 * self.context.height as f32));
+                // obs.push(((agent.agent_targets[i].location.x - agent.location.x) as f32 + self.context.width as f32) / (2.0 * self.context.width as f32));
+                // obs.push(((agent.agent_targets[i].location.y - agent.location.y) as f32 + self.context.height as f32) / (2.0 * self.context.height as f32));
                 // If we have it, was it a static station or a moving agent
                 obs.push(f32::from(&agent.agent_targets[i].station_type));
                 
@@ -422,7 +512,12 @@ impl World {
         }
 
         // Next to which station/agent if any
-        let nearest_entity = self.get_nearest_visible_entity(agent);
+        let nearest_entity = self.get_nearest_visible_entity(
+            agent,
+            self.context.agent_agent_visibility,
+            self.context.agent_station_visibility,
+            true
+        );
         // let nearest_entity = self.map.get_nearest_visible_entity(
         //     agent.id,
         //     agent.location,
@@ -469,7 +564,7 @@ impl World {
         let obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
 
         const SELF_AGENT_OBS_SIZE: u32 = 2;
-        const TARGET_OBS_SIZE: u32 = 6 + RESOURCE_COUNT as u32;
+        const TARGET_OBS_SIZE: u32 = 3 + RESOURCE_COUNT as u32;
         
         SELF_AGENT_OBS_SIZE + TARGET_OBS_SIZE * target_size + obs_size
 
@@ -487,12 +582,12 @@ impl World {
         obs_mask[1] = false;
 
         let max_targets = self.context.max_inputs + self.context.max_outputs;
-        const TARGET_OBS_SIZE: usize = 6 + RESOURCE_COUNT;
+        const TARGET_OBS_SIZE: usize = 3 + RESOURCE_COUNT;
         // self targets coords
-        for i in 0..max_targets {
-            obs_mask[SELF_OBS + RESOURCE_COUNT as usize + 1 + i as usize * TARGET_OBS_SIZE] = false;
-            obs_mask[SELF_OBS + RESOURCE_COUNT as usize + 2 + i as usize * TARGET_OBS_SIZE] = false;
-        }
+        // for i in 0..max_targets {
+        //     obs_mask[SELF_OBS + RESOURCE_COUNT as usize + 1 + i as usize * TARGET_OBS_SIZE] = false;
+        //     obs_mask[SELF_OBS + RESOURCE_COUNT as usize + 2 + i as usize * TARGET_OBS_SIZE] = false;
+        // }
 
         let previous_obs_size = SELF_OBS + (max_targets as usize * TARGET_OBS_SIZE);
 
@@ -502,6 +597,28 @@ impl World {
         obs_mask
 
     }
+
+    pub fn get_agent_external_obs_mask(&self) -> Vec<bool> {
+        // True is for external obs
+        // False is for internal obs
+        let mut obs_mask = vec![false; self.get_agent_obs_size() as usize];
+
+        const SELF_OBS: usize = 2;
+        let max_targets = self.context.max_inputs + self.context.max_outputs;
+        const TARGET_OBS_SIZE: usize = 3 + RESOURCE_COUNT;
+
+        let previous_obs_size = SELF_OBS + (max_targets as usize * TARGET_OBS_SIZE);
+
+        const BASIC_INPUT_TENSOR_SIZE: u32 = 3;
+        const OBS_PER_INVENTORY_PIECE: u32 = 2 + RESOURCE_COUNT as u32;
+        let target_size = self.context.max_inputs + self.context.max_outputs;
+        let external_obs_size = BASIC_INPUT_TENSOR_SIZE + OBS_PER_INVENTORY_PIECE * target_size;
+        
+        obs_mask[previous_obs_size..previous_obs_size + external_obs_size as usize].fill(true);
+
+        obs_mask
+    }
+
 
     pub fn get_agent_obs(&self, agent_index: usize) -> Vec<f32> {
         self.get_agent_observation(agent_index)
@@ -527,10 +644,10 @@ impl World {
         self.get_number_of_agents() as u32 * (
             2 // location
             + target_obs_size * max_targets // targets
-            + self.get_number_of_agents() as u32 * ( // Other Agents
-                2 // location
-                + target_obs_size * max_targets // targets
-            )
+            // + self.get_number_of_agents() as u32 * ( // Other Agents
+            //     2 // location
+            //     + target_obs_size * max_targets // targets
+            // )
             + self.context.station_configs.len() as u32 * (
                 2 // location
                 + RESOURCE_COUNT as u32 // resource
@@ -568,28 +685,28 @@ impl World {
 
             }
 
-            for other_agent in &self.agents {
-                let other_loc = other_agent.get_location();
-                let vector = other_loc - loc;
-                obs.push(vector.x as f32 / self.context.width as f32);
-                obs.push(vector.y as f32 / self.context.height as f32);
+            // for other_agent in &self.agents {
+            //     let other_loc = other_agent.get_location();
+            //     let vector = other_loc - loc;
+            //     obs.push(vector.x as f32 / self.context.width as f32);
+            //     obs.push(vector.y as f32 / self.context.height as f32);
 
-                for target in 0..max_targets {
-                    if target < other_agent.agent_targets.len() as u32 {
-                        // What is in target
-                        obs.extend(one_hot_vector_from_resource(other_agent.agent_targets[target as usize].resource));
+            //     for target in 0..max_targets {
+            //         if target < other_agent.agent_targets.len() as u32 {
+            //             // What is in target
+            //             obs.extend(one_hot_vector_from_resource(other_agent.agent_targets[target as usize].resource));
 
-                        // Does the agent have it
-                        obs.push(other_agent.agent_targets[target as usize].is_collected as i32 as f32);
+            //             // Does the agent have it
+            //             obs.push(other_agent.agent_targets[target as usize].is_collected as i32 as f32);
 
-                        // Do we want it, or do we want to drop it off
-                        obs.push(f32::from(&other_agent.agent_targets[target as usize].station_type));
-                    } else {
-                        obs.extend(vec![0.0; target_obs_size as usize]);
-                    }
+            //             // Do we want it, or do we want to drop it off
+            //             obs.push(f32::from(&other_agent.agent_targets[target as usize].station_type));
+            //         } else {
+            //             obs.extend(vec![0.0; target_obs_size as usize]);
+            //         }
 
-                }
-            }
+            //     }
+            // }
 
             for station in &self.stations {
                 let station_loc = station.get_location();
@@ -607,5 +724,145 @@ impl World {
 
         obs
     }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_config() -> Config {
+        Config {
+            arena_width: 10,
+            arena_height: 10,
+            agent_agent_visibility: 5.0,
+            agent_station_visibility: 5.0,
+            headless: false,
+            websocket_url: String::new(),
+            websocket_path: String::new(),
+            initial_agent_layout: Layout::Random,
+            station_layout: Layout::Random,
+            agents: vec![
+                AgentConfig {
+                    id: 0,
+                    inputs: vec![ResourceType::Bun, ResourceType::Patty],
+                    output: ResourceType::Bun,
+                },
+                AgentConfig {
+                    id: 1,
+                    inputs: vec![ResourceType::Bun, ResourceType::Patty],
+                    output: ResourceType::Bun,
+                },
+            ],
+            stations: vec![
+                StationConfig {
+                    id: 0,
+                    station_type: StationType::PickUp,
+                    resource: ResourceType::Bun
+                },
+                StationConfig {
+                    id: 1,
+                    station_type: StationType::PickUp,
+                    resource: ResourceType::Patty
+                },
+                StationConfig {
+                    id: 2,
+                    station_type: StationType::DropOff,
+                    resource: ResourceType::Burger
+                }            
+            ],
+        }
+    }
+
+    #[test]
+    fn test_world_init() {
+        let world = World::new(get_config());
+        assert_eq!(world.get_number_of_agents(), 2);
+        assert_eq!(world.stations.len(), 3);
+    }
+
+    #[test]
+    fn test_observations() {
+        let world = World::new(get_config());
+        let obs_size = world.get_agent_obs_size();
+        let actual_obs = world.get_agent_observation(0);
+        
+        assert_eq!(actual_obs.len(), obs_size as usize);
+    }
+
+    #[test]
+    fn test_movement_and_reward_logic() {
+        let mut world = World::new(get_config());
+        world.agents[0].location = Location { x: 5, y: 5 };
+        world.agents[1].location = Location { x: 5, y: 5 };
+
+        world.apply_actions(vec![Action::MoveRight, Action::MoveDown]);
+        
+        assert_eq!(world.agents[0].location.x, 6);
+        assert_eq!(world.agents[0].location.y, 5);
+        assert!(world.agents[0].get_curr_reward() < 0.0); 
+
+        assert_eq!(world.agents[1].location.x, 5);
+        assert_eq!(world.agents[1].location.y, 6);
+        assert!(world.agents[1].get_curr_reward() < 0.0); 
+    }
+
+    #[test]
+    fn test_invalid_move_punishment() {
+        let mut world = World::new(get_config());
+
+        world.agents[0].location = Location { x: 0, y: 5 };
+        world.apply_actions(vec![Action::MoveLeft]);
+        
+        assert_eq!(world.agents[0].location.x, 0);
+        assert!(world.agents[0].get_curr_reward() < -0.01);
+    }
+
+    #[test]
+    fn test_reward_sharing() {
+        let mut world = World::new(get_config());
+        
+        world.agents[0].set_curr_reward(1.0);
+        world.agents[1].set_curr_reward(0.0);
+        
+        world.spread_rewards(0.5);
+        
+        assert_eq!(world.agents[0].get_curr_reward(), 0.75);
+        assert_eq!(world.agents[1].get_curr_reward(), 0.25);
+    }
+
+    #[test]
+    fn test_optimal_actions() {
+        let mut world = World::new(get_config());
+        
+        world.agents[0].location = Location { x: 0, y: 0 };
+        world.stations[0].set_location(Location { x: 3, y: 2 });
+        world.stations[1].set_location(Location { x: 5, y: 5 });
+
+        // world.agents[1].agent_targets[0].set_found(Location { x: 5, y: 5 }, true);
+        
+        let actions = world.get_optimal_actions();
+        
+        if let Some(_) = world.get_desired_target(0) {
+            assert_eq!(actions[0], Action::MoveRight);
+        }
+    }
+
+    #[test]
+    fn test_global_observation_consistency() {
+
+        let world = World::new(get_config());
+
+        let global_obs = world.get_global_obs();
+        let expected_size = world.get_global_obs_size();
+        
+        assert_eq!(global_obs.len(), expected_size as usize);
+        
+        for &val in global_obs.iter() {
+            assert!(val >= -1.1 && val <= 1.1, "Global obs value {} out of expected range", val);
+        }
+    }
+
+
 
 }

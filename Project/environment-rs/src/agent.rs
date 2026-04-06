@@ -69,6 +69,7 @@ pub struct Agent {
 
 // actions: move up, down, left, right, interact, 
 pub const ACTION_COUNT: u32 = 5;
+#[derive(PartialEq, Debug)]
 pub enum Action {
     MoveUp,
     MoveDown,
@@ -86,6 +87,18 @@ impl From<i32> for Action {
             3 => Action::MoveRight,
             4 => Action::Interact,
             _ => panic!("Invalid action value"),
+        }
+    }
+}
+
+impl From<Action> for i32 {
+    fn from(item: Action) -> Self {
+        match item {
+            Action::MoveUp => 0,
+            Action::MoveDown => 1,
+            Action::MoveLeft => 2,
+            Action::MoveRight => 3,
+            Action::Interact => 4,
         }
     }
 }
@@ -186,17 +199,11 @@ impl Agent {
         self.agent_targets.iter().filter(|target| target.is_current_target && target.is_found).map(|target| target).collect()
     }
 
-    pub fn is_needed(&self, resource: Option<ResourceType>) -> bool {
-        if let Some(resource) = resource {
-            self.agent_targets.iter().any(|target| {
-                target.resource == resource && !target.is_collected
-            })
-        } else {
-            false
-        }
+    pub fn is_needed(&self, resource: ResourceType, station_type: StationType) -> bool {
+        self.agent_targets.iter().any(|target| {
+            target.resource == resource && target.station_type == station_type && target.is_current_target
+        })
     }
-
-
 
     fn take_resource(&mut self, resource: ResourceType) {
         self.agent_targets.iter_mut().for_each(|target| {
@@ -324,6 +331,7 @@ impl Agent {
             }
             self.collection_count += 1;
         }
+
         if dropped_off {
             self.reset_targets();
         }
@@ -408,4 +416,298 @@ impl From<&Agent> for AgentState {
             location: agent.location,
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_agent_new() {
+        let location = Location { x: 0, y: 0 };
+        let input = vec![ResourceType::Burger];
+        let output = ResourceType::Burger;
+        let agent = Agent::new(1, location, input, output);
+        assert_eq!(agent.id, 1);
+        assert_eq!(agent.location, location);
+        assert_eq!(agent.curr_reward, 0.0);
+        assert_eq!(agent.agent_targets.len(), 2);
+        assert_eq!(agent.agent_targets[0].resource, ResourceType::Burger);
+        assert_eq!(agent.agent_targets[0].station_type, StationType::PickUp);
+        assert_eq!(agent.agent_targets[0].is_found, false);
+        assert_eq!(agent.agent_targets[0].is_current_target, true);
+        assert_eq!(agent.agent_targets[0].is_collected, false);
+    }
+
+    #[test]
+    fn test_agent_move_north() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 2 }, vec![], ResourceType::Burger);
+        agent.move_north();
+        assert_eq!(agent.location, Location { x: 0, y: 1 });
+    }
+
+    #[test]
+    fn test_agent_move_invalid_north() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        agent.move_north();
+        assert_eq!(agent.location, Location { x: 0, y: 0 });
+    }
+
+    #[test]
+    fn test_agent_move_south() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 2 }, vec![], ResourceType::Burger);
+        agent.move_south(10);
+        assert_eq!(agent.location, Location { x: 0, y: 3 });
+    }
+
+    #[test]
+    fn test_agent_move_invalid_south() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 9 }, vec![], ResourceType::Burger);
+        agent.move_south(10);
+        assert_eq!(agent.location, Location { x: 0, y: 9 });
+    }
+
+    #[test]
+    fn test_agent_move_west() {
+        let mut agent = Agent::new(1, Location { x: 2, y: 0 }, vec![], ResourceType::Burger);
+        agent.move_west();
+        assert_eq!(agent.location, Location { x: 1, y: 0 });
+    }
+
+    #[test]
+    fn test_agent_move_invalid_west() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        agent.move_west();
+        assert_eq!(agent.location, Location { x: 0, y: 0 });
+    }
+
+    #[test]
+    fn test_agent_move_east() {
+        let mut agent = Agent::new(1, Location { x: 2, y: 0 }, vec![], ResourceType::Burger);
+        agent.move_east(10);
+        assert_eq!(agent.location, Location { x: 3, y: 0 });
+    }
+
+    #[test]
+    fn test_agent_move_invalid_east() {
+        let mut agent = Agent::new(1, Location { x: 9, y: 0 }, vec![], ResourceType::Burger);
+        agent.move_east(10);
+        assert_eq!(agent.location, Location { x: 9, y: 0 });
+    }
+
+    #[test]
+    fn test_agent_set_curr_reward() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        agent.set_curr_reward(1.0);
+        assert_eq!(agent.get_curr_reward(), 1.0);
+    }
+
+    #[test]
+    fn test_agent_add_curr_reward() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        agent.add_curr_reward(1.0);
+        assert_eq!(agent.get_curr_reward(), 1.0);
+    }
+
+    #[test]
+    fn test_agent_get_location() {
+        let agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        assert_eq!(agent.get_location(), &Location { x: 0, y: 0 });
+    }
+
+    #[test]
+    fn test_agent_get_inputs() {
+        let agent = Agent::new(1, Location { x: 0, y: 0 }, vec![ResourceType::Burger], ResourceType::Burger);
+        assert_eq!(agent.get_inputs(), vec![ResourceType::Burger]);
+    }
+
+    #[test]
+    fn test_agent_get_output() {
+        let agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        assert_eq!(agent.get_output(), ResourceType::Burger);
+    }
+
+    #[test]
+    fn test_agent_get_curr_target() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        // Set target
+        agent.agent_targets[0].set_found(Location { x: 0, y: 0 }, true);
+        agent.agent_targets[0].set_current_target();
+
+        assert_eq!(agent.get_current_targets().len(), 1);
+    }
+
+    #[test]
+    fn test_agent_is_needed() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0}, vec![], ResourceType::Burger);
+        agent.agent_targets[0].set_found(Location { x: 0, y: 0 }, true);
+        agent.agent_targets[0].set_current_target();
+        assert!(agent.is_needed(ResourceType::Burger, StationType::DropOff));
+    }
+
+    #[test]
+    fn test_agent_take_resource() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+
+        agent.agent_targets[0].set_found(Location { x: 0, y: 0 }, true);
+        agent.agent_targets[0].is_collected = true;
+        agent.take_resource(ResourceType::Burger);
+
+        assert_eq!(agent.agent_targets[0].is_collected, false);
+        assert_eq!(agent.get_curr_reward(), 0.7);
+    }
+
+    #[test]
+    fn test_agent_reset_targets() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![ResourceType::Bun, ResourceType::Patty], ResourceType::Burger);
+        agent.agent_targets[0].collect();
+        agent.agent_targets[0].set_found(Location { x: 0, y: 0 }, true);
+        agent.agent_targets[1].collect();
+        agent.agent_targets[1].set_found(Location { x: 0, y: 0 }, true);
+        assert_eq!(agent.get_current_targets().len(), 0);
+        agent.reset_targets();
+        assert_eq!(agent.get_current_targets().len(), 2);
+    }
+
+    #[test]
+    fn test_agent_try_combine() {
+
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![ResourceType::Bun, ResourceType::Patty], ResourceType::Burger);
+        agent.agent_targets[0].set_found(Location { x: 0, y: 0 }, true);
+        agent.agent_targets[1].set_found(Location { x: 0, y: 0 }, true);
+        agent.agent_targets[0].collect();
+        agent.agent_targets[1].collect();
+        agent.try_combine();
+        assert!(agent.agent_targets[2].is_collected);
+    
+    }
+
+    #[test]
+    fn test_agent_get_self_observations() {
+        let agent = Agent::new(1, Location { x: 5, y: 5 }, vec![], ResourceType::Burger);
+        let max_targets = 3;
+        let obs = agent.get_self_observations(10, 10, max_targets);
+        assert_eq!(obs.len() as u32, 3 + max_targets * (RESOURCE_COUNT as u32 + 2));
+        assert_eq!(obs[0], 0.0);
+        assert_eq!(obs[1], 0.5);
+        assert_eq!(obs[2], 0.5);    
+    }
+
+    #[test]
+    fn test_agent_interact_with_station() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![ResourceType::Bun], ResourceType::Burger);
+        let station = Station::new(1, Location { x: 0, y: 0 }, StationType::PickUp, ResourceType::Bun);
+        let reward = agent.interact_with_station(&station);
+        assert_eq!(reward, 1.5);
+        assert_eq!(agent.agent_targets[0].is_found, true);
+        assert_eq!(agent.agent_targets[0].is_current_target, false);
+        assert_eq!(agent.agent_targets[0].is_collected, false);
+    }
+
+    #[test]
+    fn test_agent_interact_with_agent() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![ResourceType::Burger], ResourceType::Burger);
+        let mut other_agent = Agent::new(2, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        agent.agent_targets[0].set_found(Location { x: 0, y: 0 }, true);
+        other_agent.agent_targets[0].set_found(Location { x: 0, y: 0 }, true);
+        other_agent.agent_targets[0].collect();
+        let reward = agent.interact_with_agent(&mut other_agent);
+        assert_eq!(reward, 1.0);
+        assert_eq!(agent.agent_targets[0].is_found, true);
+        assert_eq!(agent.agent_targets[0].is_current_target, false);
+        assert_eq!(agent.agent_targets[0].is_collected, false);
+    }
+
+    #[test]
+    fn test_agent_get_inventory_reward() {
+        let mut agent = Agent::new(1, Location { x: 0, y: 0 }, vec![ResourceType::Bun, ResourceType::Patty], ResourceType::Burger);
+        let mut other_agent = Agent::new(2, Location { x: 0, y: 0 }, vec![], ResourceType::Bun);
+        other_agent.agent_targets[0].set_found(Location { x: 0, y: 0 }, true);
+        other_agent.agent_targets[0].collect();
+        agent.interact_with_agent(&mut other_agent);
+        let reward = agent.get_inventory_reward();
+        assert_eq!(reward, 0.004);
+    }
+
+    #[test]
+    fn test_agent_state_from_agent() {
+        let agent = Agent::new(1, Location { x: 0, y: 0 }, vec![], ResourceType::Burger);
+        let agent_state = AgentState::from(&agent);
+        assert_eq!(agent_state.id, 1);
+        assert_eq!(agent_state.location, Location { x: 0, y: 0 });
+    }
+
+    #[test]
+    fn test_agent_target_new() {
+        let target = AgentTarget::new(StationType::PickUp, ResourceType::Burger);
+        assert_eq!(target.is_station, false);
+        assert_eq!(target.station_type, StationType::PickUp);
+        assert_eq!(target.resource, ResourceType::Burger);
+        assert_eq!(target.location, Location { x: -1, y: -1 });
+        assert_eq!(target.is_found, false);
+        assert_eq!(target.is_current_target, false);
+        assert_eq!(target.is_collected, false);
+    }
+
+    #[test]
+    fn test_agent_target_collect() {
+        let mut target = AgentTarget::new(StationType::PickUp, ResourceType::Burger);
+        target.collect();
+        assert_eq!(target.is_current_target, false);
+        assert_eq!(target.is_collected, true);
+    }
+
+    #[test]
+    fn test_agent_target_dropoff() {
+        let mut target = AgentTarget::new(StationType::PickUp, ResourceType::Burger);
+        target.set_current_target();
+        target.dropoff();
+        assert_eq!(target.is_current_target, false);
+        assert_eq!(target.is_collected, false);
+    }
+
+    #[test]
+    fn test_agent_target_set_found() {
+        let mut target = AgentTarget::new(StationType::PickUp, ResourceType::Burger);
+        target.set_found(Location { x: 0, y: 0 }, true);
+        assert_eq!(target.is_found, true);
+        assert_eq!(target.location, Location { x: 0, y: 0 });
+        assert_eq!(target.is_station, true);
+    }
+
+    #[test]
+    fn test_agent_target_set_current_target() {
+        let mut target = AgentTarget::new(StationType::PickUp, ResourceType::Burger);
+        target.set_current_target();
+        assert_eq!(target.is_current_target, true);
+    }
+
+    #[test]
+    fn test_action_from_i32() {
+        let action = Action::from(0);
+        assert_eq!(action, Action::MoveUp);
+        let action = Action::from(1);
+        assert_eq!(action, Action::MoveDown);
+        let action = Action::from(2);
+        assert_eq!(action, Action::MoveLeft);
+        let action = Action::from(3);
+        assert_eq!(action, Action::MoveRight);
+        let action = Action::from(4);
+        assert_eq!(action, Action::Interact);
+    }
+
+    #[test]
+    fn test_action_to_i32() {
+        let action = Action::MoveUp;
+        assert_eq!(Into::<i32>::into(action), 0);
+        let action = Action::MoveDown;
+        assert_eq!(Into::<i32>::into(action), 1);
+        let action = Action::MoveLeft;
+        assert_eq!(Into::<i32>::into(action), 2);
+        let action = Action::MoveRight;
+        assert_eq!(Into::<i32>::into(action), 3);
+        let action = Action::Interact;
+        assert_eq!(Into::<i32>::into(action), 4);
+    }
+
 }

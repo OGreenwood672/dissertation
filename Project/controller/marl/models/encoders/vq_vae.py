@@ -21,8 +21,17 @@ class VQ_VAE(nn.Module):
         for emb in self.embeddings:
             emb.weight.data.uniform_(-0.5, 0.5)
 
-
     def forward(self, latent):
+        loss, quantised = self.quantise(latent)
+        return loss, quantised
+
+    @torch.no_grad()
+    def encode(self, latent):
+        _, quantised = self.quantise(latent)
+        return quantised
+
+
+    def quantise(self, latent):
         
         loss = torch.tensor(0.0, device=latent.device)
 

@@ -2,6 +2,7 @@ import argparse
 import torch
 import numpy as np
 
+from controller.marl.imitation_learning import imitation_learning
 from controller.marl.models.aim import AIM
 from project_paths import PROJECT_ROOT
 
@@ -17,13 +18,13 @@ from .train_ae import train_language
 
 def get_args():
     parser = argparse.ArgumentParser(description="MAPPO Controller")
-    parser.add_argument("--mode", type=str, default="train", help="Mode to run in", choices=["train", "eval", "train-language", "eval-language"])
+    parser.add_argument("--mode", type=str, default="train", help="Mode to run in", choices=["train", "eval", "train-language", "eval-language", "imitate"])
     
     return parser.parse_args()    
 
-def setup(config: Config, device: torch.device, mode: str):
+def setup(config: Config, device: torch.device, load_agent_architecture: bool = True):
 
-    cm = CheckpointManager(config, default_load_previous=mode == "eval")
+    cm = CheckpointManager(config)
     SEED = cm.get_seed()
     config.training.seed = SEED
 
@@ -34,7 +35,7 @@ def setup(config: Config, device: torch.device, mode: str):
 
     sim = SimWrapper(
         environment.Simulation(
-            './configs/simulation.yaml',
+            str(PROJECT_ROOT / "configs" / "simulation.yaml"),
             worlds_parallised=config.training.worlds_parallised
         ), 
         comm_dim=config.comms.communication_size,
@@ -46,27 +47,43 @@ def setup(config: Config, device: torch.device, mode: str):
     comms_shape = (sim.get_world_comms_size(),)
     global_obs_shape = (sim.get_global_obs_size(0),)
     act_shape = (sim.get_agent_action_count(),)
+    obs_external_mask = torch.tensor(sim.get_agent_external_obs_mask(0), dtype=torch.bool, device=device)
 
-    actor = PPO_Actor(
-        num_agents, agent_obs_shape[0], act_shape[0], config.actor, config.comms, device=device
-    ).to(device)
-    critic = PPO_Critic(num_agents, global_obs_shape[0], config.critic, config.comms).to(device)
-
-    actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.mappo.actor_learning_rate)
-    critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.mappo.critic_learning_rate)
-
+    actor = None
+    critic = None
+    actor_optimizer = None
+    critic_optimizer = None
     start_step = 0
-    if not cm.is_new_run:
-        actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_checkpoint_models()
 
-        actor.load_state_dict(actor_state)
-        critic.load_state_dict(critic_state)
+    if load_agent_architecture:
 
-        if mode == "train":
-            actor_optimizer.load_state_dict(actor_optimiser_state)
-            critic_optimizer.load_state_dict(critic_optimizer_state)
+        actor = PPO_Actor(
+            num_agents, agent_obs_shape[0], act_shape[0], obs_external_mask, config.actor, config.comms, device=device
+        ).to(device)
+        critic = PPO_Critic(num_agents, global_obs_shape[0], config.critic, config.comms).to(device)
 
-        print(f"Loaded checkpoint from step {start_step}")
+        actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.mappo.actor_learning_rate)
+        critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.mappo.critic_learning_rate)
+
+        start_step = 0
+        if not cm.is_new_run:
+            # actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_checkpoint_models()
+            actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_base_models()
+
+            actor.load_state_dict(actor_state)
+            critic.load_state_dict(critic_state)
+
+            try:
+                actor_optimizer.load_state_dict(actor_optimiser_state)
+                critic_optimizer.load_state_dict(critic_optimizer_state)
+                print("Successfully loaded optimizer states.")
+            except ValueError as e:
+                if "different number of parameter groups" in str(e):
+                    print("Optimizer parameter groups changed. Starting with fresh optimizer states.")
+                else:
+                    raise e
+
+            print(f"Loaded checkpoint from step {start_step}")
 
     return {
         "sim": sim,
@@ -82,12 +99,12 @@ def setup(config: Config, device: torch.device, mode: str):
         "act_shape": act_shape,
     }, config
 
-def setup_language_analysis(config, device):
+def setup_language_analysis(config: Config, device: torch.device):
     
     
-    cm = CheckpointManager(config, default_load_previous=True)
+    cm = CheckpointManager(config)
     SEED = cm.get_seed()
-    config.seed = SEED
+    config.training.seed = SEED
 
     np.random.seed(SEED)
     torch.manual_seed(SEED)
@@ -97,37 +114,33 @@ def setup_language_analysis(config, device):
     sim = SimWrapper(
         environment.Simulation(
             str(PROJECT_ROOT / "configs" / "simulation.yaml"),
-            worlds_parallised=config.worlds_parallised
+            worlds_parallised=config.training.worlds_parallised
         ), 
-        comm_dim=config.communication_size,
-        num_comms=config.num_comms
+        comm_dim=config.comms.communication_size,
+        num_comms=config.comms.num_comms
     )
 
-    num_agents = sim.get_num_agents()
+    num_agents = len(config.simulation.agents)
     agent_obs_shape = (sim.get_agent_obs_size(0),)
     comms_shape = (sim.get_world_comms_size(),)
     global_obs_shape = (sim.get_global_obs_size(0),)
     act_shape = (sim.get_agent_action_count(),)
+    obs_external_mask = torch.tensor(sim.get_agent_external_obs_mask(0), dtype=torch.bool, device=device)
 
     # load encoder
-    encoder = None
+    # encoder = None
 
     folder = AIM.get_folder(config)
 
-    if config.communication_type == CommunicationType.AIM:
-        encoder = Encoder.load(folder)
+    # if config.comms.communication_type == CommunicationType.AIM:
+    #     encoder = Encoder.load(folder)
 
-    aim = AIM.load(folder, config, obs_mask=torch.tensor(sim.get_agent_obs_mask(0), dtype=torch.bool, device=device), obs_dim=agent_obs_shape[0], action_count=act_shape[0])
-        
+    aim = AIM.load(folder, config.aim_training, config.comms, obs_dim=agent_obs_shape[0], device=device)
 
     actor = PPO_Actor(
-        num_agents, agent_obs_shape[0], act_shape[0], comm_dim=config.communication_size,
-        communication_type=config.communication_type,
-        lstm_hidden_size=config.lstm_hidden_size,
-        vocab_size=config.vocab_size, num_comms=config.num_comms,
-        encoder=encoder, device=device
+        num_agents, agent_obs_shape[0], act_shape[0], obs_external_mask, config.actor, config.comms, device=device
     ).to(device)
-    critic = PPO_Critic(num_agents, global_obs_shape[0], config.communication_size, config.num_comms, feature_dim=config.feature_dim).to(device)
+    critic = PPO_Critic(num_agents, global_obs_shape[0], config.critic, config.comms).to(device)
 
     start_step = 0
     if not cm.is_new_run:
@@ -150,7 +163,6 @@ def setup_language_analysis(config, device):
         "act_shape": act_shape,
         "aim": aim
     }, config
-
 
 
 def evaluate(system, config, device):
@@ -189,8 +201,13 @@ def main():
     print(f"Using device: {device}")
 
     config = Config.from_yaml(config_pth)
+    
+    load_agent_architecture = True
+    if args.mode == "train-language":
+        if input("Use optimal actions? (Y/n) ").lower() != "n":
+            load_agent_architecture = False
 
-    system, config = setup(config, device, mode=args.mode)
+    system, config = setup(config, device, load_agent_architecture)
 
     if args.mode == "train":
         system["actor"].train()
@@ -199,11 +216,12 @@ def main():
         system["actor"].eval()
         evaluate(system, config, device)
     elif args.mode == "train-language":
-        system["actor"].eval()
-        train_language(system, config, device)
+        train_language(system, config, device, use_optimal=not load_agent_architecture)
     elif args.mode == "eval-language":
         system["actor"].eval()
         evaluate_language(system, config, device)
+    elif args.mode == "imitate":
+        imitation_learning(system, config, device)
     else:
         raise ValueError(f"Invalid mode: {args.mode}")
 

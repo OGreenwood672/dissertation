@@ -1,4 +1,4 @@
-use std::ops::Sub;
+use std::ops::{Add, Sub};
 
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,17 @@ impl Location {
 
 }
 
+impl Add for Location {
+    type Output = Location;
+
+    fn add(self, other: Location) -> Self::Output {
+        Location {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+}
+
 impl Sub for Location {
     type Output = Location;
 
@@ -69,6 +80,8 @@ impl Sub<&Location> for &Location {
 #[serde(rename_all = "lowercase")]
 pub enum Layout {
     Random,
+    #[serde(rename = "random-limited")]
+    RandomLimited,
     Line,
     Circle,
 }
@@ -83,7 +96,7 @@ fn get_random_location(max_x: u32, max_y: u32) -> Location {
 
 // Gets x number of unique positions
 // safe_radius = at least 2 * radius of entity
-pub fn get_x_unique_random_locations(count: u32, max_x: u32, max_y: u32, safe_radius: u32, taken_points: &Vec<Location>) -> Vec<Location> {
+pub fn get_x_unique_random_locations(count: u32, max_x: u32, max_y: u32, safe_radius: f32, taken_points: &Vec<Location>) -> Vec<Location> {
     let mut locations: Vec<Location> = Vec::new();
 
     while locations.len() < count as usize {
@@ -114,6 +127,47 @@ pub fn get_x_unique_random_locations(count: u32, max_x: u32, max_y: u32, safe_ra
     locations
 }
 
+// Gets x number of unique positions
+// safe_radius = at least 2 * radius of entity
+pub fn get_x_unique_random_locations_with_limit(count: u32, max_x: u32, max_y: u32, safe_radius: f32, taken_points: &Vec<Location>) -> Vec<Location> {
+    let mut locations: Vec<Location> = Vec::new();
+
+    const X_RANGE: i32 = 4;
+    const Y_RANGE: i32 = 4;
+
+    let x_offset: i32 = (max_x as i32 - X_RANGE) / 2;
+    let y_offset: i32 = (max_y as i32 - Y_RANGE) / 2;
+
+    while locations.len() < count as usize {
+        // let location = get_random_location(max_x, max_y);
+        let location = get_random_location(X_RANGE as u32, Y_RANGE as u32) + Location { x: x_offset, y: y_offset };
+        let mut is_unique = true;
+
+        for existing_location in &locations {
+            if (location.x - existing_location.x).abs() <= safe_radius as i32 &&
+               (location.y - existing_location.y).abs() <= safe_radius as i32 {
+                is_unique = false;
+                break;
+            }
+        }
+
+        for existing_location in taken_points {
+            if (location.x - existing_location.x).abs() <= safe_radius as i32 &&
+                (location.y - existing_location.y).abs() <= safe_radius as i32 {
+                is_unique = false;
+                break;
+            }
+        }
+
+        if is_unique {
+            locations.push(location);
+        }
+    }
+
+    locations
+}
+
+
 fn get_equidistant_points_on_line(min_value: i32, max_value: i32, num_points: i32) -> Vec<i32> {
     let mut points = Vec::new();
 
@@ -140,7 +194,7 @@ fn get_circle_points(center_x: u32, center_y: u32, radius: f32, num_points: u32)
     points
 }
 
-pub fn get_location(layout: Layout, width: u32, height: u32, entity_count: u32, safe_radius: u32) -> Vec<Location> {
+pub fn get_location(layout: Layout, width: u32, height: u32, entity_count: u32, safe_radius: f32) -> Vec<Location> {
 
     match layout {
         Layout::Circle => {
@@ -152,6 +206,94 @@ pub fn get_location(layout: Layout, width: u32, height: u32, entity_count: u32, 
         Layout::Random => {
             get_x_unique_random_locations(entity_count, width, height, safe_radius, &Vec::new())
         },
+        Layout::RandomLimited => {
+            get_x_unique_random_locations_with_limit(entity_count, width, height, safe_radius, &Vec::new())
+        }
+    }
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_distance_squared() {
+        let a = Location { x: 0, y: 0 };
+        let b = Location { x: 1, y: 1 };
+        assert_eq!(a.distance_squared(b), 2);
+    }
+
+    #[test]
+    fn test_dot() {
+        let a = Location { x: 1, y: 2 };
+        let b = Location { x: 3, y: 4 };
+        assert_eq!(a.dot(b), 11.0);
+    }
+
+    #[test]
+    fn test_magnitude() {
+        let a = Location { x: 3, y: 4 };
+        assert_eq!(a.magnitude(), 5.0);
+    }
+
+    #[test]
+    fn test_cosine_similarity() {
+        let a = Location { x: 1, y: 2 };
+        let b = Location { x: 3, y: 4 };
+        let c = Location { x: 5, y: 6 };
+        let scale: f32 = 1000.0;
+        assert_eq!(f32::round(Location::cosine_similarity(a, b, c) * scale) / scale, 1.0);
+    }
+
+    #[test]
+    fn test_sub() {
+        let a = Location { x: 1, y: 2 };
+        let b = Location { x: 3, y: 4 };
+        assert_eq!(a - b, Location { x: -2, y: -2 });
+    }
+
+    #[test]
+    fn test_sub_ref() {
+        let a = Location { x: 1, y: 2 };
+        let b = Location { x: 3, y: 4 };
+        assert_eq!(&a - &b, Location { x: -2, y: -2 });
+    }
+
+
+    #[test]
+    fn test_get_random_location() {
+        let location = get_random_location(10, 1);
+        assert!(location.x >= 0 && location.x < 10);
+        assert!(location.y >= 0 && location.y < 1);
+    }
+
+    #[test]
+    fn test_get_x_unique_random_locations() {
+        let locations = get_x_unique_random_locations(3, 10, 10, 2.0, &Vec::new());
+        assert_eq!(locations.len(), 3);
+        for location in &locations {
+            assert!(location.x >= 0 && location.x < 10);
+            assert!(location.y >= 0 && location.y < 10);
+        }
+    }
+
+    #[test]
+    fn test_get_equidistant_points_on_line() {
+        let points = get_equidistant_points_on_line(0, 10, 10);
+        assert_eq!(points.len(), 10);
+        assert_eq!(points[0], 1);
+        assert_eq!(points[9], 10);
+    }
+
+    #[test]
+    fn test_get_circle_points() {
+        let points = get_circle_points(5, 5, 2.0, 2);
+        assert_eq!(points.len(), 2);
+        assert_eq!(points[0].x, 7);
+        assert_eq!(points[0].y, 5);
+        assert_eq!(points[1].x, 3);
+        assert_eq!(points[1].y, 5);
     }
 
 }

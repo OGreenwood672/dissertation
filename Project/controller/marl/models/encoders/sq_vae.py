@@ -71,8 +71,7 @@ class SQ_VAE(nn.Module):
 
             x_norm = F.normalize(flat_input, p=2.0, dim=-1)
 
-            bounded_weight = torch.sigmoid(embedding.weight) 
-            embed_norm = F.normalize(bounded_weight , p=2.0, dim=-1)
+            embed_norm = F.normalize(embedding.weight , p=2.0, dim=-1)
 
             logits = torch.matmul(x_norm, embed_norm.t()) * logit_scale
                         
@@ -90,7 +89,7 @@ class SQ_VAE(nn.Module):
                 indices = logits.argmax(dim=-1)
                 soft_one_hot = F.one_hot(indices, self.vocab_size).float()
                 
-            quantised_scaled = (soft_one_hot @ bounded_weight).view_as(scaled_input)
+            quantised_scaled = (soft_one_hot @ embedding.weight).view_as(scaled_input)
 
             probs = F.softmax(logits / temp, dim=-1)
             log_probs = F.log_softmax(logits / temp, dim=-1)

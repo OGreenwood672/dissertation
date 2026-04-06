@@ -21,7 +21,7 @@ class NoneComms(Comms, nn.Module):
         self.to(device)
 
         #! todo
-        self.percieve_out_features = 83
+        self.percieve_out_features = 74
         self.out_features = config.communication_size * config.num_comms
 
     def percieve(self, x: torch.Tensor):
@@ -49,5 +49,5 @@ class NoneComms(Comms, nn.Module):
         new_comm_log_probs = torch.zeros((B, T, N), device=x.device)
         return None, new_comm_log_probs, entropy
     
-    def auxillery_losses(self, x, comm_output, all_comms, true_returns, new_critic_values, targets):
-        return None, None, None
+    def get_loss(self, x, comm_output, all_comms, true_returns, new_critic_values, targets):
+        return 0.0

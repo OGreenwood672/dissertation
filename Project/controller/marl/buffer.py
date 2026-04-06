@@ -27,7 +27,7 @@ class RolloutBuffer:
 
         self.obs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, num_obs), device=device)
         self.global_obs = torch.zeros((self.buffer_size, timesteps_per_run, num_global_obs), device=device)
-        self.targets = torch.zeros((self.buffer_size, timesteps_per_run, num_agents * 3), device=device)
+        self.targets = torch.zeros((self.buffer_size, timesteps_per_run, num_agents, 3), device=device)
         self.actions = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.rewards = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
         self.action_log_probs = torch.zeros((self.buffer_size, timesteps_per_run, num_agents), device=device)
@@ -68,17 +68,20 @@ class RolloutBuffer:
             data = episode_data[key].to(self.device).transpose(0, 1)            
             curr_store[self.pos : self.pos + self.num_worlds_per_run] = data
             return curr_store
+        
+        for key in episode_data.keys():
+            setattr(self, key, process(key, getattr(self, key)))
 
-        self.obs = process("obs", self.obs)
-        self.actions = process("actions", self.actions)
-        self.targets = process("targets", self.targets)
-        self.rewards = process("rewards", self.rewards)
-        self.action_log_probs = process("action_log_probs", self.action_log_probs)
-        self.comm_log_probs = process("comm_log_probs", self.comm_log_probs)
-        self.c_values = process("c_values", self.c_values)
-        self.global_obs = process("global_obs", self.global_obs)
-        self.comm = process("comm", self.comm)
-        self.a_hidden_states = process("a_hidden_states", self.a_hidden_states)
+        # self.obs = process("obs", self.obs)
+        # self.actions = process("actions", self.actions)
+        # self.targets = process("targets", self.targets)
+        # self.rewards = process("rewards", self.rewards)
+        # self.action_log_probs = process("action_log_probs", self.action_log_probs)
+        # self.comm_log_probs = process("comm_log_probs", self.comm_log_probs)
+        # self.c_values = process("c_values", self.c_values)
+        # self.global_obs = process("global_obs", self.global_obs)
+        # self.comm = process("comm", self.comm)
+        # self.a_hidden_states = process("a_hidden_states", self.a_hidden_states)
 
         self.pos += self.num_worlds_per_run
 

@@ -21,6 +21,10 @@ pub struct SimConfig {
 
     #[pyo3(get)]
     n_agents: u32,
+
+    #[pyo3(get)]
+    n_worlds: u32,
+
 }
 
 
@@ -89,6 +93,7 @@ impl Simulation {
             config: SimConfig {
                 headless: is_headless,
                 n_agents: config.agents.len() as u32,
+                n_worlds: worlds_parallised as u32
             }
         })
     }
@@ -177,6 +182,25 @@ impl Simulation {
 
     }
 
+    pub fn get_optimal_actions<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<i32>>> {
+
+        let optimal_actions: Vec<i32> = self.worlds.iter().map(|world| {
+            let optimal_actions = world.get_optimal_actions();
+            optimal_actions.into_iter().map(|action| action as i32)
+        }).flatten().collect();
+
+        Ok(optimal_actions.into_pyarray(py))
+
+    }
+
+    pub fn get_targets<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyArray1<f32>>> {
+        let targets: Vec<f32> = self.worlds.iter().map(|world| {
+            world.get_agents_targets()
+        }).flatten().flatten().collect();
+
+        Ok(targets.into_pyarray(py))
+    }
+
 
     pub fn shutdown(&self) -> PyResult<()> {
         println!("Shutting down simulation server...");
@@ -208,6 +232,12 @@ impl Simulation {
         let world = &self.worlds[world_id as usize];
         let obs = world.get_agent_obs(agent_id as usize);
         Ok(obs)
+    }
+
+    pub fn get_agent_external_obs_mask(&self, world_id: i32) -> PyResult<Vec<bool>> {
+        let world = &self.worlds[world_id as usize];
+        let obs_mask = world.get_agent_external_obs_mask();
+        Ok(obs_mask)
     }
 
     pub fn get_agent_obs_mask(&self, world_id: i32) -> PyResult<Vec<bool>> {

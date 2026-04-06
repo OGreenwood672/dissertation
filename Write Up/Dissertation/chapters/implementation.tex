@@ -5,21 +5,81 @@ Original techniques or methodologies going beyond what was previously known.
 Presentation is clear and concise throughout, with creative use of figures or diagrams.
 Excellent repository overview, giving clear insight into project structure.
 
-Summary\section{Implementation Overview}
+Summary
+\section{Implementation Overview}
 \label{sec:3.1}
 
-\subsection{System Layout}
+\section{System Layout}
 \label{sec:3.1.1}
 
-How is this different to System Architecture in prep?
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    font=\sffamily,
+    block/.style={draw, rectangle, thick, fill=blue!5, align=center, minimum width=3.5cm, minimum height=1.2cm, rounded corners},
+    envblock/.style={draw, rectangle, thick, fill=green!5, align=center, minimum width=4.5cm, minimum height=2cm, rounded corners},
+    hub/.style={draw, rectangle, thick, fill=red!10, align=center, minimum width=4.5cm, minimum height=1.8cm, rounded corners},
+    storage/.style={draw, rectangle, thick, fill=gray!10, align=center, minimum width=3.5cm, minimum height=1.2cm, rounded corners},
+    arrow/.style={-Stealth, thick}
+]
 
-\subsection{Repository Overview}
+\node (Trainer) [hub] {\textbf{PPO Trainer} \\ \textit{(train.py)} \\ Logic Orchestrator};
+
+% Simulation Environment
+\node (Env) [envblock, above=2.5cm of Trainer] {\textbf{Simulation Environment} \\ \textit{(Rust / World.rs)} \\ $W$ Parallel Worlds};
+
+% Rollout Buffer
+\node (Buffer) [storage, left=3cm of Trainer] {\textbf{Rollout Buffer} \\ \textit{(buffer.py)} \\ Episode Memory};
+
+% Models
+\node (Actor) [block, right=3cm of Trainer, yshift=1.5cm] {\textbf{Decentralized Actors} \\ \textit{(actor.py)}};
+\node (Critic) [block, right=3cm of Trainer, yshift=-1.5cm] {\textbf{Centralized Critic} \\ \textit{(critic.py)}};
+
+% Frontend
+\node (Frontend) [block, left=2.5cm of Env, fill=orange!5, minimum width=3cm] {\textbf{p5.js UI} \\ \textit{(Websocket)}};
+
+% *** EDGES ***
+% 1. Rollout Phase (Trainer <-> Env)
+\draw [arrow] (Trainer.110) -- node[anchor=east, xshift=-2pt] {Step(Actions)} (Env.250);
+\draw [arrow] (Env.290) -- node[anchor=west, xshift=2pt] {Obs, Rewards} (Trainer.70);
+
+% 2. Collection Phase (Trainer -> Buffer)
+\draw [arrow] (Trainer.160) -- node[anchor=south] {Store Trajectories} (Buffer.20);
+
+% 3. Update Phase (Buffer -> Trainer)
+\draw [arrow] (Buffer.340) -- node[anchor=north] {Sample Minibatches} (Trainer.200);
+
+% 4. Optimization Phase (Trainer -> Models)
+\draw [arrow] (Trainer.0) -- node[anchor=west, pos=0.5, align=left] {Update Weights} (Actor.250);
+\draw [arrow] (Trainer.0) -- node[anchor=west, pos=0.5, align=left] {Update Weights} (Critic.110);
+
+% 5. Inference during rollout (Models -> Trainer)
+\draw [arrow, dashed] (Actor.180) -| node[anchor=south, pos=0.25] {Actions} (Trainer.45);
+\draw [arrow, dashed] (Critic.180) -| node[anchor=north, pos=0.25] {Values} (Trainer.315);
+
+% 6. Visualization
+\draw [arrow, dotted] (Env.west) -- node[anchor=south] {JSON} (Frontend.east);
+
+\end{tikzpicture}
+}
+\caption{System Architecture Diagram: The PPO Trainer orchestrates the rollout phase with the Rust environment and the optimization phase using data sampled from the Rollout Buffer.}
+\end{figure}
+
+
+
+\section{Repository Overview}
 \label{sec:3.1.2}
 
-What? - like docs, notebooks, separation of envs?
-
-\subsection{Implementation Approach}
+\section{Implementation Approach}
 \label{sec:3.1.3}
+
+\subsection{Unit Testing}
+\label{sec:3.1.3.1}
+
+\subsection{Documentation}
+\label{sec:3.1.3.2}
 
 \section{Simulation}
 \label{sec:3.2}
@@ -36,26 +96,43 @@ What? - like docs, notebooks, separation of envs?
 \section{PPO Architecture}
 \label{sec:3.3}
 
+Varibale LR
+RolloutBuffer
+Vectorisation
+Last critic values
+GAE, then advantage Normalisation
+zeroing self comm
+separatly clipping comms_loss and action_loss
+clip grad norm of actor.params and critic.params
+setting vq-vae priors with k-means
+again clipping grad norm for training Aims
+expert agent for collecting info for VQ-VAE and imitation learning
+logger? - for grad norms, losses, rewards
+configs?
+Checkpoint manager
+imitation learning - give spatial index, predict action
+sliced composite loss, splitting self state and external
+reflection
+initialising weights
+abstract comms
+
 \subsection{Actor-Critic Method}
 \label{sec:3.3.1}
 
-\subsection{Recurrent Neural Network}
-\label{sec:3.3.2}
-
-\subsection{Data Flow and Vectorization}
-\label{sec:3.3.3}
-
-\section{Communication Channel}
+\subsection{Vectorization and Scaling}
 \label{sec:3.4}
 
+\section{Communication Channel}
+\label{sec:3.5}
+
 \subsection{Continuous Baseline}
-\label{sec:3.4.1}
+\label{sec:3.5.1}
 
 \subsection{Discrete VQ-VAE}
-\label{sec:3.4.2}
+\label{sec:3.5.2}
 
 \subsection{Linguistic Metrics Implementation}
-\label{sec:3.4.3}
+\label{sec:3.5.3}
 
 \section{Summary}
-\label{sec:3.5}
+\label{sec:3.6}

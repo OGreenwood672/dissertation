@@ -7,7 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from controller.marl.config import AIMConfig, CommConfig
+from controller.marl.config import AIMConfig, CommConfig, GenerativeLangType
+from controller.marl.models.encoders.hq_encoder import HQ_Encoder
 from project_paths import LANGUAGES_DIR
 
 from .encoders.encoder import Encoder
@@ -33,14 +34,30 @@ class AIM(nn.Module):
         ):
         super().__init__()
 
-        self.encoder = Encoder(
-            obs_dim,
-            aim_config.hidden_size, comm_config.communication_size, comm_config.vocab_size,
-            commitment_cost=aim_config.commitment_cost,
-            hq_vae=comm_config.hq_layers, num_training_steps=aim_config.ae_epochs,
-            init_temperature=aim_config.init_temperature, min_temperature=aim_config.min_temperature,
-            autoencoder_type=aim_config.autoencoder_type, kl_weight=aim_config.kl_weight
-        )
+        if comm_config.autoencoder_type != GenerativeLangType.HQ_VAE:
+            self.encoder = Encoder(
+                obs_dim,
+                aim_config.hidden_size, comm_config.communication_size, comm_config.vocab_size,
+                commitment_cost=aim_config.commitment_cost,
+                hq_vae=comm_config.hq_layers, num_training_steps=aim_config.ae_epochs,
+                init_temperature=aim_config.init_temperature, min_temperature=aim_config.min_temperature,
+                autoencoder_type=comm_config.autoencoder_type, kl_weight=aim_config.kl_weight
+            )
+        else:
+            macro_dim = comm_config.communication_size // 3
+            micro_dim = comm_config.communication_size - macro_dim
+            self.encoder = HQ_Encoder(
+                obs_dim,
+                aim_config.hidden_size, 
+                [macro_dim, micro_dim],
+                comm_config.vocab_size,
+                commitment_cost=aim_config.commitment_cost,
+                hq_vae_levels=[comm_config.hq_layers, comm_config.hq_layers],
+                kl_weight=aim_config.kl_weight,
+                init_temperature=aim_config.init_temperature,
+                min_temperature=aim_config.min_temperature,
+                num_training_steps=aim_config.ae_epochs
+            )
 
         self.decoder = nn.Sequential(
             nn.Linear(comm_config.communication_size, aim_config.hidden_size // 2),
@@ -50,19 +67,13 @@ class AIM(nn.Module):
             nn.Linear(aim_config.hidden_size, obs_dim)
         )
 
-        self.reward_head = nn.Sequential(
-            nn.Linear(comm_config.communication_size, 128),
-            nn.ReLU(),
-            nn.Linear(128, 1)
-        )
-
         self.aim_config = aim_config
         self.comm_config = comm_config
         self.obs_mask = obs_mask
 
 
 
-    def forward(self, x, target_reward=None):
+    def forward(self, x):
 
         loss, quantised = self.encoder(x)
 
@@ -84,15 +95,9 @@ class AIM(nn.Module):
         # loss = loss + F.binary_cross_entropy(torch.sigmoid(reconstructed), x)
         # Look into Sliced Composite Loss
         
-        if target_reward is not None: # inverse dynamics model
-            # quantised_protected = ScaleGrad.apply(quantised, 0.05)
-            reward = self.reward_head(quantised)
-            reward_loss = F.mse_loss(reward, target_reward)
-            loss = loss + reward_loss * 0.1
-
         return loss
     
-    def get_individual_losses(self, x, target_reward=None):
+    def get_individual_losses(self, x):
 
         loss, quantised = self.encoder(x)
 
@@ -113,37 +118,7 @@ class AIM(nn.Module):
 
         return node_losses
 
-    
-    def check(self, x, target_reward=None):
-
-        loss, quantised = self.encoder(x)
-
-        reconstructed = self.decoder(quantised)
         
-        predictions = torch.sigmoid(reconstructed)
-
-        if self.obs_mask is not None:
-            bce_loss = F.binary_cross_entropy(predictions[:, self.obs_mask], x[:, self.obs_mask])
-            mse_loss = F.mse_loss(predictions[:, ~self.obs_mask], x[:, ~self.obs_mask])
-            loss = loss + bce_loss + mse_loss
-        else:
-            loss = loss + F.mse_loss(predictions, x)
-
-        # MSE
-        # loss += F.mse_loss(reconstructed, x) * 0.5
-
-        # BCE - can't do when negative obs exist
-        # loss = loss + F.binary_cross_entropy(torch.sigmoid(reconstructed), x)
-        # Look into Sliced Composite Loss
-        
-        # if self.training and target_reward is not None: # inverse dynamics model
-        if target_reward is not None:
-            # quantised_protected = ScaleGrad.apply(quantised, 0.05)
-            reward = self.reward_head(quantised)
-            reward_loss = F.mse_loss(reward, target_reward)
-
-        return loss, reward_loss, reconstructed, quantised
-    
     def save(self):
         if not os.path.exists(LANGUAGES_DIR):
             os.makedirs(LANGUAGES_DIR)
@@ -161,18 +136,15 @@ class AIM(nn.Module):
         torch.save(self.decoder.state_dict(), os.path.join(save_folder, "decoder.pt"))
 
     @classmethod
-    def load(cls, saved_folder, aim_config: AIMConfig, comm_config: CommConfig, obs_mask=None, obs_dim=0, action_count=5):
+    def load(cls, saved_folder, aim_config: AIMConfig, comm_config: CommConfig, device: torch.device, obs_dim: int):
 
-        aim = cls(
-            obs_dim,
-            aim_config.hidden_size, comm_config.communication_size, comm_config.vocab_size,
-            commitment_cost=aim_config.commitment_cost,
-            hq_vae=comm_config.hq_layers, num_training_steps=aim_config.ae_epochs,
-            init_temperature=aim_config.init_temperature, min_temperature=aim_config.min_temperature,
-            autoencoder_type=aim_config.autoencoder_type, kl_weight=aim_config.kl_weight
-        )
+        aim = cls(obs_dim, comm_config, aim_config)
 
-        aim.encoder = Encoder.load(saved_folder)
+        if comm_config.autoencoder_type == GenerativeLangType.HQ_VAE:
+            aim.encoder = HQ_Encoder.load(saved_folder, device)
+        else:
+            aim.encoder = Encoder.load(saved_folder, device)
+            
         aim.decoder.load_state_dict(torch.load(saved_folder / "decoder.pt"))
 
         return aim
@@ -193,7 +165,6 @@ class AIM(nn.Module):
                 for key, value in config:
                     if key == "autoencoder_type": value = value.value
                     if key in check_config and check_config[key] != value:
-                        print("Issue is", key, check_config[key], value)
                         break
                 else:
                     folder_path = LANGUAGES_DIR / folder

@@ -37,3 +37,28 @@ pub fn one_hot_vector_from_resource(resource: ResourceType) -> [f32; RESOURCE_CO
     one_hot_vector[f32::from(&resource) as usize - 1] = 1.0;
     one_hot_vector
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_one_hot_vector_from_resource() {
+        let resource = ResourceType::Burger;
+        let one_hot_vector = one_hot_vector_from_resource(resource);
+        assert_eq!(one_hot_vector[1], 1.0);
+        assert_eq!(one_hot_vector[2], 0.0);
+        assert_eq!(one_hot_vector[3], 0.0);
+        assert_eq!(one_hot_vector[4], 0.0);
+        assert_eq!(one_hot_vector[5], 0.0);
+    }
+
+    #[test]
+    fn test_resource_to_f32() {
+        let resource = ResourceType::Burger;
+        assert_eq!(f32::from(&resource), 2.0);
+        
+    }
+    
+}

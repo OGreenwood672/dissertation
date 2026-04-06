@@ -12,7 +12,7 @@ from project_paths import RESULTS_DIR
 
 class CheckpointManager:
 
-    def __init__(self, config: Config, default_load_previous: bool = False):
+    def __init__(self, config: Config):
 
         seed = config.training.seed
         
@@ -20,9 +20,14 @@ class CheckpointManager:
         
         os.makedirs(result_path, exist_ok=True)
         
+        use_base = True
         # find new seed
-        if seed == -1 and not default_load_previous:
-            used_seeds = list(map(lambda x: int(re.search(r"seed_(\d+)", x).group(1)), os.listdir(result_path)))
+        if seed == -1:
+            used_seeds = [
+                int(m.group(1))
+                for x in os.listdir(result_path)
+                if (m := re.search(r"seed_(\d+)", x))
+            ]
             test_used_seed = 0
             while True:
                 if test_used_seed not in used_seeds:
@@ -32,12 +37,6 @@ class CheckpointManager:
             result_path = result_path / self.get_folder_name(seed)
             self.gen_result_folder(result_path, config)
             self.is_new_run = True
-        
-        # find largest seed
-        elif seed == -1 and default_load_previous:
-            used_seeds = list(map(lambda x: int(re.search(r"seed_(\d+)", x).group(1)), os.listdir(result_path)))
-            result_path = result_path / self.get_folder_name(max(used_seeds))
-            self.is_new_run = False
 
         else: # Seed given
             folders = list(filter(lambda x: x.endswith(str(f"seed_{seed}")), os.listdir(result_path)))
@@ -45,12 +44,13 @@ class CheckpointManager:
                 result_path = result_path / folders[0]
                 self.is_new_run = False
             else:
-                result_path += self.get_folder_name(seed)
+                result_path = result_path / self.get_folder_name(seed)
                 self.gen_result_folder(result_path, config)
                 self.is_new_run = True
 
         self.result_path = result_path
         self.seed = seed
+        self.comm_type = config.comms.communication_type
 
     # def load_config(self):
     #     config_path = self.result_path / "config.json"
@@ -82,6 +82,23 @@ class CheckpointManager:
         critic_optimizer = checkpoint["critic_optimizer"]
 
         return actor, critic, actor_optimizer, critic_optimizer, checkpoint_step
+
+    def load_base_models(self):
+        base_models_path = RESULTS_DIR / str(self.comm_type)
+        base_models = os.listdir(base_models_path)
+        most_recent_base_model = max(base_models, key=lambda x: datetime.fromisoformat(x.replace('Z', '+00:00')))
+        model_path = base_models_path / most_recent_base_model
+        try:
+            checkpoint = torch.load(model_path)
+        except:
+            raise FileNotFoundError(f"No base model found at {model_path}")
+
+        actor = checkpoint["actor"]
+        critic = checkpoint["critic"]
+        actor_optimizer = checkpoint["actor_optimizer"]
+        critic_optimizer = checkpoint["critic_optimizer"]
+
+        return actor, critic, actor_optimizer, critic_optimizer, 0
         
 
     def save_checkpoint(self, actor, critic, actor_optimizer, critic_optimizer, step):

@@ -15,6 +15,7 @@ class CommunicationType(str, Enum):
 class GenerativeLangType(str, Enum):
     SQ_VAE = "SQ-VAE"
     VQ_VAE = "VQ-VAE"
+    HQ_VAE = "HQ-VAE"
 
 class AgentConfig(BaseModel):
     id: int
@@ -98,6 +99,8 @@ class AIMConfig(BaseModel):
     obs_runs_noise: float
     aim_batch_size: int
     ae_epochs: int
+
+    hidden_size: int
 
     commitment_cost: float
     kl_weight: float

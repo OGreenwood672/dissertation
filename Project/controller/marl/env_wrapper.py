@@ -11,6 +11,7 @@ class SimWrapper:
         self._obs_dim = sim.get_agent_obs_size(0)
         self._global_obs_dim = sim.get_global_obs_size(0)
         self._action_count = sim.get_agent_action_count(0)
+        self._n_worlds = sim.config.n_worlds
 
     def parallel_step(self, actions, world_comms):
         n_worlds = len(actions)
@@ -22,13 +23,17 @@ class SimWrapper:
 
         obs = flat_obs.reshape(n_worlds, self.get_num_agents(), self.get_obs_dim())
         global_obs = flat_global_obs.reshape(n_worlds, self.get_global_obs_dim() + self.get_world_comms_size())
-        targets = flat_targets.reshape(n_worlds, self.get_num_agents() * 3)
+        targets = flat_targets.reshape(n_worlds, self.get_num_agents(), 3)
         rewards = flat_rewards.reshape(n_worlds, self.get_num_agents())
 
         return obs, global_obs, targets, rewards
 
     def reset(self, world_id):
         return self._sim.reset(world_id)
+
+    def get_optimal_actions(self):
+        flat_actions = self._sim.get_optimal_actions()
+        return flat_actions.reshape(self._n_worlds, self._num_agents)
 
     def get_num_agents(self):
         return self._num_agents
@@ -45,8 +50,14 @@ class SimWrapper:
     def get_agent_obs(self, world_id, agent_id):
         return self._sim.get_agent_obs(world_id, agent_id)
     
+    def get_agent_external_obs_mask(self, world_id):
+        return self._sim.get_agent_external_obs_mask(world_id)
+    
     def get_agent_obs_mask(self, world_id):
         return self._sim.get_agent_obs_mask(world_id)
+
+    def get_curr_targets(self):
+        return self._sim.get_targets().reshape(self._n_worlds, self._num_agents, 3)
     
     def get_world_comms_size(self):
         return self._num_agents * self._comm_dim * self._num_comms
