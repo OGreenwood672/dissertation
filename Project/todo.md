@@ -36,3 +36,26 @@ analyse codebook usage
 maybe - add agent which can see everywhere, and blind everyone else
 
 argubly cannot predict action without other comms?, neither critic value, but should be able to predict self reward!
+
+PLAN!
+NONE
+CONTINUOUS
+
+VQ-VAE Language - record test loss
+1
+2
+3
+
+SQ-VAE
+1
+2
+3
+
+HQ-VAE
+1
+2
+3
+
+VQ-VAE - (imitation loss: )
+SQ-VAE - (imitation loss: )
+HQ-VAE - (imitation loss: )

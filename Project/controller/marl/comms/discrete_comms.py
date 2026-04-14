@@ -1,13 +1,15 @@
+from typing import Callable
+
 import torch
 import torch.nn as nn
 
 from controller.marl.comms.comms import Comms
 from controller.marl.config import ActorHyperparameters, CommConfig
-from controller.marl.models.quantiser import Quantiser
+from controller.marl.models.encoders.quantiser import Quantiser
 
 class DiscreteComms(Comms, nn.Module):
 
-    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, device: torch.device, **kwargs):
+    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, log: Callable[[str, float], None], device: torch.device, **kwargs):
         nn.Module.__init__(self)
         self.config = config
         self.device = device

@@ -8,15 +8,15 @@ import torch.nn as nn
 
 class VQ_VAE(nn.Module):
     
-    def __init__(self, vocab_size, latent_dim, hq_vae=1, commitment_cost=0.25):
+    def __init__(self, vocab_size, latent_dim, rq_levels=1, commitment_cost=0.25):
         super().__init__()
         self.vocab_size = vocab_size
         self.latent_dim = latent_dim
-        self.hq_vae = hq_vae
+        self.rq_levels = rq_levels
         self.commitment_cost = commitment_cost
                 
         self.embeddings = nn.ModuleList([
-            nn.Embedding(vocab_size, latent_dim) for _ in range(hq_vae)
+            nn.Embedding(vocab_size, latent_dim) for _ in range(rq_levels)
         ])
         for emb in self.embeddings:
             emb.weight.data.uniform_(-0.5, 0.5)
@@ -38,7 +38,7 @@ class VQ_VAE(nn.Module):
         curr_residual = latent
         code_sum = torch.zeros_like(latent)
         
-        for i in range(self.hq_vae):
+        for i in range(self.rq_levels):
             
             embedding = self.embeddings[i]
 
@@ -62,3 +62,6 @@ class VQ_VAE(nn.Module):
         return loss, quantised
                 
         # return quantised.detach()
+
+    def get_embedding(self, rq_level):
+        return self.embeddings[rq_level]

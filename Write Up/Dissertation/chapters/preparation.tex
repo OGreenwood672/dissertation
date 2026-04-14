@@ -157,11 +157,15 @@ MAPPO optimises two main components. Each agent's Policy (Actor) ${\pi}_{{\theta
 The goal of the policy is to maximise the clipped surrogate objective, preventing drastic changes to the policy from single timesteps.
 For every agent $i$, define the probability ratio $r_i(\theta)$ as:
 
-$$r_i(\theta) = \frac{\pi_{\theta}(a_i | o_i)}{\pi_{\theta_{old}}(a_i | o_i)}$$
+\begin{equation}
+r_i(\theta) = \frac{\pi_{\theta}(a_i | o_i)}{\pi_{\theta_{old}}(a_i | o_i)}
+\end{equation}
 
 The MAPPO objective function is:
 
-$$L(\theta) = \mathbb{E}_{i} \left[ \min \left( r_i(\theta) \hat{A}_i,\ \operatorname{clip}(r_i(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_i \right) \right]$$
+\begin{equation}
+L(\theta) = \mathbb{E}_{i} \left[ \min \left( r_i(\theta) \hat{A}_i,\ \operatorname{clip}(r_i(\theta), 1-\epsilon, 1+\epsilon) \hat{A}_i \right) \right]
+\end{equation}
 
 Where:
 \begin{itemize}
@@ -176,18 +180,24 @@ Unlike standard Proximal Policy Optimisation (PPO)\cite{PPO}, the Value Function
 It has access to global information.
 The goal of the critic is minimise the Mean Squared Error between its own prediction and the discounted returns $R_t$.
 
-$$L(\phi) = \mathbb{E}_{t} \left[ (V_{\phi}(S_t) - R_t)^2 \right]$$
+\begin{equation}
+L(\phi) = \mathbb{E}_{t} \left[ (V_{\phi}(S_t) - R_t)^2 \right]
+\end{equation}
 
 \subsubsection{Generalised Advantage Estimation (GAE)}
 \label{sec:2.2.1.3}
 MAPPO uses Generalised Advantage Estimation\cite{GAE} to balance bias and variance.
 To calculate, we first find the Temporal Difference (TD) Residual (representing the error in our current estimate of the state value):
 
-$$\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$$
+\begin{equation}
+\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)
+\end{equation}
 
 We then take an exponentially weighted moving average of our estimated advantage over different time horizons.
 
-$$\hat{A}_t = \sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l}$$
+\begin{equation}
+\hat{A}_t = \sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l}
+\end{equation}
 
 \section{Protocols}
 \label{sec:2.3}
@@ -197,10 +207,6 @@ Making my software re-usable and flexible by making communication protocols inte
 \subsection{No Communication}
 \label{sec:2.3.1}
 To provide a comparable baseline, we will implement a protocol where agents do not broadcast any information to one another.
-
-\subsection{On-Policy Communication}
-\label{sec:2.3.2}
-
 
 
 \subsection{On-Policy Communication using Codebook}
@@ -228,15 +234,26 @@ Initially introduced by van den Oord et al. \cite{VQVAE} and re-explained by Liu
 It is built from three components:
 
 \begin{enumerate}
-\item \textbf{Encoder}: Maps input $x$ to a continuous latent representation $z_e$ 
-$$z_e = Enc_{\theta_E}(x)$$
+\item \textbf{Encoder}: Maps input $x$ to a continuous latent representation $z_e$
+
+\begin{equation}
+z_e = Enc_{\theta_E}(x)
+\end{equation}
 \item \textbf{Quantiser}: Quantises the continuous latent vector $z_e$ into a discrete symbol $z_q \in C$ where $C$ is a finite set of vectors.
-$$k^{*} = \arg\min_{k \in \{1,\dots,K\}} \lVert \mathbf{z}_e - \mathbf{e}_k \rVert_2^2. \quad$$
-$$\mathbf{z}_q = \mathbf{e}_{k^{*}}. \quad$$
-$$\mathbf{z}_q = \arg\min_{\mathbf{e}_k \in \mathcal{C}} \lVert \mathbf{z}_e - \mathbf{e}_k \rVert_2^2$$
+\begin{equation}
+k^{*} = \arg\min_{k \in \{1,\dots,K\}} \lVert \mathbf{z}_e - \mathbf{e}_k \rVert_2^2. \quad
+\end{equation}
+\begin{equation}
+\mathbf{z}_q = \mathbf{e}_{k^{*}}. \quad
+\end{equation}
+\begin{equation}
+\mathbf{z}_q = \arg\min_{\mathbf{e}_k \in \mathcal{C}} \lVert \mathbf{z}_e - \mathbf{e}_k \rVert_2^2
+\end{equation}
 
 \item \textbf{Decoder}: Reconstructs the input $\hat{x}$ from the discrete symbol $z_q$.
-$$\hat{x} = Dec_{\theta_D}(z_q)$$
+\begin{equation}
+\hat{x} = Dec_{\theta_D}(z_q)
+\end{equation}
 
 \end{enumerate}
 
@@ -249,11 +266,9 @@ To solve this, VQ-VAE uses the Straight-Through Estimator where we simply copy t
 \item \textbf{Loss Components}
 
 VQ-VAE Loss Function
-\begin{subequations}
-\begin{align}
-\mathcal{L} &= \mathcal{L}_\text{recon} + \mathcal{L}_\text{codebook} + \beta \mathcal{L}_\text{commit}, \label{eq:vqvae-total}
-\end{align}
-\end{subequations}
+\begin{equation}
+\mathcal{L} = \mathcal{L}_\text{recon} + \mathcal{L}_\text{codebook} + \beta \mathcal{L}_\text{commit}, \label{eq:vqvae-total}
+\end{equation}
 where $sg[\cdot]$ denotes the stop-gradient operator, which prevents gradients flowing through its argument in backpropagation.
 The components are:
 
@@ -285,12 +300,14 @@ The components are:
 \label{2.3.4.2}
 
 As previously discussed, one major issue of using codebooks is codebook collapse.
-Although this is less prominent in vector-quantised variational autoencoder method implemented in the previous section than the basic version of the on-policy codebook generation (no dead code revival), it still exists due to the 'hacky' straight-through estimator leading to an approximation (TODO: of wat).
+Although this is less prominent in vector-quantised variational autoencoder method implemented in the previous section than the basic version of the on-policy codebook generation (no dead code revival), it still exists due to the 'hacky' straight-through estimator leading to an approximation of the true gradient.
 To fix this issue, Takida et al. \cite{SQVAE} propose Stochastically-Quantised Variational Autoencoder (SQ-VAE), a variational Bayes framework for learning VQ-VAE components.
 
 Instead of using the argmin operator, we calculate a categorical probability distribution over the codebook.
 The probability of picking code $k$ is based on a Gaussian distribution with a learnable paramater $\sigma$.
-$$q(z_q = e_k | z_e) \propto \exp\left(-\frac{\| z_e - e_k \|_2^2}{2\sigma^2}\right)$$
+\begin{equation}
+q(z_q = e_k | z_e) \propto \exp\left(-\frac{\| z_e - e_k \|_2^2}{2\sigma^2}\right)
+\end{equation}
 
 We apply self-annealing whilst learning $\sigma^2$.
 Early during training, the probability distribution is wide which helps explore the entire codebook.
@@ -299,33 +316,189 @@ To make this differentiable, we use the Gumbel-Softmax trick.
 In the forward pass, we force the output to be a strict one-hot vector.
 In the backward pass, we act as if the output was continuous, following this formula:
 
-$$p_k=\frac{\exp(\frac{\text(logits)_k + g_k}{\tau})}{\sum_{j=1}^K \exp(\frac{\text(logits)_j + g_j}{\tau})}$$
+\begin{equation}
+p_k=\frac{\exp(\frac{\text(logits)_k + g_k}{\tau})}{\sum_{j=1}^K \exp(\frac{\text(logits)_j + g_j}{\tau})}
+\end{equation}
 
 where:
 
-$$\tau = \max(\tau_{min}, \tau_{old} * annealing_rate)$$
+\begin{equation}
+\tau = \max(\tau_{min}, \tau_{old} * annealing_rate)
+\end{equation}
 
 However, this method still uses Euclidian distance, but in tasks such as NLP and audio, semantic meaning of a feature is often entirely captured by the direction of the vector, not the magnitude.
 To improve this method for our use case, we can implement an extension of this model von Mises-Fisher Stochastically-Quantised Variational Autoencoder (vMF SQ-VAE).
 vMF SQ-VAE uses cosine similarity instead of Euclidian distance.
 This is done by first normalising the variables onto a unit sphere.
-$$z_{norm} = \frac{z_e}{\|z_e\|_2}, \quad e_{norm, k} = \frac{e_k}{\|e_k\|_2}$$
+\begin{equation}
+z_{norm} = \frac{z_e}{\|z_e\|_2}, \quad e_{norm, k} = \frac{e_k}{\|e_k\|_2}
+\end{equation}
 
-Then using the Gumbel-Softmax trick again but with cosine similarity.
-$$q(z_q = e_k | z_e) = \frac{\exp(\kappa \cdot z_{norm}^T e_{norm, k})}{\sum_j \exp(\kappa \cdot z_{norm}^T e_{norm, j})}$$
+Then using the Gumbel-Softmax trick again but with cosine similarity instead of Euclidian distance.
+\begin{equation}
+q(z_q = e_k | z_e) = \frac{\exp(\kappa \cdot z_{norm}^T e_{norm, k})}{\sum_j \exp(\kappa \cdot z_{norm}^T e_{norm, j})}
+\end{equation}
 
-\subsubsection{Hierarchically-Quantised Variational Autoencoder (HQ-VAE)}
+\subsubsection{Residually-Quantised Variational Autoencoder (RQ-VAE)}
 \label{2.3.4.3}
 
-Yknow what to explain
+For a model to capture finer, more complex details, a larger vocabulary is required.
+Simply increasing the vocabulary size of the codebook can increase training time massively due to struggling to fit the entire embedding matrix in memory and the model struggling to explore the entire codebook.
+To prevent this, but still gain a larger vocabulary, we can use Residually-Quantised Variational Autoencoder (RQ-VAE).
 
-\subsubsection{Pretraining via Imitation Learning}
+We can apply this method to all of the pre-mentioned Variational Autoencoder methods (VQ-VAE, SQ-VAE).
+We calculate $z_q$ from $z_e$ as usual for the respective method, then we calculate a new $z_e^{1}$ from these:
+
+\begin{equation}
+z_e^{'} = z_e - z_q
+\end{equation}
+
+This new $z_e^{'}$ can be used to calculate another $z_q$.
+
+\begin{equation}
+z_e^{(n)} = z_e^{(n-1)} - z_q^{(n-1)}
+\end{equation}
+
+This process can be repeated any number of times (RQ Levels).
+Once this process has been repeated the chosen number of times, a final $\hat{z_q}$ can be calculated by summing all previous quantised vectors.
+
+\begin{equation}
+\hat{z_q} = \sum_{n=1}^N z_q^{(n)}
+\end{equation}
+
+This produces an effective vocabulary size of:
+
+\begin{equation}
+ \text{Effective Vocab Size} = \text{Original Vocab Size}^{\text{RQ Levels}} 
+\end{equation}
+
+\subsubsection{Hierarchically-Quantised Variational Autoencoder (HQ-VAE)}
 \label{2.3.4.4}
 
-To further reduce the training time required, Liu et al. \cite{AIMotherTongue} suggests initially training both the actor and critic models with supervised learning.
-Required observations and their associated advantages can be precollected from an expert agent.
+Liu et al. suggested implementing Hierarchically-Quansited Variational Autoencoder (HQ-VAE) \cite{HQVAE}.
+The idea behind this is splitting the communication into high-level strategies and low-level strategies, where the low-level strategy is conditioned on the high-level strategy.
 
-Explain expert agent, imitation learning
+We first extract common features through a shared encoder:
+
+\begin{equation}
+h_{\text{shared}} = Enc_{\theta_E}(x)
+\end{equation}
+
+The top level, responsible for macro-level strategies, projects these shared features to a vector:
+\begin{equation}
+z_{\text{top}} = MLP_{\text{top}}(h_{\text{shared}})
+\end{equation}
+
+The bottom level, responsible for micro-level strategies, projects these shared features conditioned on the top level to a vector:
+\begin{equation}
+z_{\text{bottom}} = MLP_{\text{bottom}}([h_{\text{shared}}, z_{\text{top}}])
+\end{equation}
+
+We quantise both of these vectors using one of our aformentioned methods (VQ-VAE, SQ-VAE).
+
+\begin{equation}
+z_{q, top} = \text{Quantiser}(z_{top})
+\end{equation}
+
+\begin{equation}
+z_{q, bottom} = \text{Quantiser}(z_{bottom})
+\end{equation}
+
+Finally, we concatenate both of these vectors:
+
+\begin{equation}
+z_q = [z_{q, top}, z_{q, bottom}]
+\end{equation}
+
+\subsubsection{Pretraining via Imitation Learning}
+\label{2.3.4.5}
+
+To further reduce the training time required, Liu et al. \cite{AIMotherTongue} suggests initially training both the actor and critic models with supervised learning.
+Required observations, optimal actions and their associated advantages can be precollected from an expert agent.
+
+\begin{enumerate}
+    \item \textbf{Expert Agent}:
+    In order to do supervised learning on our actor and critic models, we require optimal data.
+    In our game, creating an optimal agent is intractable as we must decide the most optimal route to travel to multiple stations.
+    This is the travelling salesperson problem, a famous NP-Complete problem.
+    Instead, we create a greedy expert agent, who always travels to the nearest station they require.
+    Further optimistations can be done by PPO during RL.
+    \item \textbf{Supervised Learning}:
+    To simulate communication, we send the location of the agent's own nearest current target in its communication slot encoded via a learned codebook lookup from spatial binning.
+    We then use the actor to output actions logits and use cross-entropy to calculate loss:
+    \begin{equation}
+        \mathcal{L}_\text{actor} = - \log \pi(a_b^* | s_b, c_b)
+    \end{equation}
+    We also use the critic to predict the returns and use MSE to calculate loss:
+    \begin{equation}
+        \mathcal{L}_\text{critic} = \mathbb{E}_{t} \left[ (V_{\phi}(S_t) - R_t)^2 \right]
+    \end{equation}
+
+\end{enumerate}
+
+\subsubsection{Reflection Strategies and Auxillery Losses}
+\label{2.3.4.6}
+
+A large emphasis by Liu et al. \cite{AIMotherTongue} is the importance of reflection strategies.
+They introduce additional loss terms during the RL phase, aimed at fostering more xomplex learning and communication beyond simple reward maximisation.
+These reflection losses are defined over \emph{sender} and \emph{reciever} contexts constructed from observations and communication symbols.
+Due to the complexity of my environment, I have had to extend these auxillery losses to be more task-specific.
+
+For each agent, the \textbf{sender context} is defined by the concatenation of its local observations and the communication vector it emits.
+The \textbf{reciever context} concatenates the agents local observations and all communication vectors recieved from other agents.
+
+\begin{enumerate}
+    \item \textbf{Predicted Return Loss}
+    Given \textbf{sender context}, we train an auxilliary head to predict the true return $R_t$ collected from our GAE advantage estimation.
+    Loss is defined by:
+    \begin{equation}
+        \mathcal{L}_{\text{return}} = \frac{1}{N} \sum_{i=1}^{N} \left( \hat{R}(c^{\text{send}}_{i}) - R_{i} \right)^2,
+    \end{equation}
+    This mirrors Liu et al.'s value-prediction reflection, aligning communication with future rewards.
+    \item \textbf{Predicted Critic Loss}
+    Given the \textbf{sender context} again, we train another auxillery head to predict the critic's current values estimate.
+    \begin{equation}
+        \mathcal{L}_{\text{critic}} = \frac{1}{N} \sum_{i=1}^{N} \left( \hat{V}(c^{\text{send}}_{i}) - V_\phi(S_t) \right)^2,
+    \end{equation}
+
+    \item \textbf{Intent Loss}
+    The intent loss described in the paper models how agents messages influence partners' behaviour and rewards, however, this is not suitable for our needs.
+    Instead, we will will predict their own target using \textbf{sender context} and predict other agent's target using \textbf{reciever context} (explicitly promoting a Theory-of-Mind style understanding of partners' intentions).
+    
+    These losses summed will be our intent loss.
+    We define:
+    \begin{align}
+        \mathcal{L}_{\text{sender-goal}} &= \frac{1}{N}\sum_{i=1}^{N} 
+        \eta_{i} \left\| \hat{\tau}^{\text{send}}(c^{\text{send}}_{i}) - \tau_{i} \right\|_2^2, \\
+        \mathcal{L}_{\text{receiver-goal}} &= \frac{1}{N} \sum_{i=1}^{N} \sum_{\substack{j=1 \\ j \neq i}}^{N}
+        \eta_{j} \left\| \hat{\tau}^{\text{recv}}(c^{\text{recv}}_{i}, j) - \tau_{j} \right\|_2^2,
+    \end{align}
+    where 
+    \begin{itemize}
+        \item $\hat{\tau}^{\text{send}}$ predicts the sender's own target from its context
+        \item $\hat{\tau}^{\text{recv}}$ predicts another agent's target from the receiver context
+        \item \[
+                \eta_i =
+                \begin{cases}
+                    1, & \text{if agent } i \text{ has a valid target}, \\
+                    0, & \text{otherwise}.
+                \end{cases}
+            \]
+    \end{itemize}
+    
+    The total intent loss is then:
+    \begin{equation}
+        \mathcal{L}_{\text{intent}} = \mathcal{L}_{\text{sender-goal}} + \mathcal{L}_{\text{receiver-goal}}.
+    \end{equation}
+
+\end{enumerate}
+
+The total reflection loss will then be:
+\begin{equation}
+    \mathcal{L}_{\text{refl}} = \lambda \left( \mathcal{L}_{\text{return}} + \mathcal{L}_{\text{critic}} + \mathcal{L}_{\text{intent}} \right),
+\end{equation}
+with a small coefficient $\lambda$ (e.g.\ $0.01$) so that reflection regularises, rather than dominates, the RL objective.
+
 
 
 \section{Requirements Analysis}

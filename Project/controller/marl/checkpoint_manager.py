@@ -84,14 +84,18 @@ class CheckpointManager:
         return actor, critic, actor_optimizer, critic_optimizer, checkpoint_step
 
     def load_base_models(self):
-        base_models_path = RESULTS_DIR / str(self.comm_type)
+        base_models_path = RESULTS_DIR / str(self.comm_type.value) / "base"
         base_models = os.listdir(base_models_path)
-        most_recent_base_model = max(base_models, key=lambda x: datetime.fromisoformat(x.replace('Z', '+00:00')))
-        model_path = base_models_path / most_recent_base_model
+
+        convert_to_iso = lambda x: datetime.strptime(x, "%Y-%m-%d_%H-%M-%S").isoformat()
+
+        most_recent_base_model = max(base_models, key=lambda x: convert_to_iso(x))
+        print(f"Loading base model: {most_recent_base_model}")
+        folder_path = base_models_path / most_recent_base_model
         try:
-            checkpoint = torch.load(model_path)
+            checkpoint = torch.load(folder_path / "models.pth")
         except:
-            raise FileNotFoundError(f"No base model found at {model_path}")
+            raise FileNotFoundError(f"No base model found in folder {folder_path}")
 
         actor = checkpoint["actor"]
         critic = checkpoint["critic"]

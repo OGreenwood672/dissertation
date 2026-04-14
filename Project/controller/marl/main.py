@@ -3,6 +3,7 @@ import torch
 import numpy as np
 
 from controller.marl.imitation_learning import imitation_learning
+from controller.marl.logger import MetricTracker
 from controller.marl.models.aim import AIM
 from project_paths import PROJECT_ROOT
 
@@ -22,7 +23,7 @@ def get_args():
     
     return parser.parse_args()    
 
-def setup(config: Config, device: torch.device, load_agent_architecture: bool = True):
+def setup(config: Config, device: torch.device, load_agent_architecture: bool = True, imitate: bool = False):
 
     cm = CheckpointManager(config)
     SEED = cm.get_seed()
@@ -55,10 +56,12 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
     critic_optimizer = None
     start_step = 0
 
+    tracker = MetricTracker()
+
     if load_agent_architecture:
 
         actor = PPO_Actor(
-            num_agents, agent_obs_shape[0], act_shape[0], obs_external_mask, config.actor, config.comms, device=device
+            num_agents, agent_obs_shape[0], act_shape[0], obs_external_mask, config.actor, config.comms, tracker.update, device=device
         ).to(device)
         critic = PPO_Critic(num_agents, global_obs_shape[0], config.critic, config.comms).to(device)
 
@@ -67,8 +70,7 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
 
         start_step = 0
         if not cm.is_new_run:
-            # actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_checkpoint_models()
-            actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_base_models()
+            actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_checkpoint_models()
 
             actor.load_state_dict(actor_state)
             critic.load_state_dict(critic_state)
@@ -85,6 +87,16 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
 
             print(f"Loaded checkpoint from step {start_step}")
 
+        elif imitate:
+            actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_base_models()
+
+            actor.load_state_dict(actor_state)
+            critic.load_state_dict(critic_state)
+
+            print(f"Loaded base models!")
+
+
+
     return {
         "sim": sim,
         "actor": actor,
@@ -93,6 +105,7 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
         "critic_opt": critic_optimizer,
         "start_step": start_step,
         "checkpoint_manager": cm,
+        "metric_tracker": tracker,
         "num_agents": num_agents,
         "agent_obs_shape": agent_obs_shape,
         "input_comms_shape": comms_shape,
@@ -127,6 +140,10 @@ def setup_language_analysis(config: Config, device: torch.device):
     act_shape = (sim.get_agent_action_count(),)
     obs_external_mask = torch.tensor(sim.get_agent_external_obs_mask(0), dtype=torch.bool, device=device)
 
+    filtered_obs_dim = obs_external_mask.sum().int().item()
+
+    loss_obs_mask = torch.tensor(sim.get_agent_obs_mask(0), dtype=torch.bool, device=device)[obs_external_mask]
+
     # load encoder
     # encoder = None
 
@@ -135,10 +152,12 @@ def setup_language_analysis(config: Config, device: torch.device):
     # if config.comms.communication_type == CommunicationType.AIM:
     #     encoder = Encoder.load(folder)
 
-    aim = AIM.load(folder, config.aim_training, config.comms, obs_dim=agent_obs_shape[0], device=device)
+    aim = AIM.load(folder, config.aim_training, config.comms, obs_dim=filtered_obs_dim, obs_loss_mask=loss_obs_mask, device=device)
+
+    metric_tracker = MetricTracker()
 
     actor = PPO_Actor(
-        num_agents, agent_obs_shape[0], act_shape[0], obs_external_mask, config.actor, config.comms, device=device
+        num_agents, agent_obs_shape[0], act_shape[0], obs_external_mask, config.actor, config.comms, metric_tracker.update, device=device
     ).to(device)
     critic = PPO_Critic(num_agents, global_obs_shape[0], config.critic, config.comms).to(device)
 
@@ -207,7 +226,7 @@ def main():
         if input("Use optimal actions? (Y/n) ").lower() != "n":
             load_agent_architecture = False
 
-    system, config = setup(config, device, load_agent_architecture)
+    system, config = setup(config, device, load_agent_architecture, imitate=args.mode != "imitate")
 
     if args.mode == "train":
         system["actor"].train()

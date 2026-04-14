@@ -3,5 +3,5 @@ communication_type: aim
 vocab_size: 32
 num_comms: 1
 autoencoder_type: "vq-vae"
-hq_layers: 1
+rq_levels: 1
 communication_size: 8

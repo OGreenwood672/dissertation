@@ -271,7 +271,7 @@ impl World {
         // Target location and flag if it exists
         (0..self.agents.len()).map(|agent| {
             // if let Some(target) = self.get_possible_known_desired_target(agent) {
-            if let Some(target) = self.get_known_desired_target(agent) {
+            if let Some(target) = self.get_desired_target(agent) {
                 vec![
                     // (target.x - self.agents[agent].location.x) as f32 / self.context.width as f32,
                     // (target.y - self.agents[agent].location.y) as f32 / self.context.height as f32,

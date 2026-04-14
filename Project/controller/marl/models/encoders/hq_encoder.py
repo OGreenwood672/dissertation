@@ -11,7 +11,7 @@ class HQ_Encoder(nn.Module):
             self,
             obs_dim, hidden_size, latent_dims, vocab_size,
             commitment_cost,
-            hq_vae_levels, kl_weight,
+            rq_levels, kl_weight,
             init_temperature, min_temperature,
             num_training_steps
         ):
@@ -45,7 +45,7 @@ class HQ_Encoder(nn.Module):
             init_temperature=init_temperature, 
             min_temperature=min_temperature,
             num_training_steps=num_training_steps, 
-            hq_vae_levels=hq_vae_levels, 
+            rq_levels=rq_levels, 
             kl_weight=kl_weight
         )
 
@@ -58,6 +58,17 @@ class HQ_Encoder(nn.Module):
         bottom_latent = self.bottom_head(bottom_input)
         
         return self.latent_handler(top_latent, bottom_latent)
+    
+    # For prior
+    @torch.no_grad()
+    def get_continuous_latents(self, x):
+        shared_features = self.shared_encoder(x)
+        top_latent = self.top_head(shared_features)
+        
+        bottom_input = torch.cat([shared_features, top_latent], dim=-1)
+        bottom_latent = self.bottom_head(bottom_input)
+        
+        return top_latent, bottom_latent
 
     def encode(self, x):
         shared_features = self.shared_encoder(x)
@@ -69,15 +80,16 @@ class HQ_Encoder(nn.Module):
         return self.latent_handler.encode(top_latent, bottom_latent)
         
     def get_all_embeddings(self):
-        top_embs = list(self.latent_handler.top_quantizer.embeddings)
-        bottom_embs = list(self.latent_handler.bottom_quantizer.embeddings)
+        top_embs = list(self.latent_handler.top_quantiser.embeddings)
+        bottom_embs = list(self.latent_handler.bottom_quantiser.embeddings)
         return top_embs + bottom_embs
-        
+
     def get_codebooks(self):
-        return np.array([emb.weight.detach().cpu().numpy() for emb in self.get_all_embeddings()])
+        return [emb.weight.detach().cpu().numpy() for emb in self.get_all_embeddings()]
     
     def save_codebook(self, save_folder):
-        np.save(os.path.join(save_folder, "codebook.npy"), self.get_codebooks())
+        codebooks = self.get_codebooks()
+        np.savez(os.path.join(save_folder, "codebooks.npz"), *codebooks)
 
     def save_encoder(self, save_folder):
         to_save = {
@@ -90,19 +102,20 @@ class HQ_Encoder(nn.Module):
     def save_config(self, save_folder):
         config = {
             "obs_dim": self.obs_dim,
-            "hidden_size": self.hidden_size,
-            "latent_dim": self.latent_dim,
+            "hidden_size": self.shared_encoder[0].out_features,
+            "latent_dims": self.latent_dims,
             "vocab_size": self.vocab_size,
-            "hq_vae": self.hq_vae,
-            "commitment_cost": self.commitment_cost,
-            "kl_weight": self.kl_weight,
-            "init_temperature": self.init_temperature,
-            "min_temperature": self.min_temperature,
-            "num_training_steps": self.num_training_steps,
-            "autoencoder_type": self.autoencoder_type,
+            "rq_levels": [
+                self.latent_handler.top_quantiser.rq_levels, 
+                self.latent_handler.bottom_quantiser.rq_levels
+            ],
+            "commitment_cost": self.latent_handler.top_quantiser.commitment_cost if hasattr(self.latent_handler.top_quantiser, 'commitment_cost') else 0.25,
+            "kl_weight": self.latent_handler.top_quantiser.kl_weight,
+            "init_temperature": self.latent_handler.top_quantiser.temperatures[0].item(),
+            "min_temperature": self.latent_handler.top_quantiser.min_temp,
+            "autoencoder_type": "HQ-VAE"
         }
         json.dump(config, open(os.path.join(save_folder, "config.json"), "w"))
-
 
     def save(self, save_folder):
 
@@ -111,20 +124,20 @@ class HQ_Encoder(nn.Module):
         self.save_config(save_folder)
 
     @classmethod
-    def load(cls, folder_path, device):
+    def load(cls, folder_path, num_training_steps, device):
 
         ae_config = json.load(open(folder_path / "config.json", "r"))
 
         encoder = cls(
-            ae_config["obs_dim"], ae_config["hidden_size"], ae_config["latent_dim"], ae_config["vocab_size"],
-            ae_config["commitment_cost"], ae_config["hq_vae"], ae_config["kl_weight"],
-            ae_config["init_temperature"], ae_config["min_temperature"], ae_config["num_training_steps"],
-            ae_config["autoencoder_type"]
+            ae_config["obs_dim"], ae_config["hidden_size"], ae_config["latent_dims"], ae_config["vocab_size"],
+            ae_config["commitment_cost"], ae_config["rq_levels"], ae_config["kl_weight"],
+            ae_config["init_temperature"], ae_config["min_temperature"], num_training_steps
         ).to(device)
 
-        embeddings = np.load(folder_path / "codebook.npy")
-        for i, embedding_weights in enumerate(embeddings):
-            encoder.get_embedding(i).weight.data = torch.tensor(embedding_weights, dtype=torch.float32, device=device)
+        npz_file = np.load(folder_path / "codebooks.npz")
+        for i, emb in enumerate(encoder.get_all_embeddings()):
+            embedding_weights = npz_file[f'arr_{i}']
+            emb.weight.data = torch.tensor(embedding_weights, dtype=torch.float32, device=device)
 
         encoder_path = folder_path / "encoders.pt"
         assert os.path.exists(encoder_path)

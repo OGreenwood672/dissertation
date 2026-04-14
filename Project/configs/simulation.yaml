@@ -1,12 +1,12 @@
-arena_width: 8
-arena_height: 8
+arena_width: 6
+arena_height: 6
 
 headless: false
 websocket_url: ws://127.0.0.1:3000
 websocket_path: ws
-agent_agent_visibility: 4 #1
-agent_station_visibility: 5 #3
-initial_agent_layout: random-limited
+agent_agent_visibility: 10 #1
+agent_station_visibility: 10 #3
+initial_agent_layout: random
 # agents:
 #   - id: 1
 #     inputs: [bun, patty]
@@ -44,7 +44,7 @@ agents:
     inputs: [choppedlettuce, slicedtomato]
     output: salad
 
-station_layout: random-limited
+station_layout: random
 stations:
   - id: 1
     type: pickup

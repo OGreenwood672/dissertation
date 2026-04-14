@@ -88,7 +88,7 @@ class CommConfig(BaseModel):
     vocab_size: int
     num_comms: int
     autoencoder_type: GenerativeLangType
-    hq_layers: int
+    rq_levels: int
     communication_size: int
 
 

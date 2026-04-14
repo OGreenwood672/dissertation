@@ -3,7 +3,7 @@
 
 import torch
 from torch import nn
-from typing import Tuple
+from typing import Callable, Tuple
 
 from controller.marl.comms.aim_comms import AimComms
 from controller.marl.comms.continuous_comms import ContinuousComms
@@ -18,8 +18,9 @@ class PPO_Actor(nn.Module):
 
     def __init__(
             self,
-            num_agents, obs_dim, action_dim, obs_external_mask,
+            num_agents: int, obs_dim: int, action_dim: int, obs_external_mask: torch.Tensor,
             actor_config: ActorHyperparameters, comm_config: CommConfig,
+            log: Callable[[str, float], None],
             device=None
         ):
         super().__init__()
@@ -39,6 +40,7 @@ class PPO_Actor(nn.Module):
         self.comm_protocol = comm_protocol_class[comm_config.communication_type](
             comm_config,
             actor_config,
+            log,
             device,
             num_agents=num_agents,
             obs_external_mask=obs_external_mask,

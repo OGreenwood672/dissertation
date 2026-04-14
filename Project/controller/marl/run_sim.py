@@ -18,8 +18,8 @@ def run_sim(
     ):
         
     sim = system['sim']
-    actor = system['actor'].eval()
-    critic = system['critic'].eval()
+    actor = system['actor']
+    critic = system['critic']
 
 
     T = config.training.simulation_timesteps
@@ -44,6 +44,12 @@ def run_sim(
     if collect_comms_folder is not None:
         CL = CommsLogger(collect_comms_folder, config.comms.vocab_size)
 
+    num_codebooks = 0
+    if comm_type == CommunicationType.AIM:
+        num_codebooks = config.comms.rq_levels * len(actor.comm_protocol.encoder.get_codebooks())
+    elif comm_type == CommunicationType.DISCRETE:
+        num_codebooks = config.comms.rq_levels
+
     buffer = RolloutBuffer(
         total_runs=episodes * W,
         timesteps_per_run=T,
@@ -54,7 +60,7 @@ def run_sim(
         comm_dim=C,
         num_global_obs=GO + N * NC * C, 
         hidden_state_size=config.actor.lstm_hidden_size,
-        hq_levels=config.comms.hq_layers if comm_type == CommunicationType.AIM else None,
+        num_codebooks=num_codebooks,
         device=device,
     )
 
@@ -70,7 +76,8 @@ def run_sim(
         curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))
         curr_targets = np.array(sim.get_curr_targets())
 
-        actor_hidden_states = actor.init_hidden(batch_size=W)
+        if not optimal:
+            actor_hidden_states = actor.init_hidden(batch_size=W)
 
         buf_obs = torch.zeros((T, W, N, system['agent_obs_shape'][0]), dtype=torch.float32, device=device)
         buf_global_obs = torch.zeros((T, W, GO + N * NC * C), dtype=torch.float32, device=device)
@@ -160,17 +167,20 @@ def run_sim(
             end = time()
             if end - start < config.training.timestep:
                 sleep(config.training.timestep - (end - start))
-
-        global_state_tensor = torch.tensor(np.stack(curr_global_obs)).float().to(device)
-        if global_state_tensor.ndim == 2:
-            global_state_tensor = global_state_tensor.unsqueeze(1)
-                    
-        with torch.no_grad():
-            batch_last_vals = critic(global_state_tensor)
         
-        if batch_last_vals.ndim == 3:
-            batch_last_vals = batch_last_vals.squeeze(1)
-        final_batch_values.append(batch_last_vals)
+        if not optimal:
+            global_state_tensor = torch.tensor(np.stack(curr_global_obs)).float().to(device)
+            if global_state_tensor.ndim == 2:
+                global_state_tensor = global_state_tensor.unsqueeze(1)
+                        
+            with torch.no_grad():
+                batch_last_vals = critic(global_state_tensor)
+            
+            if batch_last_vals.ndim == 3:
+                batch_last_vals = batch_last_vals.squeeze(1)
+            final_batch_values.append(batch_last_vals)
+        else:
+            final_batch_values.append(torch.zeros((W, N), device=device))
 
         batch_data = {
             "obs": buf_obs,

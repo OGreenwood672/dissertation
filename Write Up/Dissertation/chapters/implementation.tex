@@ -9,7 +9,7 @@ Summary
 \section{Implementation Overview}
 \label{sec:3.1}
 
-\section{System Layout}
+\subsection{System Layout}
 \label{sec:3.1.1}
 
 \begin{figure}[htbp]
@@ -34,8 +34,8 @@ Summary
 \node (Buffer) [storage, left=3cm of Trainer] {\textbf{Rollout Buffer} \\ \textit{(buffer.py)} \\ Episode Memory};
 
 % Models
-\node (Actor) [block, right=3cm of Trainer, yshift=1.5cm] {\textbf{Decentralized Actors} \\ \textit{(actor.py)}};
-\node (Critic) [block, right=3cm of Trainer, yshift=-1.5cm] {\textbf{Centralized Critic} \\ \textit{(critic.py)}};
+\node (Actor) [block, right=3cm of Trainer, yshift=1.5cm] {\textbf{Decentralised Actors} \\ \textit{(actor.py)}};
+\node (Critic) [block, right=3cm of Trainer, yshift=-1.5cm] {\textbf{Centralised Critic} \\ \textit{(critic.py)}};
 
 % Frontend
 \node (Frontend) [block, left=2.5cm of Env, fill=orange!5, minimum width=3cm] {\textbf{p5.js UI} \\ \textit{(Websocket)}};
@@ -69,70 +69,475 @@ Summary
 
 
 
-\section{Repository Overview}
+\subsection{Repository Overview}
 \label{sec:3.1.2}
 
-\section{Implementation Approach}
+\subsection{Implementation Approach}
 \label{sec:3.1.3}
 
-\subsection{Unit Testing}
+\subsubsection{Unit Testing}
 \label{sec:3.1.3.1}
 
-\subsection{Documentation}
+\subsubsection{Documentation}
 \label{sec:3.1.3.2}
 
-\section{Simulation}
+
+\section{Environment}
 \label{sec:3.2}
 
-\subsection{Environment Logic}
+TODO: Discuss env maybe?
+
+Reinforcement learning requires millions of datapoints to produce sufficiently usable policy.
+In order to collect this data efficiently, a vectorised environment with efficient movement of data between the RL script and the Rust simulation is designed.
+
+\subsection{Cross-Language Interoperability}
 \label{sec:3.2.1}
 
-\subsection{Observations}
+To allow the Rust simulation to be callable from the Python RL training scripts, PyO3 \cite{pyo3_github} bindings are developed.
+A fundamental bottleneck of Python$<=$3.13 is the Global Interpreter Lock (GIL) ¬R - a mutex that protects access to Python objects by preventing multiple threads from executing Python code simultaneously.
+The Rust library \lstinline[language=Rust]|PyO3| generates C-compatible Foreign Function Interface (FFI) bindings that can be called from our Python scripts.
+This FFI is compiled using setuptools-rust, a plugin for the Python library setuptools library \cite{setuptoolsrust_pypi} that allows for the compilation of Rust extensions.
+This toolchain is defined within the \lstinline[language=bash]|pyproject.toml| configuration enabling all building into a single installation command.
+
+For interacting with the simulation from Python, a \lstinline[language=Python]|SimWrapper| class is developed following the Adapter Design Pattern \cite{refactoringguru_adapter}.
+This wrapper isolates the high-level reinforcement learning algorithm from the low-level foreign function interface mechanics.
+PyTorch works in high dimensional matrices and batched state representation, however it is considerably computationally faster to pass flat arrays to the Rust simulation to exploit CPU cache locality and parallel throughput.
+To take a simulation step, the \lstinline[language=Python]|SimWrapper| class reshapes the data and passes it to the Rust simulation.
+On return from the Rust simulation, PyO3 provides an option to return a numpy\cite{numpy} array.
+This is effectivly a pointer to a contiguous section of memory, allowing reshaping back to PyTorch's expected tensor shape in O(1) time (zero copying required).
+
+\subsection{World Vectorisation}
 \label{sec:3.2.2}
 
-\subsection{Rewards}
+Due to Python's GIL true parallelisation of CPU tasks is not possible.
+To circumvent this, we offloaded the parallelisation logic to the Rust simulation and step through multiple independent instances of the world concurrently.
+A single \lstinline[language=Rust]|Simulation| class is created to hold a vector of \lstinline[language=Rust]|World| states currently being simulated.
+According the Amdahl's Law ¬R, the theoretical speedup of a program is bottlenecked by its sequential fraction.
+The Rust library rayon ¬R is used to parallise the computation of each world to minimise this sequential overhead.
+This computation includes:
+\begin{itemize}
+    \item Applying actions chosen from the policy
+    \item Collecting rewards for feedback for the policy
+    \item Collecting each agent's observations and each world's global observations for input to the actor and critic networks
+\end{itemize}
+The number of worlds in parallel is decided through empirical profiling.
+For my computer, worlds\_parralised was optimally set to 32, however, this can easily be modified in the configuration files.
+
+
+\subsection{Spatial Hashing}
 \label{sec:3.2.3}
 
-\section{PPO Architecture}
+In the environment, the closest entity (agent or station) to each agent is part of each agent's observations.
+A naive implementation would be checking every entity's euclidian distance to every agent.
+This scales with $O(N^2)$, where $N$ is the number of entities.
+To resolve this, a \lstinline[language=Rust]|GridMap| struct is constructed using spatial hashing.
+Every world is represented as a \lstinline[language=Rust]|Vec<Vec<GridCell>>|, where agents register their presence upon movement, and stations register on initialisation.
+Using this data structure, we can convert our $O(N^2)$ time complexity to $O(1)$.
+On top of this functionality, we can also easily calculate an exploration reward.
+Each \lstinline[language=Rust]|GridCell| contains an \lstinline[language=Rust]|is_explored| flag.
+Agents who step on cells with this flag set to \lstinline[language=Rust]|true| collects a small positive reward and negates the flag.
+TODO: explain why? (if not done elsewhere)
+
+\subsection{Visualising the Environment}
+\label{sec:3.2.4}
+
+
+To help debug the environment, a lightweight real-time visualisation is built.
+Integrating the visualisation directly into the training loops would lead to strong performance degradation as each RL step would have to wait for a complete render of the current state.
+
+To decouple these systems, an independent frontend is developed with TypeScript ¬R and p5.js ¬R.
+On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library ¬R to manage the websocket connection setup by the \lstinline[language=Rust]|warp| library ¬R.
+During runtime, current state data is streamed from this websocket.
+Strict types are defined in both the rust simulation and frontend for the data being communicated through the websockets to ensure the system accurately reflects the current state.
+
+To synchronise the configuration between the visualisation and the simulation backend, a Python utility extracts required parameters from the configuration files and places them into a frontend friendly format.
+This synchronisation is integrated into the Vite build script to ensure perfect synchronisation.
+
+(Maybe TODO: dynamic worlds parallisd)
+
+\section{MARL Infrastructure}
 \label{sec:3.3}
 
-Varibale LR
-RolloutBuffer
-Vectorisation
-Last critic values
-GAE, then advantage Normalisation
-zeroing self comm
-separatly clipping comms_loss and action_loss
-clip grad norm of actor.params and critic.params
-setting vq-vae priors with k-means
-again clipping grad norm for training Aims
-expert agent for collecting info for VQ-VAE and imitation learning
-logger? - for grad norms, losses, rewards
-configs?
-Checkpoint manager
-imitation learning - give spatial index, predict action
-sliced composite loss, splitting self state and external
-reflection
-initialising weights
-abstract comms
-
-\subsection{Actor-Critic Method}
+\subsection{Actor and Critic Design}
 \label{sec:3.3.1}
 
-\subsection{Vectorization and Scaling}
+Similar to Liu et al.\cite{AIMotherTongue}, an actor-critic network is setup following the Centralised Training Decentralised Execution (CTDE) paradigm.
+The PyTorch module \lstinline[language=Python]|PPO_Critic| operates solely during the training phase and receives global knowledge of the current state of the world.
+The global knowledge is the complete, unmasked environmental state concatenated with the communication vectors of all agents.
+This is processed through a deep Multi-Layer Perceptron (MLP) body.
+To maintain network stability, \lstinline[language=Python]|nn.LayerNorm| and ReLU activation functions are applied sequentially.
+The network outputs an estimate of the return for each agent in the given state.
+
+The PyTorch module \lstinline[language=Python]|PPO_Actor| controls each agent and acts only using local knowledge of the agent.
+This local knowledge is the agent's own state (position, inventory - what the agent currently has and needs), closest entity if within a specific radius and the communication vectors broadcasted by all other agents.
+This is processed through a deep MLP body, and then, as the game is POMDP, is passed through an Long Short Term Memory unit (LSTM).
+The LSTM allows individual agents to remember locations of stations and meeting points with other agents.
+The network outputs action logits (probabilities of each action to be taken) and returns the output of the LSTM for the communication protocol to use later on.
+
+\subsection{Memory Management}
+\label{sec:3.3.2}
+
+During the rollout phase, the data collected including inputs to the policy (communication values, observations) and the feedback from the simulation (rewards) must be saved for the update phase.
+In the vectorised environment with multiple agents over hundreds of timesteps, simply appending to a Python list is insufficient due to constant copying overhead when the list doubles in size ¬R? and memory fragmentation ¬R?.
+To prevent this overhead, a custom \lstinline[language=Python]|RolloutBuffer| class is implemented.
+On instantiation, the buffer allocates contiguous memory for the data collected over the rollout phase in the form of a \lstinline[language=Python]|torch.tensor| on the target hardware device.
+Memory allocated is for
+\begin{itemize}
+    \item Local agent observations
+    \item Global world observations
+    \item LSTM recurrent hidden states
+    \item Each agent's targets
+    \item Each agent's rewards
+    \item Broadcasted communication vectors and associated log-probabilities
+    \item Actions chosen and associated action log-probabilities
+    \item Critic's values
+    \item Advantages and returns derived from Generalised Advantage Estimation (GAE).
+\end{itemize}
+
+After every environment step, data is directly inserted into the pre-allocated tensors via index-slicing.
+This insertion is a $O(1)$ zero-copy operation.
+This method minimises the data transfer across the CPU-GPU boundary which is an expensive operation.
+
+\subsection{Generalised Advantage Estimation}
+\label{sec:3.3.3}
+
+% Create pseudo-code
+After concluding the rollout phase, the temporal difference returns and advantages need to be calculated to update the policies.
+To avoid unnecessary data movement, this process is executed directly on the stored tensors inside the \lstinline[language=Python]|RolloutBuffer| instance as follows:
+\begin{algorithm}
+\caption{Compute Advantages and Returns using GAE}
+\begin{algorithmic}[1]
+\Procedure{GeneralisedAdvantageEstimation}{$V_{last}, \gamma, \lambda$}
+    \State \textbf{Input:} Last value $V_{last}$, discount factor $\gamma$, GAE parameter $\lambda$
+    \State \textbf{Initialise:} $gae \gets 0$
+    \State $T \gets \text{timesteps\_per\_run}$
+    
+    \For{$t = T-1$ \textbf{down to} $0$}
+        \State $r \gets R[t]$ \Comment{Reward at timestep $t$}
+        \State $v \gets V[t]$ \Comment{Value at timestep $t$ from critic}
+        
+        \State $\delta \gets r + \gamma V_{last} - v$ \Comment{Compute 1-step TD Error}
+        \State $gae \gets \delta + \gamma \lambda \cdot gae$ \Comment{Compute GAE advantage}
+        
+        \State $A[t] \gets gae$ \Comment{Store advantages}
+        \State $Returns[t] \gets gae + v$ \Comment{Store returns}
+        
+        \State $V_{last} \gets v$ \Comment{Update last value for the next iteration ($t-1$)}
+    \EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+As detailed in Algorithm 1, GAE starts at the final step.
+It calculates the one-step Temporal Difference Error ($\delta$) - representing the immediate step reward plus the discounted expected value of the subsequent state minus the baseline value estimate of the current state.
+The GAE is then recursively accumulated using the decay parameter ($\lambda$) and the environmental discount factor ($\gamma$).
+By adding the current $\delta$ to the exponentially discounted future advantages, GAE successfully balances the bias-variance tradeoff inherent in deep reinforcement learning.
+The target returns for training the Critic are formulated by summing the advantage with the current state value.
+This algorithm has a time complexity of $O(T)$.
+
+\subsection{Communication Strategy Pattern}
+\label{sec:3.3.4}
+
+% TODO: Make diagram of flow
+
+A critical part of this project is the comparative analysis of different methods of communication.
+This includes no communication, dynamically learned discrete symbols and AI Mother Tongue methods.
+
+To avoid repetition of code blocks and consistency over each of these methods, an abstract base class was engineered (\lstinline[language=Python]|Comms|) using the Python library \lstinline[language=Python]|abc|.
+% TODO: Improve class names
+The specific protocols (named \lstinline[language=Python]|NoneComms|, \lstinline[language=Python]|DiscreteComms|, \lstinline[language=Python]|AimComms|) were implemented as PyTorch modules and inherited from this base class.
+On initialisation, the \lstinline[language=Python]|actor| module dynamically instantiates the required protocol based on the configuration.
+This allowed experimental hot-swapping of protocols to be achieved seamlessly without altering the MAPPO algorithm.
+
+\subsection{MAPPO Algorithm}
+\label{sec:3.3.5}
+
+\begin{algorithm}
+\caption{MAPPO Minibatch Update with Learned Communication}
+\begin{algorithmic}[1]
+\Require Buffer minibatches, Clip hyperparameter $\epsilon$, Value coefficient $c_{vf}$, Entropy coefficient $c_{ent}$
+\For{batch $\in \text{buffer}$}
+    \State \textbf{Extract:} Observations $O, O_{global}$, Actions $a$, Comms $c$, Advantage $A$, Returns $\hat{R}$
+    \State \textbf{Extract:} Old log probs $\log \pi_{\text{old}}(a), \log \pi_{\text{old}}(c)$, Initial LSTM states $h_0, c_0$
+    
+    \State \Comment{\textbf{Critic Evaluation}}
+    \State $V \gets V_{\psi}(O_{global})$ \Comment{Compute new state values}
+    \State $L_{\text{critic}} \gets \text{MSE}(V, \hat{R})$
+    
+    \State \Comment{\textbf{Communication Embedding \& Shifting}}
+    \State $C_{\text{cont}} \gets \text{EmbedCodebooks}(c)$ \Comment{Convert discrete comms to continuous embeddings}
+    \State $C_{\text{shifted}} \gets \text{ShiftRight}(C_{\text{cont}}, \text{steps}=1)$ 
+    
+    \State \Comment{\textbf{Actor \& Comm Protocol Forward Pass}}
+    \State $\pi_{\theta}(a), h' \gets \text{ActorRNN}(O, h_0, c_0, C_{\text{shifted}})$
+    \State $\pi_{\phi}(c), \mathcal{H}_c, L_{\text{proto}} \gets \text{CommProtocol}(h', c, C_{\text{cont}}, \hat{R}, V)$
+    
+    \State \Comment{\textbf{Distributions \& Entropy}}
+    \State $\log \pi_{\theta}(a) \gets \text{LogProb}(\pi_{\theta}, a)$
+    \State $\mathcal{H}_a \gets \text{Entropy}(\pi_{\theta})$
+    \State $L_{\text{ent}} \gets - \mathbb{E}[\mathcal{H}_a + \mathcal{H}_c]$
+    
+    \State \Comment{\textbf{Action PPO Surrogate Loss}}
+    \State $r_a \gets \exp(\log \pi_{\theta}(a) - \log \pi_{\text{old}}(a))$
+    \State $L_{\text{action}} \gets -\mathbb{E}\left[ \min \left( r_a A, \text{clip}(r_a, 1-\epsilon, 1+\epsilon) A \right) \right]$
+    
+    \State \Comment{\textbf{Communication PPO Surrogate Loss}}
+    \State $r_c \gets \exp(\log \pi_{\phi}(c) - \log \pi_{\text{old}}(c))$
+    \State $L_{\text{comm}} \gets -\mathbb{E}\left[ \min \left( r_c A, \text{clip}(r_c, 1-\epsilon, 1+\epsilon) A \right) \right]$
+    
+    \State \Comment{\textbf{Total Loss Computation}}
+    \State $L_{\text{actor}} \gets L_{\text{action}} + L_{\text{comm}} + L_{\text{proto}}$
+    \State $L_{\text{total}} \gets L_{\text{actor}} + c_{vf} L_{\text{critic}} + c_{ent} L_{\text{ent}}$
+    
+    \State \Comment{\textbf{Optimization Step}}
+    \State $\theta, \phi, \psi \gets \text{ZeroGradients}()$
+    \State Compute $\nabla_{\theta, \phi, \psi} L_{\text{total}}$
+    \State $\text{ClipGradNorm}(\theta, 0.5)$; $\text{ClipGradNorm}(\psi, 0.5)$
+    \State $\text{OptimizerStep}()$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+% TODO: Explain pseudo-code
+
+
+\section{AI Mother Tongue and Emergent Communication}
 \label{sec:3.4}
 
-\section{Communication Channel}
-\label{sec:3.5}
+\subsection{Autoencoder Architecture}
+\label{sec:3.4.1}
 
-\subsection{Continuous Baseline}
-\label{sec:3.5.1}
+One objective of this project was to investigate different Variational Autoencoders to develop this AI Mother Tongue Language.
+Vector-Quantised Variational Autoencoders (VQ-VAEs) and Stochastically-Quantised Variational Autoencoders (SQ-VAEs) are pure methods of autoencoders.
+Hierarchically-Quantised Variational Autoencoders (HQ-VAEs) are a wrapper around these pure methods.
+Residually-Quantised Variational Autoencoders (RQ-VAEs) are a modifiction to these pure methods.
+To allow for experimentation, interchangeability was key.
+An agnostic \lstinline[language=Python]|Encoder| class was engineered to abstract away the shared neural network boilerplate, latent dimension mapping, and disk I/O.
+With this boilerplate code abstracted away, the VQ-VAE and SQ-VAE could be designed as lightweight, interchangable models, satisfying our goal.
 
-\subsection{Discrete VQ-VAE}
-\label{sec:3.5.2}
+\begin{enumerate}
+\item \textbf{VQ-VAE}
 
-\subsection{Linguistic Metrics Implementation}
-\label{sec:3.5.3}
+To map a continuous vector to a discrete vector in VQ-VAE, pairwise Euclidean distance is used.
+In PyTorch, this can be done using \lstinline[language=Python]|torch.cdist| followed by the \lstinline[language=Python]|argmin|.
+However, as discussed in the preparation section, argmin is non-differentiable.
+The Straight-Through Estimator is implemented using \lstinline[language=Python]|quantised = x + (quantised - x).detach()|.
+During the forward pass, PyTorch evaluates to the discrete code.
+During the backward pass, PyTorch sets the gradients of the detached term to zero, allowing the gradient to flow solely through continuous latent vector $x$ (preserving the computational graph).
+
+A known pathology of VQ-VAE is codebook collapse, to mitigate this in our On-Policy Communication Protocol, a dead-codebook revival heuristic is added.
+An exponentially weighted moving average tracks the usage count of each code.
+Once a code drops below a pre-defined threshold, it is replaced by a new code randomly sampled from the current continuous input batch.
+This ensures usage the entire codebook remains.
+
+
+\item \textbf{SQ-VAE}
+
+
+\item \textbf{HQ-VAE}
+
+
+\item \textbf{RQ-VAE}
+
+\end{enumerate}
+
+\subsection{Offline Pre-training}
+\label{sec:3.4.2}
+
+\subsubsection{Training VAEs}
+\label{sec:3.4.2.1}
+
+AI Mother Tongue requires these autoencoders to be trained before the RL phase of the learning process.
+Data for this training is collected from an expert agent who plays the game.
+
+A significant challenge with training autoencoders is codebook collapse.
+To mitigate this, the codebooks are not randomly initialised, instead data-driven codebook initialisation is used to set the spatial priors of the codebook.
+
+\begin{algorithm}
+\caption{Data-driven Codebook Initialization via K-Means}
+\begin{algorithmic}[1]
+\Procedure{FitRQStream}{$X, Q, d$}
+    \State \textbf{Input:} Initial continuous latents/residuals $X$, Quantiser $Q$, latent dim $d$
+    \State $X \gets \text{Reshape}(X, [-1, d])$ \Comment{Flatten batch and time dimensions}
+    \State $L \gets Q.\text{rq\_levels}$
+    \State $K \gets \text{VocabSize}$
+    
+    \For{$l = 1$ \textbf{to} $L$}
+        \State $X_{\text{norm}} \gets \frac{X}{||X||_2 + \epsilon}$ \Comment{L2 Normalise residuals ($\epsilon = 10^{-5}$)}
+        
+        \State $C \gets \text{MiniBatchKMeans}(X_{\text{norm}}, \text{clusters}=K)$ \Comment{Find $K$ centroids}
+        
+        \If{Encoder is SQ-VAE}
+            \State $C \gets \frac{C}{||C||_2}$ \Comment{Normalise centroids onto unit sphere}
+        \EndIf
+        
+        \State $Q.\text{codebook}[l] \gets C$ \Comment{Set embedding weights}
+        
+        \State $A \gets \text{PredictClusters}(X_{\text{norm}}, C)$ \Comment{Get cluster assignments}
+        \State $X \gets X - C[A]$ \Comment{Compute residuals for the next RQ level}
+    \EndFor
+\EndProcedure
+
+\vspace{2mm}
+
+\Procedure{SetPriors}{$M, \mathcal{D}$}
+    \State \textbf{Input:} Model $M$, Dataloader $\mathcal{D}$
+    \State $\mathcal{Z}_{\text{top}} \gets [], \quad \mathcal{Z}_{\text{bot}} \gets [], \quad \mathcal{Z} \gets []$
+    
+    \State \Comment{\textbf{Step 1: Collect Continuous Latents}}
+    \For{batch $O \in \mathcal{D}$}
+        \State $z \gets M.\text{encoder}.\text{GetContinuous}(O)$
+        \State Append $z$ to $\mathcal{Z}$
+    \EndFor
+    
+    \State \Comment{\textbf{Step 2: Fit Residual Quantisation Streams}}
+    \State $X \gets \text{Concatenate}(\mathcal{Z})$
+    \State \Call{FitRQStream}{$X, M.Q, d$}
+    
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+A subset of the data collected from the expert agent is used to find the spatial priors by passing the data through the initialised, but untrained, encoder.
+Centroids are then found by using the \lstinline[language=Python]|MiniBatchKMeans| function from the Python library \lstinline[language=Python]|scikit-learn| for K clusters (where K is the vocabulary size).
+If the current VAE is of type vMF SQ-VAE then we must also normalise the embeddings onto a unit sphere with \lstinline[language=Python]|torch.nn.functional.normalize(..., p=2.0)|.
+These centroids overwrite the randomly initialised embeddings in the codebook.
+For HQ-VAEs and RQ-VAEs (more than one codebook), the clustering operates sequentially.
+Once the top-level codebook is complete, the residuals are calculated for the data and the next codebook is populated using the same method.
+This continues until all codebook embeddings have been overwritten with these priors.
+
+% TODO: Explain how VAEs are trained
+
+After learning the VAE, it is loaded into the encoder for the RL phase and the parameters are frozen to prevent further training.
+This is done in PyTorch via \lstinline[language=Python]|parameter.requires_gradient = False|.
+
+\subsubsection{Imitation Learning}
+\label{sec:3.4.2.2}
+
+Due to problems such as the non-stationary problem and credit assignment problem, MARL takes a prohibitive number of training steps to converge on a viable policy.
+To reduce the amount of steps, Liu et al.\cite{AIMotherTongue} suggests implementing imitation learning to pre-train the actor and critic networks.
+
+% TODO: spatial hashin hq/rq
+Similar to training the VAEs, a dataset must be collected from the expert agent.
+However, two significant issues arise.
+The expert agent bases its actions solely from an oracle who tells the expert agent where their next target is.
+The expert agent also does not use any of the discrete codebook or any communication for that matter.
+To fix both these issues, a spatial hash is applied to the arena.
+The arena is broken into K discrete areas, where K is the vocabulary size.
+A unique id can be assigned to each of these areas:
+$$\text{unique\_id} = \text{ROW\_SIZE} * y + x$$
+where $x$ and $y$ are the discrete column and row indices, respectively.
+
+A lookup in the codebook using $unique\_id$ is done and the result is injected into the communication channels during training.
+
+Now that the data is collected, the networks are optimised via Behavioural Cloning.
+The actor network is trained using the Cross-Entropy loss (using \lstinline[language=Python]|torch.nn.functional.cross_entropy|) to help the actor learn basic movement.
+The critic network is trained using the Mean-Squared Error loss (using \lstinline[language=Python]|torch.nn.functional.mse_loss|) to help the critic predict the expert's expected temporal difference returns.
+
+On completion, these models are saved to disk and loaded when the reinforcement learning begins.
+
+\subsection{Reflection Strategies}
+\label{sec:3.4.3}
+
+In the AI Mother Tongue method, the VAE is frozen during the RL phase.
+This means the agents must learn to use the existing language rather than manipulating the codebook to improve their coordination.
+Liu et al. \cite{AIMotherTongue} propose using reflection strategies to teach the agent semantic meanings of the codes.
+These strategies are implemented by adding small MLP heads onto the actor output and allowing the auxiliary heads' losses to flow into the actor to further adjust the weights.
+% TODO: Should this be in preperation?
+
+Two different inputs to the auxiliary heads exist.
+\begin{enumerate}
+    \item \textit{sender\_context} defined as the concatenation of the output of the actor's recurrent unit and the communication vector that actor broadcasted.
+    \item \textit{receiver\_context} defined as the concatenation of the output of the actor's recurrent unit and all other agents' communication vectors.
+\end{enumerate}
+
+Reflection strategies are defined as follows:
+\begin{enumerate}
+    \item \textbf{Contextual Value Learning}
+    This reflection strategy requires the agent to understand the utilitarian value of its message.
+    To implement this, an auxiliary head named \lstinline[language=Python]|predict_agents_returns| is defined.
+    The \textit{sender\_context} is taken as input and optimises to predict the return calculated from GAE using MSE loss.   
+
+    \item \textbf{Theory of Mind}
+    Theory of mind is achieved once agents can infer the current goals of agents from their communication vectors.
+    This is achieved through two auxiliary losses:
+    \begin{itemize}
+        \item \textbf{Sender Goal Alignment}
+        The sender needs to understand its own intent.
+        An auxiliary head named \lstinline[language=Python]|predict_intent_sender_goal| is defined.
+        The \textit{sender\_context} is taken as input and optimises to predict the coordinates of the next target (decided by the same logic as the expert agent) using MSE loss.
+        
+        \item \textbf{Receiver Goal Alignment}
+        The sender needs to understand other agents' intent from their communication vectors.
+        An auxiliary head named \lstinline[language=Python]|predict_intent_receiver_goal| is defined.
+        The \textit{receiver\_context} is taken as input and optimises to predict the coordinates of all other agents' next target using MSE loss.
+        To filter out the agent's own communication vector, an inverse identity mask (\lstinline[language=Python]|~torch.eye|) is instantiated on the target hardware device to filter out the agent's self-broadcasted communications
+    \end{itemize}
+\end{enumerate}
+
+
+These losses are all aggregated into one and multiplied by a pre-defined coefficient (eg $\lambda = 0.01$).
+This loss is returned and added to the composite MAPPO objective function for backpropagation.
+
+
+\subsection{Architectural Divergence: On-Policy VQ-VAE}
+\label{sec:3.4.4}
+
+Unlike AI Mother Tongue protocol, this 
+% TODO
+
+\section{Software Engineering, Reproducibility, and Observability}
+\label{sec:3.6}
+
+MARL systems takes thousands of rollout phases to train.
+Leaving the system until the end of training to evaluate would render debugging practically impossible.
+To ensure strict scientific rigor, custom observability and checkpointing frameworks were implemented.
+
+\subsection{Real-time System Monitoring}
+\label{sec:3.6.1}
+
+To prevent computational bottlenecks, three lightweight classes were engineered:
+\begin{itemize}
+    \item \lstinline[language=Python]|MetricTracker|
+    This object collects any statistics across the program.
+    Instances can then be passed to the following classes for saving and displaying stastics.
+    \item \lstinline[language=Python]|Logging|
+    This constantly flushes the statistics collected in \lstinline[language=Python]|MeticTracker| instances to disk to keep run data even in the case of crashes.
+    \item \lstinline[language=Python]|Visualiser|
+    Designed specifically for the RL phase, this class uses the Python library \lstinline[language=Python]|rich| to display relevant statisitics to that run.
+    The visualisation displays hyperparameters from the configuration files, the current state of the RL loop (rollout or update phase) and shows the past $X$ training steps of \lstinline[language=Python]|MetricTracker| statistics in the form of a basic graph.
+\end{itemize}
+
+\lstinline[language=Python]|MetricTracker| and \lstinline[language=Python]|Logging| are usable in the RL loop, imitation learning and VAE training.
+
+\subsection{Checkpointing}
+\label{sec:3.6.2}
+
+Simply storing the logs accumulated over the run is insuficient for resuming of training incase of hardware failure.
+For this functionaliy, a \lstinline[language=Python]|CheckpointManager| class is developed.
+On instantiation, a config file is saved to a new folder. 
+Then every $X$ training steps (eg $X=100$, but configurable in the configuration files), the actor, critic models and their respective optimisers are saved.
+These saved models and optimisers can be loaded on start to reproduce any results.
 
 \section{Summary}
-\label{sec:3.6}
+\label{sec:3.7}
+
+
+% For the comparitive learning protocol, the language is being trained online.
+% There is no reconstuction loss or any extra auxiliary loss being fed into the lightweight quantiser module.
+% The only loss this quantiser receives is from actor loss during the RL training. 
+
+
+
+% Varibale LR
+% Last critic values
+% advantage Normalisation
+% zeroing self comm
+% separatly clipping comms loss and action loss
+% clip grad norm of actor.params and critic.params
+% again clipping grad norm for training Aims
+% expert agent for collecting info for VQ-VAE and imitation learning
+% configs?
+% sliced composite loss, splitting self state and external
+% initialising weights
+% Liscences

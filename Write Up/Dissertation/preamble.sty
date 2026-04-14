@@ -18,6 +18,27 @@
 
 \usepackage{setspace}
 
+\usepackage{listings}
+
+\lstdefinelanguage{Rust}{
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]{"},
+  morekeywords={fn, let, mut, struct, enum, impl, use, pub, as, if, else, match, for, while, return, break, continue, true, false, Some, None, Ok, Err, Self, self}
+}
+
+
+\definecolor{codegray}{gray}{0.9}
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  backgroundcolor=\color{codegray}
+}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
 
 % code highlighting
 \usepackage{minted}

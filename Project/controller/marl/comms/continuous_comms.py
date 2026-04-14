@@ -1,18 +1,16 @@
+from typing import Callable
+
 import torch
 import torch.nn as nn
 
 from controller.marl.config import ActorHyperparameters, CommConfig
-from controller.marl.models.aim import AIM
-from controller.marl.models.encoders.encoder import Encoder
-from controller.marl.models.quantiser import Quantiser
-
 
 from .comms import Comms
 
 
 class ContinuousComms(Comms, nn.Module):
 
-    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, num_agents: int, device: torch.device):
+    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, log: Callable[[str, float], None], num_agents: int, device: torch.device):
         nn.Module.__init__(self)
 
         self.config = config

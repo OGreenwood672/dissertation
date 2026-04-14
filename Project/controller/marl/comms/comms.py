@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Callable
 import torch
 
 
@@ -6,7 +7,7 @@ import torch
 class Comms(ABC):
 
     @abstractmethod
-    def __init__(self, config, actor_config, device, **kwargs):
+    def __init__(self, config, actor_config, log: Callable[[str, float], None], device, **kwargs):
         pass
 
     @abstractmethod

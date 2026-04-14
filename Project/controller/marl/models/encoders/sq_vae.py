@@ -10,33 +10,33 @@ class SQ_VAE(nn.Module):
     def __init__(
             self,
             vocab_size, latent_dim,
-            init_temperature=1.0, min_temperature=0.1,
-            num_training_steps=50000, hq_vae=1, kl_weight=0.001
+            init_temperature, min_temperature,
+            num_training_steps, rq_levels, kl_weight
         ):
         super().__init__()
 
         self.vocab_size = vocab_size
         self.latent_dim = latent_dim
-        self.hq_vae = hq_vae
+        self.rq_levels = rq_levels
         self.kl_weight = kl_weight
         self.min_temp = min_temperature
 
         completion_percentages = []
-        if hq_vae == 1:
-            completion_percentages = [0.75]
+        if rq_levels == 1:
+            completion_percentages = [1]
         else:
-            for i in range(hq_vae):
-                completion_percentages.append(0.4 + (0.4 * (i / (hq_vae - 1))))
+            for i in range(rq_levels):
+                completion_percentages.append(0.4 + (0.4 * (i / (rq_levels - 1))))
 
-        print(f"Codebook(s) will freeze at {', '.join([f'{p*100:.2g}%' for p in completion_percentages])} of training steps.")
+            print(f"Codebook(s) will freeze at {', '.join([f'{p*100:.2g}%' for p in completion_percentages])} of training steps.")
 
         self.embeddings = nn.ModuleList()
         self.logit_scales = nn.ParameterList()
         
-        self.register_buffer('temperatures', torch.full((hq_vae,), init_temperature))
-        self.register_buffer('anneal_rates', torch.zeros(hq_vae))
+        self.register_buffer('temperatures', torch.full((rq_levels,), init_temperature))
+        self.register_buffer('anneal_rates', torch.zeros(rq_levels))
 
-        for i in range(hq_vae):
+        for i in range(rq_levels):
             rate = math.exp(math.log(min_temperature / init_temperature) / (num_training_steps * completion_percentages[i]))
             self.anneal_rates[i] = rate
             
@@ -57,6 +57,8 @@ class SQ_VAE(nn.Module):
 
         curr_residual = latent
         code_sum = torch.zeros_like(latent)
+
+        is_rl_phase = not next(self.parameters()).requires_grad
         
         for hq_level, (embedding, logit_scale) in enumerate(zip(self.embeddings, self.logit_scales)):
 
@@ -77,7 +79,7 @@ class SQ_VAE(nn.Module):
                         
             temp = self.temperatures[hq_level].item()
             
-            if self.training:
+            if self.training and not is_rl_phase:
                 soft_one_hot = F.gumbel_softmax(logits, tau=temp, hard=True)
 
                 with torch.no_grad():
@@ -115,3 +117,6 @@ class SQ_VAE(nn.Module):
         return loss, quantised
             
         # return quantised.detach()
+
+    def get_embedding(self, rq_level):
+        return self.embeddings[rq_level]

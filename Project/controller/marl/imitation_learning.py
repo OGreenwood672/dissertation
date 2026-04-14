@@ -9,13 +9,21 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
 
-
-from controller.marl.config import Config
-from controller.marl.datasets import ImitationLearningDataset
+from controller.marl.config import CommunicationType, Config
+from controller.marl.datasets import ObsData
 from controller.marl.run_sim import run_sim
+from controller.marl.logger import MetricTracker, Logging
 from project_paths import RESULTS_DIR
 
-def save(actor, critic, actor_optimizer, critic_optimizer, config: Config):
+def get_save_folder(datetime_str: str, config: Config):
+    parent_folder = RESULTS_DIR / config.comms.communication_type.value / "base"
+    os.makedirs(parent_folder, exist_ok=True)
+    folder = parent_folder / datetime_str
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def save(folder, actor, critic, actor_optimizer, critic_optimizer, config: Config):
     state = {
         "actor": actor.state_dict(),
         "critic": critic.state_dict(),
@@ -24,11 +32,7 @@ def save(actor, critic, actor_optimizer, critic_optimizer, config: Config):
         "step": config.aim_training.obs_runs
     }
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    folder = RESULTS_DIR / config.comms.communication_type.value / "base"
-    os.makedirs(folder, exist_ok=True)
-
-    torch.save(state, folder / f"{timestamp}.pth")
+    torch.save(state, folder / "models.pth")
 
 
 def spatial_index(targets: torch.tensor, max_index: int):
@@ -42,7 +46,6 @@ def spatial_index(targets: torch.tensor, max_index: int):
     return y * x_bins + x
 
 def imitation_learning(system, config: Config, device: torch.device):
-    # New actor, critic, optimisers, obs file - create here?
 
     sim = system['sim']
     actor = system['actor']
@@ -79,7 +82,8 @@ def imitation_learning(system, config: Config, device: torch.device):
         print(f"Baseline: {np.mean(rewards)}")
 
 
-    dataset = ImitationLearningDataset(obs_logs_file, O, GO, obs_external_mask, device)
+    # dataset = ObsData(obs_logs_file, O, GO, obs_external_mask, device)
+    dataset = ObsData(obs_logs_file, O, GO, device, T, W, N)
     train_set, val_set, test_set = torch.utils.data.random_split(dataset, [0.8, 0.1, 0.1])
 
     print(f"Using {len(train_set)} datapoints for training...")
@@ -90,172 +94,161 @@ def imitation_learning(system, config: Config, device: torch.device):
         DataLoader(test_set, batch_size=config.aim_training.aim_batch_size, shuffle=False)
     )
     
+    save_folder = get_save_folder(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), config)
+
+    num_codebooks = 0
+    if config.comms.communication_type == CommunicationType.AIM:
+        num_codebooks = config.comms.rq_levels * len(actor.comm_protocol.encoder.get_codebooks())
+    elif config.comms.communication_type == CommunicationType.DISCRETE:
+        num_codebooks = config.comms.rq_levels
+
+    logger = Logging(str(save_folder), config, 0, num_codebooks, "imitate")
+    tracker = MetricTracker()
+
     for epoch in range(config.aim_training.ae_epochs):
 
-        train_loss = 0.0
         actor.train()
         critic.train()
-        
+
         for batch_obs, batch_global_obs, batch_actions, batch_targets, batch_critic_values, batch_return_values in training_loader:
+    
+            B, T, N, _ = batch_obs.shape
 
-            batch_obs = batch_obs.to(device)
-            batch_obs = batch_obs.unsqueeze(1)
-
-            batch_global_obs = batch_global_obs.to(device)
-            batch_actions = batch_actions.to(device)
-            batch_targets = batch_targets.to(device)
-            batch_critic_values = batch_critic_values.to(device)
-            batch_return_values = batch_return_values.to(device)
-
-            current_B = batch_obs.shape[0]
-            real_B = current_B // N
-
-            if real_B == 0: continue
-
-            batch_obs = batch_obs.view(real_B, N, O)
-            batch_global_obs = batch_global_obs.view(real_B, N, GO)
-            batch_actions = batch_actions.view(real_B, N, 1)
-            batch_targets = batch_targets.view(real_B, N, 3)
-            batch_return_values = batch_return_values.view(real_B, N, 1)
-
-            actor_hidden_states = actor.init_hidden(batch_size=real_B)
-
-            flat_targets = batch_targets.view(-1, batch_targets.shape[-1])
-            target_indices = spatial_index(flat_targets, config.comms.vocab_size)
-            embedded_comms = actor.comm_protocol.aim_codebook[0, target_indices.long()].view(real_B, N, C)
-
-            sent_comms = (embedded_comms.sum(dim=1, keepdim=True) / (N - 1)) - embedded_comms
-
-            world_comms = torch.zeros((real_B, N, NC, C), device=device)
-            world_comms[:, :, 0, :] = sent_comms
-            world_comms = world_comms.view(real_B, N, NC * C)
+            actor_hidden_states = actor.init_hidden(batch_size=B)
+            world_comms = torch.zeros((B, N, NC * C), device=device)
 
             actor_optimizer.zero_grad()
             critic_optimizer.zero_grad()
-            
-            action_logits, _, _ = actor(batch_obs, actor_hidden_states, world_comms)
-            values = critic(batch_global_obs[:, 0, :])
-            
-            loss_actor = F.cross_entropy(action_logits.view(-1, A), batch_actions.view(-1).long()) 
-            loss_critic = F.mse_loss(values.view(-1), batch_return_values.view(-1))
-            
-            loss = loss_actor + loss_critic
 
-            loss.backward()
+            for t in range(T):
+                
+                obs_t = batch_obs[:, t]
+                actions_t = batch_actions[:, t]
+                global_obs_t = batch_global_obs[:, t]
+                returns_t = batch_return_values[:, t]
+
+                action_logits, lstm_output, actor_hidden_states = actor(obs_t, actor_hidden_states, world_comms)
+                
+                comm_output, _, _ = actor.comm_protocol.get_comms_during_rollout(lstm_output)
+                world_comms = comm_output.detach()
+
+                actor_loss = F.cross_entropy(action_logits.reshape(-1, A), actions_t.reshape(-1))
+                values = critic(global_obs_t[:, 0, :])
+                critic_loss = F.mse_loss(values.reshape(-1), returns_t.reshape(-1))
+
+                tracker.update("train_actor_loss", actor_loss.item() / T)
+                tracker.update("train_critic_loss", critic_loss.item() / T)
+                
+                loss = (actor_loss + critic_loss) / T
+
+                loss.backward()
+
+                h, c = actor_hidden_states
+                actor_hidden_states = (h.detach(), c.detach())
+
+                predicted_actions = torch.argmax(action_logits.reshape(-1, A), dim=-1)
+                correct_predictions = (predicted_actions == actions_t.reshape(-1)).sum().item()
+                total_predictions = actions_t.numel()
+
+                tracker.update("train_accuracy", correct_predictions / total_predictions)
+
             actor_optimizer.step()
             critic_optimizer.step()
-            
-            train_loss += loss.item()
-            
-        avg_train_loss = train_loss / len(training_loader)
-
-        val_loss = 0.0
-        
+                    
         with torch.no_grad():
             for batch_obs, batch_global_obs, batch_actions, batch_targets, batch_critic_values, batch_return_values in validation_loader:
+        
+                B, T, N, _ = batch_obs.shape
 
-                batch_obs = batch_obs.to(device)
-                batch_obs = batch_obs.unsqueeze(1)
-
-                batch_global_obs = batch_global_obs.to(device)
-                batch_actions = batch_actions.to(device)
-                batch_targets = batch_targets.to(device)
-                batch_critic_values = batch_critic_values.to(device)
-                batch_return_values = batch_return_values.to(device)
-
-                current_B = batch_obs.shape[0]
-                real_B = current_B // N
-
-                if real_B == 0: continue
-
-                batch_obs = batch_obs.view(real_B, N, O)
-                batch_global_obs = batch_global_obs.view(real_B, N, GO)
-                batch_actions = batch_actions.view(real_B, N, 1)
-                batch_targets = batch_targets.view(real_B, N, 3)
-                batch_return_values = batch_return_values.view(real_B, N, 1)
-
-                actor_hidden_states = actor.init_hidden(batch_size=real_B)
-
-                flat_targets = batch_targets.view(-1, batch_targets.shape[-1])
-                target_indices = spatial_index(flat_targets, config.comms.vocab_size)
-                embedded_comms = actor.comm_protocol.aim_codebook[0, target_indices.long()].view(real_B, N, C)
-
-                sent_comms = (embedded_comms.sum(dim=1, keepdim=True) / (N - 1)) - embedded_comms
-
-                world_comms = torch.zeros((real_B, N, NC, C), device=device)
-                world_comms[:, :, 0, :] = sent_comms
-                world_comms = world_comms.view(real_B, N, NC * C)
+                actor_hidden_states = actor.init_hidden(batch_size=B)
+                world_comms = torch.zeros((B, N, NC * C), device=device)
 
                 actor_optimizer.zero_grad()
                 critic_optimizer.zero_grad()
-                
-                action_logits, _, _ = actor(batch_obs, actor_hidden_states, world_comms)
-                values = critic(batch_global_obs[:, 0, :])
-                
-                loss_actor = F.cross_entropy(action_logits.view(-1, A), batch_actions.view(-1).long()) 
-                loss_critic = F.mse_loss(values.view(-1), batch_return_values.view(-1))
-                
-                loss = loss_actor + loss_critic
 
-                val_loss += loss.item()
-                
-        avg_val_loss = val_loss / len(validation_loader)
+                for t in range(T):
+                    
+                    obs_t = batch_obs[:, t]
+                    actions_t = batch_actions[:, t]
+                    global_obs_t = batch_global_obs[:, t]
+                    returns_t = batch_return_values[:, t]
 
-        print(f"Epoch {epoch+1}/{config.aim_training.ae_epochs} | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f}")
+                    action_logits, lstm_output, actor_hidden_states = actor(obs_t, actor_hidden_states, world_comms)
+                    
+                    comm_output, _, _ = actor.comm_protocol.get_comms_during_rollout(lstm_output)
+                    world_comms = comm_output.detach()
+
+                    actor_loss = F.cross_entropy(action_logits.reshape(-1, A), actions_t.reshape(-1))
+                    values = critic(global_obs_t[:, 0, :])
+                    critic_loss = F.mse_loss(values.reshape(-1), returns_t.reshape(-1))
+
+                    tracker.update("validation_actor_loss", actor_loss.item() / T)
+                    tracker.update("validation_critic_loss", critic_loss.item() / T)
+                    
+                    loss = (actor_loss + critic_loss) / T
+
+                    h, c = actor_hidden_states
+                    actor_hidden_states = (h.detach(), c.detach())
+
+                    predicted_actions = torch.argmax(action_logits.reshape(-1, A), dim=-1)
+                    correct_predictions = (predicted_actions == actions_t.reshape(-1)).sum().item()
+                    total_predictions = actions_t.numel()
+
+                    tracker.update("validation_accuracy", correct_predictions / total_predictions)
+
+
+        print(f"Epoch {epoch+1}/{config.aim_training.ae_epochs} | Train Accuracy: {tracker.get_average('train_accuracy'):.4f} | Val Accuracy: {tracker.get_average('validation_accuracy'):.4f}")
+        logger.log(epoch, tracker)
+        tracker.reset_tracker()
 
     test_loss = 0.0
+    test_accuracy = 0.0
     
     with torch.no_grad():
-        for batch_obs, batch_global_obs, batch_actions, batch_targets, batch_critic_values, batch_return_values in validation_loader:
+        for batch_obs, batch_global_obs, batch_actions, batch_targets, batch_critic_values, batch_return_values in test_loader:
 
-            batch_obs = batch_obs.to(device)
-            batch_obs = batch_obs.unsqueeze(1)
+            B, T, N, _ = batch_obs.shape
 
-            batch_global_obs = batch_global_obs.to(device)
-            batch_actions = batch_actions.to(device)
-            batch_targets = batch_targets.to(device)
-            batch_critic_values = batch_critic_values.to(device)
-            batch_return_values = batch_return_values.to(device)
-
-            current_B = batch_obs.shape[0]
-            real_B = current_B // N
-
-            if real_B == 0: continue
-
-            batch_obs = batch_obs.view(real_B, N, O)
-            batch_global_obs = batch_global_obs.view(real_B, N, GO)
-            batch_actions = batch_actions.view(real_B, N, 1)
-            batch_targets = batch_targets.view(real_B, N, 3)
-            batch_return_values = batch_return_values.view(real_B, N, 1)
-
-            actor_hidden_states = actor.init_hidden(batch_size=real_B)
-
-            flat_targets = batch_targets.view(-1, batch_targets.shape[-1])
-            target_indices = spatial_index(flat_targets, config.comms.vocab_size)
-            embedded_comms = actor.comm_protocol.aim_codebook[0, target_indices.long()].view(real_B, N, C)
-
-            sent_comms = (embedded_comms.sum(dim=1, keepdim=True) / (N - 1)) - embedded_comms
-
-            world_comms = torch.zeros((real_B, N, NC, C), device=device)
-            world_comms[:, :, 0, :] = sent_comms
-            world_comms = world_comms.view(real_B, N, NC * C)
+            actor_hidden_states = actor.init_hidden(batch_size=B)
+            world_comms = torch.zeros((B, N, NC * C), device=device)
 
             actor_optimizer.zero_grad()
             critic_optimizer.zero_grad()
-            
-            action_logits, _, _ = actor(batch_obs, actor_hidden_states, world_comms)
-            values = critic(batch_global_obs[:, 0, :])
-            
-            loss_actor = F.cross_entropy(action_logits.view(-1, A), batch_actions.view(-1).long()) 
-            loss_critic = F.mse_loss(values.view(-1), batch_return_values.view(-1))
-            
-            loss = loss_actor + loss_critic
 
-            test_loss += loss.item()
+            for t in range(T):
+                
+                obs_t = batch_obs[:, t]
+                actions_t = batch_actions[:, t]
+                global_obs_t = batch_global_obs[:, t]
+                returns_t = batch_return_values[:, t]
+
+                action_logits, lstm_output, actor_hidden_states = actor(obs_t, actor_hidden_states, world_comms)
+                
+                comm_output, _, _ = actor.comm_protocol.get_comms_during_rollout(lstm_output)
+                world_comms = comm_output.detach()
+
+                loss_actor = F.cross_entropy(action_logits.reshape(-1, A), actions_t.reshape(-1))
+                values = critic(global_obs_t[:, 0, :])
+                loss_critic = F.mse_loss(values.reshape(-1), returns_t.reshape(-1))
+                
+                loss = (loss_actor + loss_critic) / T
+
+                h, c = actor_hidden_states
+                actor_hidden_states = (h.detach(), c.detach())
+
+                test_loss += loss.item()
+
+                predicted_actions = torch.argmax(action_logits.reshape(-1, A), dim=-1)
+                correct_predictions = (predicted_actions == actions_t.reshape(-1)).sum().item()
+                total_predictions = actions_t.numel()
+
+                test_accuracy += correct_predictions / total_predictions
+
             
         avg_test_loss = test_loss / len(test_loader)
+        avg_test_accuracy = test_accuracy / (len(test_loader) * T)
 
-        print(f"Final Test Set Loss: {avg_test_loss:.4f}")
+        print(f"Final Test Set Loss: {avg_test_loss:.4f} | Test Set Accuracy: {avg_test_accuracy:.4f}")
 
     # Save Base
-    save(actor, critic, actor_optimizer, critic_optimizer, config)
+    save(save_folder, actor, critic, actor_optimizer, critic_optimizer, config)

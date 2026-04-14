@@ -1,3 +1,5 @@
+from typing import Callable
+
 import torch
 import torch.nn as nn
 
@@ -12,9 +14,8 @@ from .comms import Comms
 
 class NoneComms(Comms, nn.Module):
 
-    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, num_agents: int, device: torch.device):
+    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, log: Callable[[str, float], None], device: torch.device, **kwargs):
         nn.Module.__init__(self)
-
 
         self.config = config
 

@@ -30,7 +30,8 @@ class AIM(nn.Module):
             self, 
             obs_dim,
             comm_config: CommConfig, aim_config: AIMConfig,
-            obs_mask=None
+            obs_mask=None,
+            num_training_steps=None
         ):
         super().__init__()
 
@@ -39,7 +40,7 @@ class AIM(nn.Module):
                 obs_dim,
                 aim_config.hidden_size, comm_config.communication_size, comm_config.vocab_size,
                 commitment_cost=aim_config.commitment_cost,
-                hq_vae=comm_config.hq_layers, num_training_steps=aim_config.ae_epochs,
+                rq_levels=comm_config.rq_levels, num_training_steps=num_training_steps if num_training_steps is not None else aim_config.ae_epochs,
                 init_temperature=aim_config.init_temperature, min_temperature=aim_config.min_temperature,
                 autoencoder_type=comm_config.autoencoder_type, kl_weight=aim_config.kl_weight
             )
@@ -52,7 +53,7 @@ class AIM(nn.Module):
                 [macro_dim, micro_dim],
                 comm_config.vocab_size,
                 commitment_cost=aim_config.commitment_cost,
-                hq_vae_levels=[comm_config.hq_layers, comm_config.hq_layers],
+                rq_levels=[comm_config.rq_levels, comm_config.rq_levels],
                 kl_weight=aim_config.kl_weight,
                 init_temperature=aim_config.init_temperature,
                 min_temperature=aim_config.min_temperature,
@@ -73,9 +74,9 @@ class AIM(nn.Module):
 
 
 
-    def forward(self, x):
+    def forward(self, x, tracker=None):
 
-        loss, quantised = self.encoder(x)
+        encoder_loss, quantised = self.encoder(x)
 
         reconstructed = self.decoder(quantised)
 
@@ -84,9 +85,15 @@ class AIM(nn.Module):
         if self.obs_mask is not None:
             bce_loss = F.binary_cross_entropy(predictions[:, self.obs_mask], x[:, self.obs_mask])
             mse_loss = F.mse_loss(predictions[:, ~self.obs_mask], x[:, ~self.obs_mask])
-            loss = loss + bce_loss + mse_loss * 1.75
+            reconstruction_loss = bce_loss + mse_loss * 1.75
+            loss = encoder_loss + reconstruction_loss
         else:
-            loss = loss + F.mse_loss(predictions, x)
+            reconstruction_loss = F.mse_loss(predictions, x)
+            loss = encoder_loss + reconstruction_loss
+
+        if tracker is not None:
+            tracker.update("encoder_loss", encoder_loss.item())
+            tracker.update("reconstruction_loss", reconstruction_loss.item())
 
         # MSE
         # loss += F.mse_loss(reconstructed, x) * 0.5
@@ -136,9 +143,9 @@ class AIM(nn.Module):
         torch.save(self.decoder.state_dict(), os.path.join(save_folder, "decoder.pt"))
 
     @classmethod
-    def load(cls, saved_folder, aim_config: AIMConfig, comm_config: CommConfig, device: torch.device, obs_dim: int):
+    def load(cls, saved_folder, aim_config: AIMConfig, comm_config: CommConfig, obs_dim: int, obs_loss_mask: torch.Tensor, device: torch.device):
 
-        aim = cls(obs_dim, comm_config, aim_config)
+        aim = cls(obs_dim, comm_config, aim_config, obs_loss_mask)
 
         if comm_config.autoencoder_type == GenerativeLangType.HQ_VAE:
             aim.encoder = HQ_Encoder.load(saved_folder, device)
@@ -163,8 +170,10 @@ class AIM(nn.Module):
                 check_config = json.load(json_file)
 
                 for key, value in config:
+                    if key == "rq_levels" and config.autoencoder_type == GenerativeLangType.HQ_VAE: value = [value, value]
                     if key == "autoencoder_type": value = value.value
                     if key in check_config and check_config[key] != value:
+                        print(key, check_config[key], value)
                         break
                 else:
                     folder_path = LANGUAGES_DIR / folder

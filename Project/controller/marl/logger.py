@@ -1,35 +1,76 @@
+import time
 import os
 import csv
+from rich.text import Text
+from rich.align import Align
 from rich.table import Table
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
 from rich.progress import Progress, BarColumn, TaskProgressColumn, TextColumn
 from rich.columns import Columns
+from collections import defaultdict
+import re
 
 from controller.marl.config import CommunicationType, Config
 from logging_utils.decorators import LoggingFunctionIdentification
 
+class MetricTracker:
+    def __init__(self):
+        self.reset_tracker()
+    
+    def update(self, key, value):
+        self.metrics[key] += value
+        self.counts[key] += 1
+    
+    def get_average(self, key, default=""):
+        if key not in self.metrics:
+            return default
+        
+        return self.metrics[key] / self.counts[key]
 
-class Logger:
+    def reset_tracker(self):
+        self.metrics = defaultdict(int)
+        self.counts = defaultdict(int)
 
-    def __init__(self, save_folder, config: Config, start_step=0):
-
+class Logging:
+    def __init__(self, save_folder: str, config: Config, start_step: int = 0, num_codebooks: int = 1, mode: str = "RL"):
+        
         self.config = config
-        self.recent_history = []
         
         assert os.path.exists(save_folder), f"Save folder {save_folder} does not exist"
         self.save_file = os.path.join(save_folder, "log.csv")
 
-        self.headers = [
-            "timestep",
-            "reward_mean", "reward_std",
-            "communication_entropy_mean", "communication_perplexity_mean",
-            "communication_active_codebook_usage",
-            "actor_loss", "critic_loss", "entropy_loss", "vq_loss",
-            "predicted_return_loss", "predicted_critic_value_loss", "predicted_intent_loss",
-            "lstm_grad_norm", "comm_grad_norm", "action_grad_norm"
-        ]
+        if mode == "RL":
+            
+            self.headers = [
+                "timestep",
+                "reward_mean", "reward_std",
+                "actor_loss", "critic_loss",
+                "entropy_loss", "action_loss", "comm_loss",
+                "lstm_grad_norm", "comm_grad_norm", "action_grad_norm",
+                "comm_entropy", "comm_perplexity",
+                "predicted_return_loss", "predicted_sender_goal_loss", "predicted_receiver_goal_loss"
+            ]
+            self.headers += [s for x in range(num_codebooks) for s in [f"usage_count_{x}", f"std_usage_{x}", f"topk_usage_{x}"]]
+        
+        elif mode == "language":
+            self.headers = [
+                "timestep",
+                "train_commitment_loss", "train_reconstruction_loss",
+                "validation_commitment_loss", "validation_reconstruction_loss"
+            ]
+        
+        elif mode == "imitate":
+            self.headers = [
+                "timestep",
+                "train_actor_loss", "train_critic_loss", "train_accuracy",
+                "validation_actor_loss", "validation_critic_loss", "validation_accuracy",
+                "test_actor_loss", "test_critic_loss", "test_accuracy",
+            ]
+        else:
+            raise ValueError(f"Unknown mode {mode}")
+
 
         file_exists = os.path.exists(self.save_file)
 
@@ -43,25 +84,19 @@ class Logger:
             self.writer.writeheader()
             self.file.flush()
 
-        self.console = Console()
-        self.console.clear()
-        self.live = Live(None, console=self.console, auto_refresh=False, redirect_stdout=True)
-        self.live.start()
-        
     @LoggingFunctionIdentification("LOGGER")
-    def log(self, **kwargs):
+    def log(self, timestep: int, tracker: MetricTracker):
         
-        datarow = {h: kwargs.get(h, "") for h in self.headers}
+        datarow = {h: tracker.get_average(h, default="") for h in self.headers}
+        datarow["timestep"] = timestep
         
         try:
             self.writer.writerow(datarow)
             self.file.flush()
         except ValueError as e:
             print(f"Failed to log row: {e}")
-
-        self.recent_history.append(datarow)
-        self.recent_history = self.recent_history[-30:]
-
+    
+    
     def clear_logs(self, start_step):
 
         if input(f"Logs must be truncated after time step {start_step}. Do you wish to proceed (Y/n)").lower() == "n":
@@ -89,9 +124,43 @@ class Logger:
         except Exception as e:
             print(f"Error clearing logs: {e}")
 
-    def update_step(self, timestep, batch_run, total_batch_runs, status):
-        layout = self.generate_dashboard_layout(timestep, batch_run, total_batch_runs, status)
+    def close(self):
+        self.file.close()
+
+
+class Visualiser:
+
+    def __init__(self, config: Config):
+
+        self.config = config
+        self.past_count = 90
+        self.recent_history = []
+
+        self.console = Console()
+        self.console.clear()
+        self.live = Live(None, console=self.console, auto_refresh=False, redirect_stdout=True)
+        self.live.start()
+
+        self.timings = defaultdict(list)
+        self.curr_status = None
+        self.current_timing = time.perf_counter()
+        
+    def update_step(self, timestep: int, batch_run: int, total_batch_runs: int, status: str, tracker: MetricTracker, checkpoint: bool = False):
+        layout = self.generate_dashboard_layout(timestep, batch_run, total_batch_runs, status, tracker)
         self.live.update(layout, refresh=True)
+
+        now = time.perf_counter()
+        if self.curr_status:
+            self.timings[self.curr_status].append(round(now - self.current_timing, 2))
+            self.timings[self.curr_status] = self.timings[self.curr_status][-self.past_count:]
+        self.curr_status = status
+        self.current_timing = now
+
+        if checkpoint:
+            current_averages = {key: tracker.get_average(key) for key in tracker.metrics.keys()}
+            if current_averages:
+                self.recent_history.append(current_averages)
+                self.recent_history = self.recent_history[-self.past_count:]
 
     def generate_config_table(self):
 
@@ -137,7 +206,7 @@ class Logger:
         ]
 
         aim_params = [
-            ("HQ Layers", f"{self.config.comms.hq_layers}"),
+            ("HQ Layers", f"{self.config.comms.rq_levels}"),
             ("AIM LR", f"{self.config.aim_training.aim_learning_rate:.1e}"),
             ("Obs Runs", f"{self.config.aim_training.obs_runs}"),
             ("Obs Noise", f"{self.config.aim_training.obs_runs_noise}"),
@@ -152,7 +221,7 @@ class Logger:
             make_panel("Create AIM Language", aim_params)
         ])
         
-    def generate_dashboard_layout(self, timestep, batch_run, total_batch_runs, status):
+    def generate_dashboard_layout(self, timestep: int, batch_run: int, total_batch_runs: int, status: int, tracker: MetricTracker = None):
         
         progress = Progress(
             TextColumn("[bold blue]{task.description}"),
@@ -165,48 +234,34 @@ class Logger:
         metrics_table = Table(show_header=True, header_style="bold magenta", expand=True, box=None)
         metrics_table.add_column("Metric", style="dim")
         metrics_table.add_column("Value", justify="right")
-        metrics_table.add_column("Trend (Past 30 steps)", justify="left")
+        metrics_table.add_column(f"Trend (Past {self.past_count} steps)", justify="left")
 
-        tracked_metrics = [
-            ("Mean Reward", "reward_mean", "green"),
-            ("Std Reward", "reward_std", "green"),
-            ("Actor Loss", "actor_loss", "blue"),
-            ("Critic Loss", "critic_loss", "red"),
-            ("LSTM Grad Norm", "lstm_grad_norm", "yellow"),
-            ("Comm Grad Norm", "comm_grad_norm", "yellow"),
-            ("Action Grad Norm", "action_grad_norm", "yellow"),
-        ]
+        colours = ["red", "green", "blue", "yellow", "magenta", "cyan", "white"]
 
-        if (
-            self.config.comms.communication_type == CommunicationType.DISCRETE or
-            self.config.comms.communication_type == CommunicationType.AIM
-        ):
-            tracked_metrics.extend([
-                ("Entropy", "communication_entropy_mean", "cyan"),
-                ("Perplexity", "communication_perplexity_mean", "magenta"),
-                ("Codebook Usage", "communication_active_codebook_usage", "yellow"),
-            ])
-
-            if self.config.comms.communication_type == CommunicationType.AIM:
-                tracked_metrics.extend([
-                    ("Predicted Return Loss", "predicted_return_loss", "green"),
-                    ("Predicted Critic Value Loss", "predicted_critic_value_loss", "red"),
-                    ("Predicted Intent Loss", "predicted_intent_loss", "magenta")
-                ])
-
-        for label, key, color in tracked_metrics:
-            last_entry = self.recent_history[-1] if self.recent_history else {}
-            val = last_entry.get(key, "0")
-            
-            try:
-                display_val = f"{float(val):.4f}"
-            except (ValueError, TypeError):
-                display_val = str(val)
+        to_readable_from_camel = lambda s: re.sub(r"(?<!^)(?=[A-Z])", " ", s).title()
+        if tracker:
+            for key in tracker.metrics.keys():
+                label = to_readable_from_camel(key)
+                colour = colours[ord(key[0]) % len(colours)]
+                last_entry = self.recent_history[-1] if self.recent_history else {}
+                val = last_entry.get(key, "0")
                 
-            line = get_line_graph(self.recent_history, key)
-            metrics_table.add_row(label, display_val, f"[{color}]{line}[/]")
+                try:
+                    display_val = f"{float(val):.4f}"
+                except (ValueError, TypeError):
+                    display_val = str(val)
+                
+                line = get_line_graph(self.recent_history, key) if self.recent_history else ""
+                metrics_table.add_row(label, display_val, f"[{colour}]{line}[/]")
+
+        timing_texts = []
+        for key, vals in self.timings.items():
+            timing_texts.append(f"{to_readable_from_camel(key)} ({sum(vals) / len(vals):.2f}(s))")
+        timing_text = " | ".join(timing_texts)
+
 
         monitor_group = Group(
+            Align.right(Text(timing_text, style="dim")),
             f"[bold yellow]Status:[/] {status}",
             " ",
             progress,
@@ -225,9 +280,8 @@ class Logger:
         return Columns([config_panel, monitor_panel])
 
 
-    def close(self):
+    def stop(self):
         self.live.stop()
-        self.file.close()
 
 class ObsLogger:
 

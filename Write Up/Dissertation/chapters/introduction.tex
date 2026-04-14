@@ -1,14 +1,48 @@
 \label{sec:1}
 
-\section{Project Summary/Motivation}
+
+Since Google DeepMind released AlphaGo in 2016, there has been a steady increase in interest in the field of reinforcement learning.
+This has led to breakthroughs in areas of finance, trading, robotics and even video games.
+A clear next step for reinforcement learning is multi-agent reinforcement learning, where multiple agents are placed into the same environment and have to learn to interact with one another efficiently.
+This area of research has the potential to improve surgery robots, traffic optimisations and search-and-rescue operations.
+
+However, there exists a range of challenges which make multi-agent reinforcement learning more difficult in practice, such as: non-stationary problem, credit assignment issues, and the one I will focus on in this project, communication problems.
+Unlike single-agent reinforcement learning, multi-agent reinforcement learning can use communication to improve the agent's knowledge of their environment and/or teach them the optimal next step.
+In Partially Observable Markov Decision Processes (POMDP), communication is required for agents to solve the problem.
+
+Traditionally, communication is facilitated through every agent braodcasting raw continuous values to every other agent.
+While this is perfect for backpropagation, this scales poorly due to limited bandwidth between agents and is difficult for humans to interpret.
+
+
+Replacing these continuous communication vectors with discrete tokens is highly desirable for both bandwidth and interoperability.
+However, learning a discrete language on-policy suffers from the "Joint Exploration Problem" where agents get stuck in a local optima because they learn to completely ignore the communication channel as it is initially solely noise.
+This local optima is named the "Communication Vaccum Equilibrium".
+
+This dissertation focuses on the paper "AI Mother Tongue: Self-Emergent Communication in MARL via Endogenous Symbol Systems"\cite{AIMotherTongue}.
+In this paper, Liu et al. propose abandoning learning this discrete language during the reinforcement learning phase of training.
+Instead, they propose using a pre-trained discrete language model acting as a semantic bottleneck.
+
+By using a Vector-Quantised Variational Autoencoder (VQ-VAE), continuous observations can be mapped to a finite set of discrete symbols.
+Liu et al. then showed that this autoencoder can be frozen during training and the agents can be taught semantic meaning through reflection strategies - custom loss functions that force agents to understand contextual meaning and intent of these symbols.
+This methodology allows communication protocols to evolve naturally without implementing hard biases ¬R.
+
+Whilst the paper suggests an interesting novel idea, the paper only evaluates this on a simple niche idea.
+To ascertain whether this architecture is effective and robut enough for practical use, it requires rigourous evaluation within a more complex environment.
+
+\section{Project Overview \& Contributions}
 \label{sec:1.1}
 
-Limited bandwidth in communication channels - discrete symbols reduce bandwidth \\
-Look at how communication in RL is currently done - issues?, is it used? - does it assume telepathy? \\
+In this project, I:
 
-Communication Vaccum Equilibrium: No need for communication, so doesnt bother using it.
-
-LLMs - stuck using human language, even though human language is designed for biological and social needs.
+\begin{enumerate}
+    \item \textbf{Scale the Algorithm}
+    The AI Mother Tongue architecture will be integrated into a highly efficient Multi-Agent Proximal Policy Optimisation (MAPPO) framework to test the limits of the architecture.
+    \item \textbf{Generative Language Extension}
+    The project will implement the VQ-VAE approach as well as experiment with other generative language models suggested by the paper such as Stochastically-Quantised Variational Autoencoder (SQ-VAE) and Hierarchically-Quantised Variational Autoencoder (HQ-VAE) to determine if probabilistic or multiple codebooks improve coordination.
+    \item \textbf{Emperical Benchmarking}
+    The AI Mother Tongue architecture will be quantitivly compared to other communication methods such as no communication and continuous communication methods.
+    % TODO: How evaluated as well?
+\end{enumerate}
 
 
 \section{Background Work}
