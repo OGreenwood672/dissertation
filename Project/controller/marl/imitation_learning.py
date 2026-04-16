@@ -105,7 +105,7 @@ def imitation_learning(system, config: Config, device: torch.device):
     logger = Logging(str(save_folder), config, 0, num_codebooks, "imitate")
     tracker = MetricTracker()
 
-    for epoch in range(config.aim_training.ae_epochs):
+    for epoch in range(config.imitation.epochs):
 
         actor.train()
         critic.train()

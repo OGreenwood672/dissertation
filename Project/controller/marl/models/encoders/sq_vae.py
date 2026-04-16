@@ -5,6 +5,8 @@ import torch
 import torch.nn.functional as F
 import math
 
+from controller.marl.logger import MetricTracker
+
 
 class SQ_VAE(nn.Module):
     def __init__(
@@ -43,8 +45,8 @@ class SQ_VAE(nn.Module):
             self.embeddings.append(nn.Embedding(vocab_size, latent_dim))            
             self.logit_scales.append(nn.Parameter(torch.tensor(10.0)))
 
-    def forward(self, latent):
-        loss, quantised = self.quantise(latent)
+    def forward(self, latent, tracker: MetricTracker = None):
+        loss, quantised = self.quantise(latent, tracker)
         return loss, quantised
 
     @torch.no_grad()
@@ -52,7 +54,7 @@ class SQ_VAE(nn.Module):
         _, quantised = self.quantise(latent)
         return quantised
 
-    def quantise(self, latent):
+    def quantise(self, latent, tracker: MetricTracker = None):
         loss = torch.tensor(0.0, device=latent.device)
 
         curr_residual = latent

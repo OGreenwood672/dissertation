@@ -72,20 +72,21 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
         if not cm.is_new_run:
             actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_checkpoint_models()
 
-            actor.load_state_dict(actor_state)
-            critic.load_state_dict(critic_state)
+            if actor_state and critic_state:
+                actor.load_state_dict(actor_state)
+                critic.load_state_dict(critic_state)
 
-            try:
-                actor_optimizer.load_state_dict(actor_optimiser_state)
-                critic_optimizer.load_state_dict(critic_optimizer_state)
-                print("Successfully loaded optimizer states.")
-            except ValueError as e:
-                if "different number of parameter groups" in str(e):
-                    print("Optimizer parameter groups changed. Starting with fresh optimizer states.")
-                else:
-                    raise e
+                try:
+                    actor_optimizer.load_state_dict(actor_optimiser_state)
+                    critic_optimizer.load_state_dict(critic_optimizer_state)
+                    print("Successfully loaded optimizer states.")
+                except ValueError as e:
+                    if "different number of parameter groups" in str(e):
+                        print("Optimizer parameter groups changed. Starting with fresh optimizer states.")
+                    else:
+                        raise e
 
-            print(f"Loaded checkpoint from step {start_step}")
+                print(f"Loaded checkpoint from step {start_step}")
 
         elif imitate:
             actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_base_models()

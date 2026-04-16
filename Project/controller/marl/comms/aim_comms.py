@@ -282,4 +282,4 @@ class AimComms(Comms, nn.Module):
         self.log("predicted_sender_goal_loss", predicted_sender_goal_loss.item())
         self.log("predicted_reciever_goal_loss", predicted_reciever_goal_loss.item())
         
-        return (0.01 * (predicted_returns_loss + intent_loss)).item()
+        return (0.01 * (predicted_returns_loss + intent_loss))

@@ -191,7 +191,8 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
 
             optimizer.step()
 
-        for key in tracker.metrics.keys():
+        train_keys = list(tracker.metrics.keys())
+        for key in train_keys:
             tracker.metrics[f"train_{key}"] = tracker.metrics.pop(key)
             tracker.counts[f"train_{key}"] = tracker.counts.pop(key)
 
@@ -202,23 +203,24 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
                 batch_obs = batch_obs.to(device)
                 aim(batch_obs, tracker) 
         
-        for key in tracker.metrics.keys():
-            if not key.startswith("train"):
-                tracker.metrics[f"validation_{key}"] = tracker.metrics.pop(key)
-                tracker.counts[f"validation_{key}"] = tracker.counts.pop(key)
+        not_train_keys = list(filter(lambda x: not x.startswith("train"), tracker.metrics.keys()))
+        for key in not_train_keys:
+            tracker.metrics[f"validation_{key}"] = tracker.metrics.pop(key)
+            tracker.counts[f"validation_{key}"] = tracker.counts.pop(key)
                 
-        print(f"Epoch {epoch+1}/{config.aim_training.ae_epochs} | Train Recon Loss: {tracker.get_average('train_reconstruction_loss'):.4f} | Train Enc Loss: {tracker.get_average('train_encoder_loss'):.4f} | Val Recon Loss: {tracker.get_average('validation_reconstruction_loss'):.4f} | Val Enc Loss: {tracker.get_average('validation_encoder_loss'):.4f}")
+
+        print(f"Epoch {epoch+1}/{config.aim_training.ae_epochs}")
         train_stats = []
-        for key in tracker.metrics.keys():
-            if key.startswith("train"):
-                train_stats.append(f"{key}: {tracker.get_average(key):.4f}")
-        print("    " + " | ".join(train_stats))
+        train_keys = list(filter(lambda x: x.startswith("train"), tracker.metrics.keys()))
+        for key in train_keys:
+            train_stats.append(f"{key[len('train_'):]}: {tracker.get_average(key):.4f}")
+        print("      TRAINING   " + " | ".join(train_stats))
 
         validation_stats = []
-        for key in tracker.metrics.keys():
-            if key.startswith("validation"):
-                validation_stats.append(f"{key}: {tracker.get_average(key):.4f}")
-        print("    " + " | ".join(validation_stats))
+        validation_keys = list(filter(lambda x: x.startswith("validation"), tracker.metrics.keys()))
+        for key in validation_keys:
+            validation_stats.append(f"{key[len('validation_'):]}: {tracker.get_average(key):.4f}")
+        print("    VALIDATION   " + " | ".join(validation_stats))
 
 
 

@@ -174,6 +174,9 @@ This is processed through a deep MLP body, and then, as the game is POMDP, is pa
 The LSTM allows individual agents to remember locations of stations and meeting points with other agents.
 The network outputs action logits (probabilities of each action to be taken) and returns the output of the LSTM for the communication protocol to use later on.
 
+To prevent weights vanishing or exploding during early training, orthogonal initialisation was opted for rather than the default uniform initialisation PyTorch uses ¬R.
+
+
 \subsection{Memory Management}
 \label{sec:3.3.2}
 
@@ -271,12 +274,7 @@ This allowed experimental hot-swapping of protocols to be achieved seamlessly wi
     \State \Comment{\textbf{Actor \& Comm Protocol Forward Pass}}
     \State $\pi_{\theta}(a), h' \gets \text{ActorRNN}(O, h_0, c_0, C_{\text{shifted}})$
     \State $\pi_{\phi}(c), \mathcal{H}_c, L_{\text{proto}} \gets \text{CommProtocol}(h', c, C_{\text{cont}}, \hat{R}, V)$
-    
-    \State \Comment{\textbf{Distributions \& Entropy}}
-    \State $\log \pi_{\theta}(a) \gets \text{LogProb}(\pi_{\theta}, a)$
-    \State $\mathcal{H}_a \gets \text{Entropy}(\pi_{\theta})$
-    \State $L_{\text{ent}} \gets - \mathbb{E}[\mathcal{H}_a + \mathcal{H}_c]$
-    
+        
     \State \Comment{\textbf{Action PPO Surrogate Loss}}
     \State $r_a \gets \exp(\log \pi_{\theta}(a) - \log \pi_{\text{old}}(a))$
     \State $L_{\text{action}} \gets -\mathbb{E}\left[ \min \left( r_a A, \text{clip}(r_a, 1-\epsilon, 1+\epsilon) A \right) \right]$
@@ -284,21 +282,45 @@ This allowed experimental hot-swapping of protocols to be achieved seamlessly wi
     \State \Comment{\textbf{Communication PPO Surrogate Loss}}
     \State $r_c \gets \exp(\log \pi_{\phi}(c) - \log \pi_{\text{old}}(c))$
     \State $L_{\text{comm}} \gets -\mathbb{E}\left[ \min \left( r_c A, \text{clip}(r_c, 1-\epsilon, 1+\epsilon) A \right) \right]$
+
+    \State \Comment{\textbf{Distributions \& Entropy}}
+    \State $\log \pi_{\theta}(a) \gets \text{LogProb}(\pi_{\theta}, a)$
+    \State $\mathcal{H}_a \gets \text{Entropy}(\pi_{\theta})$
+    \State $L_{\text{ent}} \gets - \mathbb{E}[\mathcal{H}_a + \mathcal{H}_c]$
     
     \State \Comment{\textbf{Total Loss Computation}}
     \State $L_{\text{actor}} \gets L_{\text{action}} + L_{\text{comm}} + L_{\text{proto}}$
     \State $L_{\text{total}} \gets L_{\text{actor}} + c_{vf} L_{\text{critic}} + c_{ent} L_{\text{ent}}$
     
-    \State \Comment{\textbf{Optimization Step}}
+    \State \Comment{\textbf{Optimisation Step}}
     \State $\theta, \phi, \psi \gets \text{ZeroGradients}()$
     \State Compute $\nabla_{\theta, \phi, \psi} L_{\text{total}}$
     \State $\text{ClipGradNorm}(\theta, 0.5)$; $\text{ClipGradNorm}(\psi, 0.5)$
-    \State $\text{OptimizerStep}()$
+    \State $\text{OptimiserStep}()$
 \EndFor
 \end{algorithmic}
 \end{algorithm}
 
-% TODO: Explain pseudo-code
+Algorithm 2 depicts the update loop for MAPPO.
+To ensure stability in the updates, advantage normalisation is applied to the GAE advantages. ¬R
+
+For every epoch, the data collected by the rollout phase is split into random minibatches.
+First, the critic is evaluated by feeding in the global observation against returns from GAE using MSE loss.
+
+The communication vectors broadcasted in the preceding time step are collected and fed into the actor network along with the relevant local observations and LSTM hidden state.
+To prevent chaotic updating, the standard PPO clipped surrogate objective is used.
+Notably, the clipping of the communication loss and the action loss are computed separatly.
+This strict isolation ensures that a highly confident, but ultimately incorrect, communication update does not destructively skew the gradients of a well-performing spatial movement policy.
+
+Each of these surrogate losses is aggregated into a single composite loss as well as an entropy loss for encouraging continued exploration.
+However, before applying the final gradients to the networks, the complete actor and critic parameters are clamped to a maximum $L_2$ norm of 0.5.
+
+Due to imitation learning (detailed in Section 3.4.2.2), a blanket learning rate is not suitable for MAPPO.
+Because the actor and critic networks have already been partially optimised, aggressive learning rates risks forgetting of these pre-trained policies.
+To account for this, a conservative learning rate is applied to the actor's networks that were trained during imitation learning to prevent chaotic updates losing this information.
+The critic network is exempt from this conservative learning rate otherwise the network would be unable to rapidly adapt to the agents' shifting policies and provide accurate value function estimates.
+This variable learning rate is applied using \lstinline[language=Python]|PyTorch|'s optimiser's parameter groups (\lstinline[language=Python]|param_groups|).
+This careful orchestration of advantage normalisation, isolated loss clipping, gradient clamping and variable learning rates ensures monotonic policy improvement across the training landscape.
 
 
 \section{AI Mother Tongue and Emergent Communication}
@@ -333,11 +355,26 @@ This ensures usage the entire codebook remains.
 
 \item \textbf{SQ-VAE}
 
+Unlike VQ-VAE which relies on the non-differentiable argmin operator, SQ-VAE models the discretisation bottleneck as a probabilistic categorical distribution.
+To allow backpropagation through this discrete sampling, the Gumbel-Softmax reparamatisation trick is used via PyTorch's \lstinline[language=Python]|torch.nn.functional.gumbel_softmax|.
+During the forward pass, a discrete one hot-vector is sampled.
+During the backward pass, a differentiable vector is used.
+To further improve codebook utilisation, a dynamic temperature annealing scheduler is used.
+At the start of training, a high temperature is applied to encourage exploration of the entire codebook.
+As training progresses, the temperature is reduced to make the communication increasling deterministic.
 
 \item \textbf{HQ-VAE}
 
+A standard issue with the previously mentioned VAEs is increasing the expressive freedom of the language requires linearly growing the codebook size which becomes computationally intensive (computing pairwise difference between every embedding).
+To solve this issue, a HQ-VAE is implemented.
 
-\item \textbf{RQ-VAE}
+Instead of utilising one large codebook, it is split into two.
+Initially the environment observations are passed through a shared MLP.
+A \lstinline[language=Python]|top_quantiser| projects these features into a continuous latent space which is quantised using the top-level codebook.
+These codes are for communicating macro-level strategies.
+
+For micro-level strategies, \lstinline[language=Python]|bottom_quantiser| projects the envionment observations concatenated with the top-level quantised code to another continuous latent space which is quantised using the bottom-level codebook.
+By forcing this conditional hierarchy, the language has an effective voacbulary size of $|\text{top\_level\_codebook}| * |\text{bot\_level\_codebook}|$ while being much less computationally intensive.
 
 \end{enumerate}
 
@@ -347,8 +384,12 @@ This ensures usage the entire codebook remains.
 \subsubsection{Training VAEs}
 \label{sec:3.4.2.1}
 
-AI Mother Tongue requires these autoencoders to be trained before the RL phase of the learning process.
-Data for this training is collected from an expert agent who plays the game.
+The AI Mother Tongue framework requires these autoencoders to be trained before the RL phase of the learning process.
+
+Data for VAE training is collected from an expert agent who plays the game.
+This expert agent is granted access to an oracle which houses the unmasked, global observation state.
+The expert agent then employs a greedy heuristic, taking steps directly to the nearest required station until interaction is possible.
+By deploying this greedy expert agent, a dataset can be collected with high quality spatial movements.
 
 A significant challenge with training autoencoders is codebook collapse.
 To mitigate this, the codebooks are not randomly initialised, instead data-driven codebook initialisation is used to set the spatial priors of the codebook.
@@ -407,9 +448,15 @@ Once the top-level codebook is complete, the residuals are calculated for the da
 This continues until all codebook embeddings have been overwritten with these priors.
 
 % TODO: Explain how VAEs are trained
+During the offline optimisation loop, applying MSE loss across the entire reconstructed vector proved suboptimal due to the heterogeneous nature of the observations.
+The majority of the data is binary flags, one-hot vectors and the remaining data consists of coordinates between $[0, 1]$.
+Sliced Composite Loss can be applied to maximise the effectiveness of the reconstruction loss.
+For the binary values such as flags and one-hot vectors, a Binary Cross-Entropy (BCE) loss function can be used.
+For the coordinates, MSE loss can be used.
+A multiplier is added to the MSE loss to improve the accuracy of the reconstruction of the coordinates.
 
 After learning the VAE, it is loaded into the encoder for the RL phase and the parameters are frozen to prevent further training.
-This is done in PyTorch via \lstinline[language=Python]|parameter.requires_gradient = False|.
+This is done in PyTorch via \lstinline[language=Python]|parameter.requires_grad = False|.
 
 \subsubsection{Imitation Learning}
 \label{sec:3.4.2.2}
@@ -510,12 +557,33 @@ To prevent computational bottlenecks, three lightweight classes were engineered:
 
 \lstinline[language=Python]|MetricTracker| and \lstinline[language=Python]|Logging| are usable in the RL loop, imitation learning and VAE training.
 
-\subsection{Checkpointing}
+
+\subsection{Configuration Management}
 \label{sec:3.6.2}
 
-Simply storing the logs accumulated over the run is insuficient for resuming of training incase of hardware failure.
+A modular configuration system was engineered to manage the large number of hyperparamaters.
+Separate configuration files were developed for:
+\begin{itemize}
+    \item Actor Hyperparamaters
+    \item Critic Hyperparamaters
+    \item Imitation Learning Configuration
+    \item VAE Training Configuration
+    \item RL Training Configuration
+    \item Environment Configuration
+    \item Communication Protocol Configuration
+    \item MAPPO Hyperparamaters
+\end{itemize}
+
+To prevent silent errors, the Python library \lstinline[language=Python]|pydantic| was used.
+The configuration dataclass inherited from \lstinline[language=Python]|pydantic.BaseModel| which defined the expected schema for each of the aformentioned files.
+This dataclass is then passed throughout the program.
+
+\subsection{Checkpointing}
+\label{sec:3.6.3}
+
+Simply storing the logs accumulated over the run is insufficient for resuming of training incase of hardware failure.
 For this functionaliy, a \lstinline[language=Python]|CheckpointManager| class is developed.
-On instantiation, a config file is saved to a new folder. 
+On instantiation, a config file is saved to a new folder for future reference. 
 Then every $X$ training steps (eg $X=100$, but configurable in the configuration files), the actor, critic models and their respective optimisers are saved.
 These saved models and optimisers can be loaded on start to reproduce any results.
 
@@ -531,13 +599,10 @@ These saved models and optimisers can be loaded on start to reproduce any result
 
 % Varibale LR
 % Last critic values
-% advantage Normalisation
 % zeroing self comm
-% separatly clipping comms loss and action loss
-% clip grad norm of actor.params and critic.params
 % again clipping grad norm for training Aims
 % expert agent for collecting info for VQ-VAE and imitation learning
 % configs?
-% sliced composite loss, splitting self state and external
 % initialising weights
 % Liscences
+% Reference how many datapoints per update

@@ -51,7 +51,7 @@ def run_sim(
         num_codebooks = config.comms.rq_levels
 
     buffer = RolloutBuffer(
-        total_runs=episodes * W,
+        episodes=episodes,
         timesteps_per_run=T,
         num_worlds_per_run=W,
         num_agents=N,
@@ -103,7 +103,7 @@ def run_sim(
                     if comm_type == CommunicationType.NONE:
                         comm_choice_tensor = None
 
-                    action_logits, comm_logits, lstm_output, actor_hidden_states = actor(obs_tensor, actor_hidden_states, comm_choice_tensor)
+                    action_logits, lstm_output, actor_hidden_states = actor(obs_tensor, actor_hidden_states, comm_choice_tensor)
                     critic_values = critic(global_state_tensor)
 
 
@@ -198,9 +198,11 @@ def run_sim(
     #     final_global_tensor = torch.from_numpy(curr_global_obs).float().to(device)
     #     last_value = critic(final_global_tensor).squeeze(-1) if not optimal else torch.zeros((W, N), device=device)
     
-    buffer.compute_advantages(torch.cat(final_batch_values, dim=0), config.mappo.gamma, config.mappo.gae_lambda)
 
     if collect_obs_file is not None:
+
+        buffer.compute_advantages(torch.cat(final_batch_values, dim=0), config.mappo.gamma, config.mappo.gae_lambda)
+
         print(f"Exporting Buffer to {collect_obs_file}...")
         
         flat_obs = buffer.obs.view(-1, O).cpu().numpy()

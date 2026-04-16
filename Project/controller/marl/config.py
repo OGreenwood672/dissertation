@@ -31,7 +31,8 @@ class TrainingConfig(BaseModel):
     training_timesteps: int
     simulation_timesteps: int
     timestep: float
-    buffer_size: int
+    batch_size: int
+    rollout_phases: int
     worlds_parallised: int
     seed: int
     periodic_save_interval: int
@@ -59,6 +60,8 @@ class MappoHyperparameters(BaseModel):
     actor_learning_rate: float
     critic_learning_rate: float
 
+class ImitationHyperparameters(BaseModel):
+    epochs: int
 
 class ActorHyperparameters(BaseModel):
     lstm_hidden_size: int
@@ -119,6 +122,7 @@ class Config(BaseModel):
     critic: CriticHyperparameters
     aim_training: AIMConfig
     comms: CommConfig
+    imitation: ImitationHyperparameters
     
     # @classmethod
     # def from_json(cls, config_path: str):
@@ -165,6 +169,7 @@ class Config(BaseModel):
         raw_train = Config.load(configs_path / 'training.yaml')
         raw_actor = Config.load(configs_path / 'actor.yaml')
         raw_critic = Config.load(configs_path / 'critic.yaml')
+        raw_imitation = Config.load(configs_path / 'imitation.yaml')
 
 
         combined_data = {
@@ -174,7 +179,8 @@ class Config(BaseModel):
             "aim_training": raw_aim,
             "comms": raw_comms,
             "actor": raw_actor,
-            "critic": raw_critic
+            "critic": raw_critic,
+            "imitation": raw_imitation
         }
 
         return cls(**combined_data)
@@ -189,7 +195,8 @@ class Config(BaseModel):
             "actor": "actor.yaml",
             "critic": "critic.yaml",
             "aim_training": "aim_training.yaml",
-            "comms": "comms.yaml"
+            "comms": "comms.yaml",
+            "imitation": "imitation.yaml"
         }
         
         for field, filename in file_mapping.items():

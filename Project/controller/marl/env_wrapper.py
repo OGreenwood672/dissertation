@@ -89,3 +89,6 @@ class SimWrapper:
 
     def get_global_obs_size(self, world_id):
         return self._sim.get_global_obs_size(world_id)
+
+    def shutdown(self):
+        self._sim.shutdown()

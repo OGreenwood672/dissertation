@@ -6,19 +6,18 @@ class RolloutBuffer:
     A buffer for storing full episodes.
     It collects `buffer_size` (number of episodes)
     """
-    def __init__(self, total_runs, timesteps_per_run, num_worlds_per_run, num_agents, num_obs, comm_dim, num_comms, num_global_obs, hidden_state_size, num_codebooks=None, device='cpu'):
+    def __init__(self, episodes, timesteps_per_run, num_worlds_per_run, num_agents, num_obs, comm_dim, num_comms, num_global_obs, hidden_state_size, num_codebooks=None, device='cpu'):
         
         # assert(total_runs % num_worlds_per_run == 0, "total_runs must be divisible by num_worlds_per_run")
 
         self.device = device
 
-        self.total_runs = total_runs
+        self.buffer_size = episodes * num_worlds_per_run
+
         self.num_worlds_per_run = num_worlds_per_run
         self.num_agents = num_agents
 
         self.timesteps_per_run = timesteps_per_run
-
-        self.buffer_size = total_runs
 
         self.num_obs = num_obs
         
@@ -72,17 +71,6 @@ class RolloutBuffer:
         for key in episode_data.keys():
             setattr(self, key, process(key, getattr(self, key)))
 
-        # self.obs = process("obs", self.obs)
-        # self.actions = process("actions", self.actions)
-        # self.targets = process("targets", self.targets)
-        # self.rewards = process("rewards", self.rewards)
-        # self.action_log_probs = process("action_log_probs", self.action_log_probs)
-        # self.comm_log_probs = process("comm_log_probs", self.comm_log_probs)
-        # self.c_values = process("c_values", self.c_values)
-        # self.global_obs = process("global_obs", self.global_obs)
-        # self.comm = process("comm", self.comm)
-        # self.a_hidden_states = process("a_hidden_states", self.a_hidden_states)
-
         self.pos += self.num_worlds_per_run
 
 
@@ -130,9 +118,9 @@ class RolloutBuffer:
         Assumes self.advantages/self.returns are populated.
         """
                         
-        indices = torch.randperm(self.buffer_size).to(self.device)    
+        indices = torch.randperm(self.pos).to(self.device)    
 
-        for start in range(0, self.buffer_size, batch_size):
+        for start in range(0, self.pos, batch_size):
             end = start + batch_size
             mb_indices = indices[start:end]
 
@@ -141,14 +129,14 @@ class RolloutBuffer:
                 "targets": self.targets[mb_indices],
                 "actions": self.actions[mb_indices],
                 "rewards": self.rewards[mb_indices],
-                "action_log_probs": self.action_log_probs[mb_indices],
-                "comm_log_probs": self.comm_log_probs[mb_indices],
+                "action_log_probs": self.action_log_probs[mb_indices].view(-1),
+                "comm_log_probs": self.comm_log_probs[mb_indices].view(-1),
                 "c_values": self.c_values[mb_indices],
-                "advantages": self.advantages[mb_indices],
+                "advantages": self.advantages[mb_indices].view(-1),
                 "returns": self.returns[mb_indices],
                 "a_hidden_states": self.a_hidden_states[mb_indices],
                 "global_obs": self.global_obs[mb_indices],
-                "comm": self.comm[mb_indices]
+                "comm": self.comm[mb_indices],
             }    
     
     def reset(self):

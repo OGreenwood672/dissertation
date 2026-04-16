@@ -177,7 +177,6 @@ class Visualiser:
             ("Train Timesteps", f"{self.config.training.training_timesteps}"),
             ("Sim Timesteps", f"{self.config.training.simulation_timesteps}"),
             ("Timestep", f"{self.config.training.timestep}"),
-            ("Buffer Size", f"{self.config.training.buffer_size}"),
             ("Parallel Worlds", f"{self.config.training.worlds_parallised}"),
             ("Seed", f"{self.config.training.seed}"),
             ("Save Interval", f"{self.config.training.periodic_save_interval}"),

@@ -12,8 +12,58 @@ Excellent critical thought and interpretation which substantiate any claims of s
 \section{System Performance}
 \label{sec:4.2}
 
+Reinforcement Learning with multiple agents requires millions of datapoints for updating the polcies and an equal number to evaluate the language and policy.
+This section quantitivley measures the performance gains through the custom systems developed.
+Specifically, it analyses the steps per second of the rust simulation developed and the memory efficiency of the \lstinline[language=Python]|RolloutBuffer|.
+Benchmarks were evaludated on NVIDIA RTX 5060 Ti and AMD Ryzen 7 3700X.
+
 \subsection{Vectorised Environment Throughput}
 \label{sec:4.2.1}
+
+A major issue with Python running multiple threads concurrently is the GIL.
+While Python's builtin library \lstinline[language=Python]|multiprocessing| can, in theory, bypass this limitation, it introduces considerable overhead.
+For this RL project, all threads require synchronisation at every simulation timestep.
+
+To justify developing the simulation in Rust rather than Python, a simple mock simulation was developed in Python.
+This mock simulation was compared to the vectorised Rust backend.
+Environment steps per second (SPS) was calculated to analyse the throughput of each of the simulations.
+Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^8\}$) to measure concurrency efficiency.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{sim-comparison.png}
+    \caption{Concurrent Environment Throughput Performance. Comparison of Python multiprocessing and Rust with Rayon across an exponentially increasing number of parallel worlds}
+    \label{fig:sim-time-comparison}
+\end{figure}
+% TODO: Test for how long?
+
+As shown in figure \ref{fig:sim-time-comparison}, the Python baseline completely fails to match the Rust simulation.
+Despite being able to bypass the GIL and using multiple CPU cores, the serialisation and the Inter-Process Communication overhead required to transfer the necassary data between isolated processes at every time step heavily bottleneck the throughput.
+
+In contrast, the Rust is able utilise \lstinline[language=Rust]|Rayon|'s thread-pool to efficiently manage the parallel world steps nativly in C-space.
+After a minor scheduling overhead at $W=2$, throughput scales linearly with number of worlds parallised in $\log_2$.
+By using Rust's native Rayon threading, the sequential fraction of the program is minimised per Amdahl's Law allowing near-perfect scaling that saturates the CPU cores.
+
+\subsection{Rollout Buffer Efficiency}
+
+A secondary major potential bottleneck is transferring the results of the rollout phase to the training phase (across CPU-GPU boundary).
+To evaluate the \lstinline[language=Python]|RolloutBuffer|, the memory allocation and transfer overhead is compared to a baseline method (appending to Python lists and executing \lstinline[language=Python]|torch.stack| after the rollout phase).
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|c|c|c|}
+    \hline
+    \textbf{Memory Strategy} & \textbf{Allocation Time (s)} & \textbf{Peak VRAM Overhead (MB)} \\ \hline
+    \textbf{Dynamic Python Lists} & $6.47 \pm 0.18$ & $1213.45$ \\ \hline
+    \textbf{Pre-allocated RolloutBuffer} & $6.79 \pm 0.23$ & $598.23$ \\ \hline
+    \end{tabular}
+    \caption{Memory Management Overhead per Epoch: $T=20,000$, $W=32$}
+    \label{tab:rolloutbuffer-eval}
+\end{table}
+
+As shown in \ref{tab:rolloutbuffer-eval}, the \lstinline[language=Python]|RolloutBuffer| method reduces VRAM by over $50\%$.
+This is as Python's dynamic arrays often require copying their contents from one memory location to another to increase their size.
+Whilst there is a $5\%$ improvement in allocation time when using Python's dynamic list, the large improvement in VRAM will enable scaling this method to millions of datapoints.
 
 
 \section{Offline Pre-training}

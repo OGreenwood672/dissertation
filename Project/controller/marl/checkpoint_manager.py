@@ -66,7 +66,7 @@ class CheckpointManager:
         if checkpoint_step is None:
             avaliable_checkpoints = list(map(lambda x: int(re.search(r"checkpoint_(\d+)", x).group(1)), os.listdir(checkpoints_path)))
             if len(avaliable_checkpoints) == 0:
-                raise FileNotFoundError(f"No checkpoints found in {checkpoints_path}")
+                return None, None, None, None, 0
             checkpoint_step = max(avaliable_checkpoints)
 
 

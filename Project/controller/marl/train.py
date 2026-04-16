@@ -28,7 +28,7 @@ def train(system, config: Config, device: torch.device):
 
     comm_type = config.comms.communication_type
 
-    batch_runs = config.training.buffer_size // W
+    rollout_phases = config.training.rollout_phases
 
     num_codebooks = 0
     if comm_type == CommunicationType.AIM:
@@ -37,7 +37,7 @@ def train(system, config: Config, device: torch.device):
         num_codebooks = config.comms.rq_levels
 
     buffer = RolloutBuffer(
-        total_runs=config.training.buffer_size,
+        episodes=rollout_phases,
         timesteps_per_run=T,
         num_worlds_per_run=W,
         num_agents=N,
@@ -59,7 +59,7 @@ def train(system, config: Config, device: torch.device):
     comm_params = set(p for n, p in actor.named_parameters() if 'comm' in n.lower() or 'vq' in n.lower())
 
     actor_optimizer.param_groups[0]['params'] = list(lstm_params) + list(action_params)
-    actor_optimizer.param_groups[0]['lr'] = 1e-4
+    actor_optimizer.param_groups[0]['lr'] = 5e-5
 
     new_comm_group = {'params': list(comm_params), 'lr': 1e-4}
 
@@ -77,9 +77,9 @@ def train(system, config: Config, device: torch.device):
         final_batch_values = []
         buffer.reset()
 
-        for batch_run in range(batch_runs):
+        for batch_run in range(rollout_phases):
 
-            visualiser.update_step(current_training_timestep, batch_run, batch_runs, "Collecting Data", metric_tracker, checkpoint=batch_run == 0 and current_training_timestep != 0)
+            visualiser.update_step(current_training_timestep, batch_run, rollout_phases, "Collecting Data", metric_tracker, checkpoint=batch_run == 0 and current_training_timestep != 0)
 
             buf_obs = torch.zeros((T, W, N, system['agent_obs_shape'][0]), dtype=torch.float32, device=device)
             buf_global_obs = torch.zeros((T, W, sim.get_global_obs_size(0) + N * NC * C), dtype=torch.float32, device=device)
@@ -193,20 +193,25 @@ def train(system, config: Config, device: torch.device):
             }
             buffer.add_episodes(batch_data)
             
-        visualiser.update_step(current_training_timestep, batch_runs, batch_runs, "Updating models", metric_tracker, checkpoint=False)
+        visualiser.update_step(current_training_timestep, rollout_phases, rollout_phases, "Updating models", metric_tracker, checkpoint=False)
         metric_tracker.reset_tracker()
 
         buffer.compute_advantages(torch.cat(final_batch_values, dim=0), config.mappo.gamma, config.mappo.gae_lambda)
 
         buffer.advantages = (buffer.advantages - buffer.advantages.mean()) / (buffer.advantages.std() + 1e-8)
 
+        # Calculate all new critic values at once
+        # all_global_obs = buffer.global_obs.view(-1, buffer.global_obs.shape[-1])
+        # with torch.no_grad():
+        #     all_values = critic(all_global_obs)
+        # buffer.c_values = all_values.view_as(buffer.c_values)
 
         # scaler = torch.amp.GradScaler('cuda' if torch.cuda.is_available() else 'cpu')
         
         for _ in range(config.mappo.ppo_epochs):
 
             # Perhaps work out worlds_parallised = how large GPU mem is
-            for batch in buffer.get_minibatches():
+            for batch in buffer.get_minibatches(batch_size=config.training.batch_size):
                 
                 # [B, T, N, Obs]
                 obs = batch["obs"]
@@ -228,7 +233,7 @@ def train(system, config: Config, device: torch.device):
                 old_action_log_probs = batch["action_log_probs"]
                 old_comm_log_probs = batch["comm_log_probs"]
 
-                advantages = batch["advantages"].flatten()
+                advantages = batch["advantages"]
                 returns = batch["returns"]
 
                 h_c_init = batch["a_hidden_states"][:, 0] 
@@ -238,9 +243,11 @@ def train(system, config: Config, device: torch.device):
 
                 batch_a_hidden_init = (h_0.contiguous(), c_0.contiguous())
                 
-                # Calculate all new critic values
+                # Get all new critic values
+                # new_values = batch["c_values"].reshape(-1)
                 flat_global_obs = global_obs.view(-1, *global_obs.shape[2:])
                 new_values = critic(flat_global_obs).reshape(-1)
+
 
                 # if comm_type == CommunicationType.AIM:
                 #     embedded_comms = torch.zeros((B, T, N, NC, config.comms.rq_levels, C), device=device)
@@ -269,8 +276,9 @@ def train(system, config: Config, device: torch.device):
                 if continuous_comms is not None:
                     shifted_comms = torch.zeros_like(continuous_comms)
                     shifted_comms[:, 1:] = continuous_comms[:, :-1]
-                
+
                 all_action_logits, lstm_output, _ = actor(obs, batch_a_hidden_init, shifted_comms)
+
 
                 # * -- Action Resampling --
                 new_action_dist = torch.distributions.Categorical(logits=all_action_logits)
@@ -285,20 +293,19 @@ def train(system, config: Config, device: torch.device):
 
                 metric_tracker.update("comm_perplexity", torch.exp(-new_comm_log_probs.mean()).item())
                 metric_tracker.update("comm_entropy", comm_entropy.mean().item())
-                
 
                 entropy_loss = -action_entropy.mean() + -comm_entropy.mean()
                                 
                 critic_loss = F.mse_loss(new_values, returns.flatten())
 
-                log_ratio = new_action_log_probs - old_action_log_probs.flatten()
+                log_ratio = new_action_log_probs - old_action_log_probs
                 ratio = log_ratio.exp()
                 action_loss = -torch.min(
                     advantages * ratio,
                     advantages * torch.clamp(ratio, 1.0 - config.mappo.clip_coef, 1.0 + config.mappo.clip_coef)
                 ).mean()
 
-                log_ratio = new_comm_log_probs.flatten() - old_comm_log_probs.flatten()
+                log_ratio = new_comm_log_probs.flatten() - old_comm_log_probs
                 ratio = log_ratio.exp()
                 comm_loss = -torch.min(
                     advantages * ratio,
@@ -306,8 +313,6 @@ def train(system, config: Config, device: torch.device):
                 ).mean()
 
                 actor_loss = action_loss + comm_loss# * 0.2
-
-                progress = current_training_timestep / config.training.training_timesteps
 
                 actor_loss += comm_protocol_loss
                 

@@ -76,7 +76,7 @@ class AIM(nn.Module):
 
     def forward(self, x, tracker=None):
 
-        encoder_loss, quantised = self.encoder(x)
+        encoder_loss, quantised = self.encoder(x, tracker)
 
         reconstructed = self.decoder(quantised)
 
@@ -92,7 +92,6 @@ class AIM(nn.Module):
             loss = encoder_loss + reconstruction_loss
 
         if tracker is not None:
-            tracker.update("encoder_loss", encoder_loss.item())
             tracker.update("reconstruction_loss", reconstruction_loss.item())
 
         # MSE

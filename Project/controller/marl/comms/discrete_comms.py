@@ -56,4 +56,4 @@ class DiscreteComms(Comms, nn.Module):
     
     
     def get_loss(self, x, comm_output, all_comms, true_returns, new_critic_values, targets):
-        return self.vq_loss.item()
+        return self.vq_loss

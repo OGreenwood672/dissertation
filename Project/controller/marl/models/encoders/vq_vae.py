@@ -4,6 +4,8 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
+from controller.marl.logger import MetricTracker
+
 
 
 class VQ_VAE(nn.Module):
@@ -21,8 +23,8 @@ class VQ_VAE(nn.Module):
         for emb in self.embeddings:
             emb.weight.data.uniform_(-0.5, 0.5)
 
-    def forward(self, latent):
-        loss, quantised = self.quantise(latent)
+    def forward(self, latent, tracker: MetricTracker = None):
+        loss, quantised = self.quantise(latent, tracker)
         return loss, quantised
 
     @torch.no_grad()
@@ -31,7 +33,7 @@ class VQ_VAE(nn.Module):
         return quantised
 
 
-    def quantise(self, latent):
+    def quantise(self, latent, tracker: MetricTracker = None):
         
         loss = torch.tensor(0.0, device=latent.device)
 
@@ -50,6 +52,9 @@ class VQ_VAE(nn.Module):
 
             codebook_loss = F.mse_loss(quantised, curr_residual.detach())
             commitment_loss = F.mse_loss(quantised.detach(), curr_residual)
+
+            if tracker is not None:
+                tracker.update(f"commitment_loss_{i}", commitment_loss.item())
 
             loss += codebook_loss + self.commitment_cost * commitment_loss
 
