@@ -12,14 +12,27 @@ pub mod websocket;
 
 use crate::sim::Simulation;
 
-#[pyfunction]
-pub fn print_test() {
-    println!("Hello! This should print!");
-}
-
 #[pymodule]
 fn environment(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Simulation>()?;
-    m.add_function(wrap_pyfunction!(print_test, m)?)?;
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::types::PyModule;
+
+    #[test]
+    fn registers_simulation_class() {
+        Python::initialize();
+
+        Python::attach(|py| {
+            let m = PyModule::new(py, "environment").unwrap();
+            environment(py, &m).unwrap();
+
+            assert!(m.getattr("Simulation").is_ok());
+        });
+    }
 }

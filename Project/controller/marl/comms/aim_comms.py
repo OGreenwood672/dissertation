@@ -4,11 +4,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from controller.marl.config import ActorHyperparameters, CommConfig, GenerativeLangType
+from controller.marl.core.config import ActorHyperparameters, CommConfig, GenerativeLangType
 from controller.marl.models.aim import AIM
 from controller.marl.models.encoders.encoder import Encoder
 from controller.marl.models.encoders.hq_encoder import HQ_Encoder
 
+from project_paths import LANGUAGES_DIR
 
 from .comms import Comms
 
@@ -27,12 +28,15 @@ class AimComms(Comms, nn.Module):
         self.num_agents = kwargs["num_agents"]
 
         self.log = log
-
-        folder = AIM.get_folder(config)
-        if config.autoencoder_type == GenerativeLangType.HQ_VAE:
-            self.encoder = HQ_Encoder.load(folder, 10001, device=device)
+        if config.comm_folder:
+            language_folder = LANGUAGES_DIR / config.comm_folder
         else:
-            self.encoder = Encoder.load(folder, device=device)
+            language_folder = AIM.get_folder(config)
+
+        if config.autoencoder_type == GenerativeLangType.HQ_VAE:
+            self.encoder = HQ_Encoder.load(language_folder, 10001, device=device)
+        else:
+            self.encoder = Encoder.load(language_folder, device=device)
         for parameter in self.encoder.parameters():
             parameter.requires_grad = False
 
@@ -274,12 +278,12 @@ class AimComms(Comms, nn.Module):
 
         mask = ~torch.eye(self.num_agents, dtype=torch.bool, device=self.device)
         receiver_context = self.get_reciever_context(x, all_comms, mask)
-        predicted_reciever_goal_loss = self.receiver_goal_loss(receiver_context, true_targets, true_target_exists, mask)
+        predicted_receiver_goal_loss = self.receiver_goal_loss(receiver_context, true_targets, true_target_exists, mask)
 
-        intent_loss = predicted_sender_goal_loss + predicted_reciever_goal_loss
+        intent_loss = predicted_sender_goal_loss + predicted_receiver_goal_loss
 
         self.log("predicted_return_loss", predicted_returns_loss.item())
         self.log("predicted_sender_goal_loss", predicted_sender_goal_loss.item())
-        self.log("predicted_reciever_goal_loss", predicted_reciever_goal_loss.item())
+        self.log("predicted_receiver_goal_loss", predicted_receiver_goal_loss.item())
         
-        return (0.01 * (predicted_returns_loss + intent_loss))
+        return (0.2 * (predicted_returns_loss + intent_loss))

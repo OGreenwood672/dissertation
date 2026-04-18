@@ -1,6 +1,8 @@
 
 
 
+from pathlib import Path
+
 import torch
 from torch import nn
 from typing import Callable, Tuple
@@ -9,7 +11,7 @@ from controller.marl.comms.aim_comms import AimComms
 from controller.marl.comms.continuous_comms import ContinuousComms
 from controller.marl.comms.discrete_comms import DiscreteComms
 from controller.marl.comms.none_comms import NoneComms
-from controller.marl.config import ActorHyperparameters, CommConfig, CommunicationType
+from controller.marl.core.config import ActorHyperparameters, CommConfig, CommunicationType
 from .utils import init_layer
 
 
@@ -44,7 +46,7 @@ class PPO_Actor(nn.Module):
             device,
             num_agents=num_agents,
             obs_external_mask=obs_external_mask,
-            obs_dim=obs_dim
+            obs_dim=obs_dim,
         )
 
         percieve_out_features = self.comm_protocol.percieve_out_features
@@ -121,16 +123,23 @@ class PPO_Actor(nn.Module):
         x = self.comm_protocol.percieve(x)
 
         world_comms = world_comms.reshape(B, T, N, NC * C)
-        expanded_comms = world_comms.unsqueeze(2).expand(B, T, N, N, NC * C)
+        expanded_comms = world_comms.unsqueeze(2).expand(B, T, N, N, NC * C).clone()
         # other_comms = expanded_comms[:, :, :, self.agent_mask, :].reshape(B, T, N, N - 1, -1)
-        other_comms = expanded_comms[self.agent_mask.expand(B, T, N, N)].view(B, T, N, N - 1, -1)
+        # expanded_comms = expanded_comms[self.agent_mask.expand(B, T, N, N)].view(B, T, N, N - 1, -1)
+        self_mask = ~self.agent_mask
+        expanded_comms.masked_fill_(self_mask.view(1, 1, N, N, 1), 0.0)
 
-        self_comm = torch.zeros(B, T, N, 1, NC * C, device=self.device)
+        dropout_prob = getattr(self, "comm_dropout_prob", 0.0)
+        if self.training and dropout_prob > 0.0:
+            dropout_mask = (torch.rand(B, T, N, N, 1, device=self.device) > dropout_prob).float()
+            expanded_comms = expanded_comms * dropout_mask
 
-        comms = torch.cat([self_comm, other_comms], dim=-2)
-        comms = comms.reshape(B, T, N, N * NC * C)
+        # self_comm = torch.zeros(B, T, N, 1, NC * C, device=self.device)
+        # comms = torch.cat([self_comm, other_comms], dim=-2)
 
-        x = torch.cat([x, comms], dim=-1)
+        flat_comms = expanded_comms.reshape(B, T, N, N * NC * C)
+
+        x = torch.cat([x, flat_comms], dim=-1)
         x = x.transpose(1, 2).contiguous()
         x = x.reshape(B * N, T, C * NC * N + self.comm_protocol.percieve_out_features)
 
@@ -140,7 +149,7 @@ class PPO_Actor(nn.Module):
         # [B*N, T, Hidden] -> [B, N, T, Hidden] -> [B, T, N, Hidden]
         x = x.reshape(B, N, T, -1).transpose(1, 2)
         
-        action_input = torch.cat([x, other_comms.sum(-2)], dim=-1)
+        action_input = torch.cat([x, expanded_comms.sum(-2)], dim=-1)
         action_logits = self.action_head(action_input)
         
         if not has_time_dim:
@@ -149,6 +158,5 @@ class PPO_Actor(nn.Module):
         return (
             action_logits,
             x, (h_out, c_out)
-            # output, (None, None)
         )
 

@@ -6,7 +6,7 @@ use crate::agent::{ACTION_COUNT, Action, Agent, AgentState};
 use crate::station::{Station, StationState, StationType};
 use crate::config::{AgentConfig, Config, StationConfig};
 use crate::location::{Layout, Location, get_location};
-use crate::resource::{RESOURCE_COUNT, one_hot_vector_from_resource, ResourceType};
+use crate::resource::{RESOURCE_COUNT, one_hot_vector_from_resource};
 use crate::grid_map::{Entity, GridMap};
 
 
@@ -236,8 +236,8 @@ impl World {
 
         let nearest_entity = self.get_nearest_visible_entity(
             &self.agents[agent_index],
-            1.5,
-            1.5,
+            0.0,
+            0.0,
             false
         );
         // let nearest_entity = self.map.get_nearest_visible_entity(
@@ -378,30 +378,30 @@ impl World {
 
     }
 
-    fn get_known_desired_target(&self, agent_index: usize) -> Option<Location> {
-        let agent = &self.agents[agent_index];
+    // fn get_known_desired_target(&self, agent_index: usize) -> Option<Location> {
+    //     let agent = &self.agents[agent_index];
 
-        // Get location closest to agent.location
-        agent.get_current_targets().into_iter().min_by_key(|target| {
-            agent.location.distance_squared(target.location)
-        }).map(|target| target.location)
+    //     // Get location closest to agent.location
+    //     agent.get_current_targets().into_iter().min_by_key(|target| {
+    //         agent.location.distance_squared(target.location)
+    //     }).map(|target| target.location)
 
-    }
+    // }
 
-    fn direction_reward(&self, original_location: Location, new_location: Location, desired_target: Location) -> f32 {
+    // fn direction_reward(&self, original_location: Location, new_location: Location, desired_target: Location) -> f32 {
 
-        //! TODO: Is this wanted
-        // if (desired_target - new_location).magnitude() <= self.context.agent_visibility as f32 {
-        //     return 0.0;
-        // }
+    //     //! TODO: Is this wanted
+    //     // if (desired_target - new_location).magnitude() <= self.context.agent_visibility as f32 {
+    //     //     return 0.0;
+    //     // }
 
-        // Use cosine similarity - [-1, 1]
-        let cosine_similarity = Location::cosine_similarity(original_location, new_location, desired_target);
+    //     // Use cosine similarity - [-1, 1]
+    //     let cosine_similarity = Location::cosine_similarity(original_location, new_location, desired_target);
 
-        // Near 1 is the right direction
-        cosine_similarity * 0.005
+    //     // Near 1 is the right direction
+    //     cosine_similarity * 0.005
  
-    }
+    // }
 
     fn get_nearest_visible_entity(&self, agent: &Agent, agent_agent_visibility: f32, agent_station_visibility: f32, blind_required: bool) -> Option<Entity> {
 
@@ -731,6 +731,8 @@ impl World {
 mod tests {
     use super::*;
 
+    use crate::resource::ResourceType;
+
     fn get_config() -> Config {
         Config {
             arena_width: 10,
@@ -863,6 +865,177 @@ mod tests {
         }
     }
 
+    
+    #[test]
+    fn test_apply_actions_covers_all_move_directions() {
+        let mut world = World::new(get_config());
 
+        world.agents[0].location = Location { x: 5, y: 5 };
+        world.agents[1].location = Location { x: 5, y: 5 };
+
+        world.apply_actions(vec![Action::MoveLeft, Action::MoveUp]);
+
+        assert_eq!(world.agents[0].location, Location { x: 4, y: 5 });
+        assert_eq!(world.agents[1].location, Location { x: 5, y: 4 });
+    }
+
+    #[test]
+    fn test_invalid_move_up_and_right_punishment() {
+        let mut world = World::new(get_config());
+
+        world.agents[0].location = Location { x: 5, y: 0 };
+        world.agents[1].location = Location {
+            x: world.context.width as i32 - 1,
+            y: 5,
+        };
+
+        world.apply_actions(vec![Action::MoveUp, Action::MoveRight]);
+
+        assert_eq!(world.agents[0].location, Location { x: 5, y: 0 });
+        assert_eq!(
+            world.agents[1].location,
+            Location {
+                x: world.context.width as i32 - 1,
+                y: 5,
+            }
+        );
+
+        assert!(world.agents[0].get_curr_reward() < -0.01);
+        assert!(world.agents[1].get_curr_reward() < -0.01);
+    }
+
+    #[test]
+    fn test_reset_agents_and_stations() {
+        let mut world = World::new(get_config());
+
+        world.agents[0].location = Location { x: 9, y: 9 };
+        world.stations[0].set_location(Location { x: 8, y: 8 });
+
+        world.reset_agents();
+        world.reset_stations();
+
+        assert_eq!(world.agents.len(), 2);
+        assert_eq!(world.stations.len(), 3);
+
+        assert!(world.agents.iter().all(|a| a.location.x >= 0 && a.location.x < world.context.width as i32));
+        assert!(world.agents.iter().all(|a| a.location.y >= 0 && a.location.y < world.context.height as i32));
+        assert!(world.stations.iter().all(|s| s.get_location().x >= 0 && s.get_location().x < world.context.width as i32));
+        assert!(world.stations.iter().all(|s| s.get_location().y >= 0 && s.get_location().y < world.context.height as i32));
+    }
+
+    #[test]
+    fn test_obs_helpers_and_action_count() {
+        let world = World::new(get_config());
+
+        let all_obs = world.get_agents_obs();
+        assert_eq!(all_obs.len(), world.get_number_of_agents());
+
+        let obs_size = world.get_agent_obs_size() as usize;
+        assert!(all_obs.iter().all(|obs| obs.len() == obs_size));
+
+        let obs_mask = world.get_agent_obs_mask();
+        assert_eq!(obs_mask.len(), obs_size);
+        assert!(!obs_mask[0]);
+        assert!(!obs_mask[1]);
+
+        let external_mask = world.get_agent_external_obs_mask();
+        assert_eq!(external_mask.len(), obs_size);
+        assert!(external_mask.iter().any(|&x| x));
+
+        assert_eq!(world.get_agent_action_count(), ACTION_COUNT);
+    }
+
+    #[test]
+    fn test_agent_reward_getters() {
+        let mut world = World::new(get_config());
+
+        world.agents[0].set_curr_reward(1.25);
+        world.agents[1].set_curr_reward(-0.5);
+
+        assert_eq!(world.get_agent_reward(0), 1.25);
+        assert_eq!(world.get_agent_reward(1), -0.5);
+        assert_eq!(world.get_agents_reward(), vec![1.25, -0.5]);
+    }
+
+    #[test]
+    fn test_agents_targets() {
+        let world = World::new(get_config());
+
+        let targets = world.get_agents_targets();
+        assert_eq!(targets.len(), world.get_number_of_agents());
+
+        for target in targets {
+            assert_eq!(target.len(), 3);
+            assert!((0.0..=1.0).contains(&target[0]));
+            assert!((0.0..=1.0).contains(&target[1]));
+            assert!(target[2] == 0.0 || target[2] == 1.0);
+        }
+    }
+
+    #[test]
+    fn test_optimal_actions_interact_when_on_target() {
+        let mut world = World::new(get_config());
+
+        world.agents[0].location = Location { x: 3, y: 2 };
+        world.stations[0].set_location(Location { x: 3, y: 2 });
+
+        let actions = world.get_optimal_actions();
+        assert_eq!(actions[0], Action::Interact);
+    }
+
+    #[test]
+    fn test_get_desired_target_station() {
+        let mut world = World::new(get_config());
+
+        world.agents[0].location = Location { x: 0, y: 0 };
+        world.stations[0].set_location(Location { x: 2, y: 0 });
+        world.stations[1].set_location(Location { x: 9, y: 9 });
+        world.stations[2].set_location(Location { x: 9, y: 8 });
+
+        let station_only = world.get_desired_target(0);
+        assert_eq!(station_only, Some(Location { x: 2, y: 0 }));
+
+        world.context.agent_configs[0].inputs.clear();
+        world.reset_agents();
+
+        let none = world.get_desired_target(0);
+        assert!(none.is_none());
+    }
+
+    #[test]
+    fn test_interact_none() {
+        let mut world = World::new(get_config());
+
+        world.context.agent_agent_visibility = 0.0;
+        world.context.agent_station_visibility = 0.0;
+
+        world.agents[0].location = Location { x: 0, y: 0 };
+        world.agents[1].location = Location { x: 9, y: 9 };
+        world.stations[0].set_location(Location { x: 9, y: 8 });
+        world.stations[1].set_location(Location { x: 8, y: 9 });
+        world.stations[2].set_location(Location { x: 8, y: 8 });
+
+        world.apply_actions(vec![Action::Interact, Action::Interact]);
+
+        assert!(world.agents[0].get_curr_reward() <= 0.0);
+        assert!(world.agents[1].get_curr_reward() <= 0.0);
+    }
+
+    #[test]
+    fn test_nearest_visible_entity_none() {
+        let mut world = World::new(get_config());
+
+        world.agents[0].location = Location { x: 5, y: 5 };
+        world.agents[1].location = Location { x: 9, y: 9 };
+        world.stations[0].set_location(Location { x: 0, y: 0 });
+        world.stations[1].set_location(Location { x: 0, y: 1 });
+        world.stations[2].set_location(Location { x: 1, y: 0 });
+
+        world.context.agent_agent_visibility = 0.1;
+        world.context.agent_station_visibility = 0.1;
+
+        let obs = world.get_agent_observation(0);
+        assert_eq!(obs.len() as u32, world.get_agent_obs_size());
+    }
 
 }

@@ -2,19 +2,19 @@ import argparse
 import torch
 import numpy as np
 
-from controller.marl.imitation_learning import imitation_learning
-from controller.marl.logger import MetricTracker
+from controller.marl.runners.imitation_learning import imitation_learning
+from controller.marl.core.logger import MetricTracker
 from controller.marl.models.aim import AIM
-from project_paths import PROJECT_ROOT
+from project_paths import PROJECT_ROOT, LANGUAGES_DIR
 
-from .config import CommunicationType, Config
+from .core.config import CommunicationType, Config
 import environment.environment as environment
-from .checkpoint_manager import CheckpointManager
+from .core.checkpoint_manager import CheckpointManager
 from .models import Encoder, PPO_Actor, PPO_Critic
 from .env_wrapper import SimWrapper
-from .train import train
-from .run_sim import run_sim
-from .train_ae import train_language
+from .runners.ppo_train import train
+from .runners.sim_runner import run_sim
+from .runners.autoencoder import train_language
 
 
 def get_args():
@@ -116,14 +116,14 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
 def setup_language_analysis(config: Config, device: torch.device):
     
     
-    cm = CheckpointManager(config)
-    SEED = cm.get_seed()
-    config.training.seed = SEED
+    # cm = CheckpointManager(config)
+    # SEED = cm.get_seed()
+    # config.training.seed = SEED
 
-    np.random.seed(SEED)
-    torch.manual_seed(SEED)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(SEED)
+    # np.random.seed(SEED)
+    # torch.manual_seed(SEED)
+    # if torch.cuda.is_available():
+    #     torch.cuda.manual_seed_all(SEED)
 
     sim = SimWrapper(
         environment.Simulation(
@@ -145,13 +145,10 @@ def setup_language_analysis(config: Config, device: torch.device):
 
     loss_obs_mask = torch.tensor(sim.get_agent_obs_mask(0), dtype=torch.bool, device=device)[obs_external_mask]
 
-    # load encoder
-    # encoder = None
-
-    folder = AIM.get_folder(config)
-
-    # if config.comms.communication_type == CommunicationType.AIM:
-    #     encoder = Encoder.load(folder)
+    if not config.comms.comm_folder:
+        folder = AIM.get_folder(config)
+    else:
+        folder = LANGUAGES_DIR / config.comms.comm_folder
 
     aim = AIM.load(folder, config.aim_training, config.comms, obs_dim=filtered_obs_dim, obs_loss_mask=loss_obs_mask, device=device)
 
@@ -162,21 +159,21 @@ def setup_language_analysis(config: Config, device: torch.device):
     ).to(device)
     critic = PPO_Critic(num_agents, global_obs_shape[0], config.critic, config.comms).to(device)
 
-    start_step = 0
-    if not cm.is_new_run:
-        actor_state, critic_state, _, _, start_step = cm.load_checkpoint_models()
+    # start_step = 0
+    # if not cm.is_new_run:
+    #     actor_state, critic_state, _, _, start_step = cm.load_checkpoint_models()
 
-        actor.load_state_dict(actor_state)
-        critic.load_state_dict(critic_state)
+    #     actor.load_state_dict(actor_state)
+    #     critic.load_state_dict(critic_state)
 
-        print(f"Loaded checkpoint from step {start_step}")
+    #     print(f"Loaded checkpoint from step {start_step}")
 
     return {
         "sim": sim,
         "actor": actor,
         "critic": critic,
-        "start_step": start_step,
-        "checkpoint_manager": cm,
+        # "start_step": start_step,
+        # "checkpoint_manager": cm,
         "num_agents": num_agents,
         "agent_obs_shape": agent_obs_shape,
         "input_comms_shape": comms_shape,

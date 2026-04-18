@@ -3,7 +3,7 @@ from typing import Callable
 import torch
 import torch.nn as nn
 
-from controller.marl.config import ActorHyperparameters, CommConfig
+from controller.marl.core.config import ActorHyperparameters, CommConfig
 from controller.marl.models.aim import AIM
 from controller.marl.models.encoders.encoder import Encoder
 

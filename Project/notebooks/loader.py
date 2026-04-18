@@ -1,8 +1,10 @@
+import json
 import os
 import pandas as pd
 import shutil
 
-from project_paths import RESULTS_DIR
+from controller.marl.core.config import GenerativeLangType
+from project_paths import LANGUAGES_DIR, RESULTS_DIR
 
 
 def load_log_file(communication_type, seed):
@@ -43,3 +45,35 @@ def remove_result_folder(communication_type, seed):
 def get_seeds(communication_type):
     result_path = RESULTS_DIR / communication_type
     return list(map(lambda x: int(x.split("_")[-1]), os.listdir(result_path)))
+
+def load_vae_training_log(vae_type: GenerativeLangType, most_recent: int = 1):
+
+    folder_paths = []
+    for folder in os.listdir(LANGUAGES_DIR)[::-1]:
+        with open(LANGUAGES_DIR / folder / "config.json", "r") as json_file:
+            check_config = json.load(json_file)
+
+            if check_config["autoencoder_type"] == vae_type.value:
+                folder_paths.append(LANGUAGES_DIR / folder)
+                if len(folder_paths) == most_recent:
+                    break
+
+    print(f"Loading {len(folder_paths)} languages from folders")
+
+    df = pd.concat([pd.read_csv(f / "log.csv") for f in folder_paths], ignore_index=True)
+
+    return df
+
+
+def load_specified_vae_training_log(TZs):
+
+    folder_paths = []
+    for folder in TZs:
+        os.path.exists(LANGUAGES_DIR / folder)
+        folder_paths.append(LANGUAGES_DIR / folder)
+
+    print(f"Loading {len(folder_paths)} languages from folders")
+
+    df = pd.concat([pd.read_csv(f / "log.csv") for f in folder_paths], ignore_index=True)
+
+    return df

@@ -7,8 +7,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from controller.marl.config import GenerativeLangType
-from controller.marl.logger import MetricTracker
+from controller.marl.core.config import GenerativeLangType
+from controller.marl.core.logger import MetricTracker
 from project_paths import LANGUAGES_DIR
 
 from .vq_vae import VQ_VAE

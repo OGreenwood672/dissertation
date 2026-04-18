@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from controller.marl.comms.comms import Comms
-from controller.marl.config import ActorHyperparameters, CommConfig
+from controller.marl.core.config import ActorHyperparameters, CommConfig
 from controller.marl.models.encoders.quantiser import Quantiser
 
 class DiscreteComms(Comms, nn.Module):

@@ -2,7 +2,7 @@
 
 from torch import nn
 
-from controller.marl.config import CommConfig, CriticHyperparameters
+from controller.marl.core.config import CommConfig, CriticHyperparameters
 
 
 class PPO_Critic(nn.Module):
@@ -13,7 +13,7 @@ class PPO_Critic(nn.Module):
         ):
         super().__init__()
 
-        self.input_dim = global_obs_dim + comm_config.communication_size * num_agents * comm_config.num_comms
+        self.input_dim = global_obs_dim# + comm_config.communication_size * num_agents * comm_config.num_comms
 
         feature_dim = critic_config.feature_dim
 

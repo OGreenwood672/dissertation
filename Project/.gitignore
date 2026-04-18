@@ -17,7 +17,10 @@ emerging_communication.egg-info/
 
 results/
 
+environment.cp310-win_amd64.pyd
+
 *.so
+*.pyd
 
 .vscode/
 

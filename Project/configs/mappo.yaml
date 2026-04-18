@@ -1,5 +1,5 @@
 ppo_hyperparameters:
-  ppo_epochs: 6
+  ppo_epochs: 4
   gamma: 0.99
   gae_lambda: 0.95
   clip_coef: 0.2

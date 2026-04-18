@@ -1,0 +1,2 @@
+[alias]
+test-cov = "llvm-cov test --no-default-features --ignore-filename-regex '(^|/)sim\\.rs$'"

@@ -5,10 +5,15 @@ edition = "2024"
 
 [lib]
 name = "environment"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+extension-module = ["pyo3/extension-module"]
+default = ["extension-module"]
+
 
 [dependencies]
-pyo3 = { version = "0.28.2", features = ["extension-module", "experimental-async"] }
+pyo3 = { version = "0.28.2", features = ["experimental-async"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 rand = "0.9.2"

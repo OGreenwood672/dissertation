@@ -27,39 +27,29 @@ Summary
 
 \node (Trainer) [hub] {\textbf{PPO Trainer} \\ \textit{(train.py)} \\ Logic Orchestrator};
 
-% Simulation Environment
 \node (Env) [envblock, above=2.5cm of Trainer] {\textbf{Simulation Environment} \\ \textit{(Rust / World.rs)} \\ $W$ Parallel Worlds};
 
-% Rollout Buffer
 \node (Buffer) [storage, left=3cm of Trainer] {\textbf{Rollout Buffer} \\ \textit{(buffer.py)} \\ Episode Memory};
 
-% Models
 \node (Actor) [block, right=3cm of Trainer, yshift=1.5cm] {\textbf{Decentralised Actors} \\ \textit{(actor.py)}};
 \node (Critic) [block, right=3cm of Trainer, yshift=-1.5cm] {\textbf{Centralised Critic} \\ \textit{(critic.py)}};
 
-% Frontend
 \node (Frontend) [block, left=2.5cm of Env, fill=orange!5, minimum width=3cm] {\textbf{p5.js UI} \\ \textit{(Websocket)}};
 
 % *** EDGES ***
-% 1. Rollout Phase (Trainer <-> Env)
 \draw [arrow] (Trainer.110) -- node[anchor=east, xshift=-2pt] {Step(Actions)} (Env.250);
 \draw [arrow] (Env.290) -- node[anchor=west, xshift=2pt] {Obs, Rewards} (Trainer.70);
 
-% 2. Collection Phase (Trainer -> Buffer)
 \draw [arrow] (Trainer.160) -- node[anchor=south] {Store Trajectories} (Buffer.20);
 
-% 3. Update Phase (Buffer -> Trainer)
 \draw [arrow] (Buffer.340) -- node[anchor=north] {Sample Minibatches} (Trainer.200);
 
-% 4. Optimization Phase (Trainer -> Models)
 \draw [arrow] (Trainer.0) -- node[anchor=west, pos=0.5, align=left] {Update Weights} (Actor.250);
 \draw [arrow] (Trainer.0) -- node[anchor=west, pos=0.5, align=left] {Update Weights} (Critic.110);
 
-% 5. Inference during rollout (Models -> Trainer)
 \draw [arrow, dashed] (Actor.180) -| node[anchor=south, pos=0.25] {Actions} (Trainer.45);
 \draw [arrow, dashed] (Critic.180) -| node[anchor=north, pos=0.25] {Values} (Trainer.315);
 
-% 6. Visualization
 \draw [arrow, dotted] (Env.west) -- node[anchor=south] {JSON} (Frontend.east);
 
 \end{tikzpicture}
@@ -71,6 +61,25 @@ Summary
 
 \subsection{Repository Overview}
 \label{sec:3.1.2}
+
+\vspace{1em}
+\dirtree{%
+.1 / \dotfill (9,909 LOC) .
+.2 configs/ \dotfill Global configuration files (116 LOC) .
+.2 controller/ \dotfill Python/PyTorch MARL logic and autoencoders (3,937 LOC) .
+.3 marl/comms/ \dotfill Communication protocols .
+.3 marl/core/ \dotfill Infrastructure (RolloutBuffer, Logging, Config) .
+.3 marl/models/ \dotfill Neural networks (Actor, Critic, VAE Encoders) .
+.3 marl/runners/ \dotfill Training loops (PPO, Imitation, Autoencoder) .
+.2 environment-rs/ \dotfill High-performance vectorised environment (2,898 LOC) .
+.3 src/ \dotfill Core logic (World, Agent, GridMap, Sim) .
+.2 frontend/ \dotfill Real-time visualisation UI (268 LOC) .
+.2 notebooks/ \dotfill Jupyter notebooks for evaluation (2,554 LOC) .
+.2 tests/ \dotfill Unit tests for controller/ (112 LOC) .
+}
+\vspace{1em}
+
+% Could explain each in more detail after
 
 \subsection{Implementation Approach}
 \label{sec:3.1.3}
@@ -94,7 +103,7 @@ In order to collect this data efficiently, a vectorised environment with efficie
 \label{sec:3.2.1}
 
 To allow the Rust simulation to be callable from the Python RL training scripts, PyO3 \cite{pyo3_github} bindings are developed.
-A fundamental bottleneck of Python$<=$3.13 is the Global Interpreter Lock (GIL) ¬R - a mutex that protects access to Python objects by preventing multiple threads from executing Python code simultaneously.
+A fundamental bottleneck of Python$<=$3.13 is the Global Interpreter Lock (GIL) \cite{python_gil_wiki} - a mutex that protects access to Python objects by preventing multiple threads from executing Python code simultaneously.
 The Rust library \lstinline[language=Rust]|PyO3| generates C-compatible Foreign Function Interface (FFI) bindings that can be called from our Python scripts.
 This FFI is compiled using setuptools-rust, a plugin for the Python library setuptools library \cite{setuptoolsrust_pypi} that allows for the compilation of Rust extensions.
 This toolchain is defined within the \lstinline[language=bash]|pyproject.toml| configuration enabling all building into a single installation command.
@@ -112,8 +121,8 @@ This is effectivly a pointer to a contiguous section of memory, allowing reshapi
 Due to Python's GIL true parallelisation of CPU tasks is not possible.
 To circumvent this, we offloaded the parallelisation logic to the Rust simulation and step through multiple independent instances of the world concurrently.
 A single \lstinline[language=Rust]|Simulation| class is created to hold a vector of \lstinline[language=Rust]|World| states currently being simulated.
-According the Amdahl's Law ¬R, the theoretical speedup of a program is bottlenecked by its sequential fraction.
-The Rust library rayon ¬R is used to parallise the computation of each world to minimise this sequential overhead.
+According the Amdahl's Law \cite{amdahl}, the theoretical speedup of a program is bottlenecked by its sequential fraction.
+The Rust library rayon \cite{rayon_rs} is used to parallise the computation of each world to minimise this sequential overhead.
 This computation includes:
 \begin{itemize}
     \item Applying actions chosen from the policy
@@ -145,8 +154,8 @@ TODO: explain why? (if not done elsewhere)
 To help debug the environment, a lightweight real-time visualisation is built.
 Integrating the visualisation directly into the training loops would lead to strong performance degradation as each RL step would have to wait for a complete render of the current state.
 
-To decouple these systems, an independent frontend is developed with TypeScript ¬R and p5.js ¬R.
-On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library ¬R to manage the websocket connection setup by the \lstinline[language=Rust]|warp| library ¬R.
+To decouple these systems, an independent frontend is developed with TypeScript \cite{typescript} and p5.js \cite{p5js}.
+On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library \cite{tokio} to manage the websocket connection setup by the \lstinline[language=Rust]|warp| library \cite{warp}.
 During runtime, current state data is streamed from this websocket.
 Strict types are defined in both the rust simulation and frontend for the data being communicated through the websockets to ensure the system accurately reflects the current state.
 
@@ -174,14 +183,14 @@ This is processed through a deep MLP body, and then, as the game is POMDP, is pa
 The LSTM allows individual agents to remember locations of stations and meeting points with other agents.
 The network outputs action logits (probabilities of each action to be taken) and returns the output of the LSTM for the communication protocol to use later on.
 
-To prevent weights vanishing or exploding during early training, orthogonal initialisation was opted for rather than the default uniform initialisation PyTorch uses ¬R.
+To prevent weights vanishing or exploding during early training, orthogonal initialisation was opted for rather than the default uniform initialisation PyTorch uses.
 
 
 \subsection{Memory Management}
 \label{sec:3.3.2}
 
 During the rollout phase, the data collected including inputs to the policy (communication values, observations) and the feedback from the simulation (rewards) must be saved for the update phase.
-In the vectorised environment with multiple agents over hundreds of timesteps, simply appending to a Python list is insufficient due to constant copying overhead when the list doubles in size ¬R? and memory fragmentation ¬R?.
+In the vectorised environment with multiple agents over hundreds of timesteps, simply appending to a Python list is insufficient due to constant copying overhead when the list doubles in size \cite{python_lists} and memory fragmentation \cite{python_memory_fragmentation}.
 To prevent this overhead, a custom \lstinline[language=Python]|RolloutBuffer| class is implemented.
 On instantiation, the buffer allocates contiguous memory for the data collected over the rollout phase in the form of a \lstinline[language=Python]|torch.tensor| on the target hardware device.
 Memory allocated is for
@@ -302,7 +311,7 @@ This allowed experimental hot-swapping of protocols to be achieved seamlessly wi
 \end{algorithm}
 
 Algorithm 2 depicts the update loop for MAPPO.
-To ensure stability in the updates, advantage normalisation is applied to the GAE advantages. ¬R
+To ensure stability in the updates, advantage normalisation is applied to the GAE advantages \cite{gae_normalisation}.
 
 For every epoch, the data collected by the rollout phase is split into random minibatches.
 First, the critic is evaluated by feeding in the global observation against returns from GAE using MSE loss.

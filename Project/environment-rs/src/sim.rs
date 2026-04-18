@@ -102,18 +102,16 @@ impl Simulation {
         &mut self,
         py: Python<'py>,
         flat_actions: Vec<i32>,
-        flat_world_comms: Vec<f32>
     ) -> PyResult<(Bound<'py, PyArray1<f32>>, Bound<'py, PyArray1<f32>>, Bound<'py, PyArray1<f32>>, Bound<'py, PyArray1<f32>>)> {
             
         let n_agents = self.worlds[0].get_number_of_agents();
         let n_worlds = self.worlds.len();
-        let world_comm_length = flat_world_comms.len() / n_worlds;
         
         if flat_actions.len() != n_worlds * n_agents {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>("Invalid number of actions"));
         }
 
-        let obs_size = self.worlds[0].get_agent_obs_size() as usize + world_comm_length;
+        let obs_size = self.worlds[0].get_agent_obs_size() as usize;
         let total_obs_len = n_worlds * n_agents * obs_size;
         let total_global_obs_len = n_worlds * self.worlds[0].get_global_obs_size() as usize;
         let total_rew_len = n_worlds * n_agents;
@@ -121,8 +119,7 @@ impl Simulation {
         let results: Vec<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>, Option<Value>)> = self.worlds.par_iter_mut()
             .enumerate()
             .zip(flat_actions.par_chunks(n_agents))
-            .zip(flat_world_comms.par_chunks(world_comm_length))
-            .map(|(((world_id, world), world_actions), world_comms)| {
+            .map(|((world_id, world), world_actions)| {
 
                 let agent_actions = ToActions::to_actions(world_actions.to_vec());
 
@@ -130,17 +127,15 @@ impl Simulation {
                 world.spread_rewards(0.5);
                 
                 let obs = world.get_agents_obs();
-                let mut global_obs = world.get_global_obs();
+                let global_obs = world.get_global_obs();
                 let rewards = world.get_agents_reward();
                 let agent_targets = world.get_agents_targets();
 
-                let mut flat_world_obs = Vec::with_capacity(obs.len() * (obs[0].len() + world_comms.len()));
+                let mut flat_world_obs = Vec::with_capacity(obs.len() * (obs[0].len()));// + world_comms.len()));
 
                 for agent_obs in obs {
                     flat_world_obs.extend_from_slice(&agent_obs);
                 }
-
-                global_obs.extend_from_slice(world_comms);
 
                 let flat_agent_targets = agent_targets.concat();
 
@@ -264,24 +259,14 @@ impl Simulation {
         Ok(obs)
     }
 
-    pub fn get_all_global_obs(&self, py: Python<'_>,  flat_world_comms: Vec<f32>) -> PyResult<Vec<f32>> {
-        let world_comm_length = flat_world_comms.len() / self.worlds.len();
-
+    pub fn get_all_global_obs(&self, py: Python<'_>) -> PyResult<Vec<f32>> {
         Python::detach(py, || {
             let results: Vec<f32> = self.worlds.par_iter()
-                .zip(flat_world_comms.par_chunks(world_comm_length))
-                .flat_map(|(world, world_comms)| {
-                    let mut obs = world.get_global_obs();
-                    
-                    obs.extend_from_slice(world_comms);
-                    
-                    obs
-                })
+                .flat_map(|world| world.get_global_obs())
                 .collect();
-            
-            Ok::<Vec<f32>, PyErr>(results)
-        })
 
+            Ok(results)
+        })
     }
 
     pub fn get_global_obs_size(&self, world_id: i32) -> PyResult<u32> {
@@ -290,5 +275,29 @@ impl Simulation {
         Ok(obs_size)
     }
 
+}
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pyo3::exceptions::PyValueError;
+
+    #[test]
+    fn parallel_step_rejects_wrong_number_of_actions() {
+        Python::initialize();
+        Python::attach(|py| {
+            let config_path = "../configs/simulation.yaml".to_string();
+            let mut sim = Simulation::new(config_path, 2).unwrap();
+
+            let n_agents = sim.get_number_of_agents(0).unwrap();
+            let n_worlds = sim.config.n_worlds as usize;
+
+            let flat_actions = vec![0; n_agents * n_worlds - 1];
+
+            let err = sim.parallel_step(py, flat_actions).unwrap_err();
+
+            assert!(err.is_instance_of::<PyValueError>(py));
+            assert_eq!(err.to_string(), "ValueError: Invalid number of actions");
+        });
+    }
 }

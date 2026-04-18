@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from controller.marl.config import AIMConfig, CommConfig, GenerativeLangType
+from controller.marl.core.config import AIMConfig, CommConfig, GenerativeLangType
 from controller.marl.models.encoders.hq_encoder import HQ_Encoder
 from project_paths import LANGUAGES_DIR
 
@@ -31,7 +31,8 @@ class AIM(nn.Module):
             obs_dim,
             comm_config: CommConfig, aim_config: AIMConfig,
             obs_mask=None,
-            num_training_steps=None
+            num_training_steps=None, 
+            saved_folder = None
         ):
         super().__init__()
 
@@ -71,7 +72,11 @@ class AIM(nn.Module):
         self.aim_config = aim_config
         self.comm_config = comm_config
         self.obs_mask = obs_mask
-
+        
+        if saved_folder is not None:
+            self.save_folder = saved_folder
+        else:
+            self.save_folder = self.get_new_folder()
 
 
     def forward(self, x, tracker=None):
@@ -126,14 +131,9 @@ class AIM(nn.Module):
 
         
     def save(self):
-        if not os.path.exists(LANGUAGES_DIR):
-            os.makedirs(LANGUAGES_DIR)
 
-        new_folder = os.path.join(LANGUAGES_DIR, self.get_folder_name())
-        os.makedirs(new_folder)
-
-        self.save_encoder(new_folder)
-        self.save_decoder(new_folder)
+        self.save_encoder(self.save_folder)
+        self.save_decoder(self.save_folder)
 
     def save_encoder(self, save_folder):
         self.encoder.save(save_folder)
@@ -144,7 +144,7 @@ class AIM(nn.Module):
     @classmethod
     def load(cls, saved_folder, aim_config: AIMConfig, comm_config: CommConfig, obs_dim: int, obs_loss_mask: torch.Tensor, device: torch.device):
 
-        aim = cls(obs_dim, comm_config, aim_config, obs_loss_mask)
+        aim = cls(obs_dim, comm_config, aim_config, obs_loss_mask, saved_folder=saved_folder)
 
         if comm_config.autoencoder_type == GenerativeLangType.HQ_VAE:
             aim.encoder = HQ_Encoder.load(saved_folder, device)
@@ -157,9 +157,18 @@ class AIM(nn.Module):
 
 
     @staticmethod
-    def get_folder_name():
+    def get_new_folder():
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        return str(timestamp)
+        if not os.path.exists(LANGUAGES_DIR):
+            os.makedirs(LANGUAGES_DIR)
+
+        new_folder = LANGUAGES_DIR / timestamp
+        os.makedirs(new_folder)
+
+        return new_folder
+
+    def get_save_folder(self):
+        return self.save_folder
     
     @staticmethod
     def get_folder(config):
@@ -172,7 +181,6 @@ class AIM(nn.Module):
                     if key == "rq_levels" and config.autoencoder_type == GenerativeLangType.HQ_VAE: value = [value, value]
                     if key == "autoencoder_type": value = value.value
                     if key in check_config and check_config[key] != value:
-                        print(key, check_config[key], value)
                         break
                 else:
                     folder_path = LANGUAGES_DIR / folder

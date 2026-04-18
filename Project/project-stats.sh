@@ -38,6 +38,9 @@ count_section "SIMULATION (Rust)" "$SIM_FILES"
 CTRL_FILES=$(find controller -name "*.py" -not -path "*/__pycache__/*")
 count_section "CONTROLLER" "$CTRL_FILES"
 
+TEST_FILES=$(find tests -name "*.py" -not -path "*/__pycache__/*")
+count_section "TEST" "$TEST_FILES"
+
 FRONTEND_FILES=$(find frontend \
     -name "node_modules" -prune -o \
     -name "package-lock.json" -prune -o \

@@ -63,18 +63,77 @@ To evaluate the \lstinline[language=Python]|RolloutBuffer|, the memory allocatio
 
 As shown in \ref{tab:rolloutbuffer-eval}, the \lstinline[language=Python]|RolloutBuffer| method reduces VRAM by over $50\%$.
 This is as Python's dynamic arrays often require copying their contents from one memory location to another to increase their size.
-Whilst there is a $5\%$ improvement in allocation time when using Python's dynamic list, the large improvement in VRAM will enable scaling this method to millions of datapoints.
+Whilst there is a $\sim 5\%$ improvement in allocation time when using Python's dynamic list, the large improvement in VRAM will enable scaling this method to millions of datapoints.
 
 
 \section{Offline Pre-training}
 \label{sec:4.3}
 
+Before we are able to integrate the language into reinforcement learning, its health must be evaluated.
+A poorly initialised frozen encoder could limit the agents' language considerably, preventing them from reaching their maximum cooperation potential.
+
 \subsection{Reconstruction and Commitment Quality}
 \label{sec:4.3.1}
 
-\subsection{Initial Codebook Health}
+For this evaluation, reconstruction loss and commitment loss are tracked throughout a training process of 50 epochs using 26880 datapoints.
+Liu et al. defined a healthy encoder for the AI Mother Tongue system.
+Reconstruction loss should fall between 0.08 and 0.15.
+Commitment Loss must remain below 1.0.
+
+\begin{figure}[h]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{recon_loss_eval.png}
+        \caption{Training and Validation Reconstruction Loss}
+        \label{fig:recon_loss}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{commit_loss_eval.png}
+        \caption{Training and Validation Commitment Loss}
+        \label{fig:commit_loss}
+    \end{minipage}
+    \caption{Convergence of tracked losses over 50 epochs (with K-means prior)}
+    \label{fig:vae_training_eval}
+\end{figure}
+
+As shown in \ref{fig:vae_training_eval}, the model experiences rapid inital convergence.
+By epoch 50, the reconstruction loss has converged to $\sim 0.065$.
+Liu et al.'s recommended loss for a healthy codebook is based on low reconstruction is often a symptom of 'mode collapse'.
+This is where the network memorises a small set of generalisable states.
+However, as demonstrated in \ref{sec:4.3.2}, the model maintains a high utilisation of the latent space.
+Therefore, this low loss indicates high effectiveness in the model rather than 'mode collapse'.
+
+By the end of the training, the commitment loss has converged to $\sim 0.15$.
+This is well below Liu et al.'s requirement.
+
+\subsection{Initial Codebook Utilisation}
 \label{sec:4.3.2}
 
+A potential concern of using a VQ-VAE is the previously discussed 'mode collapse'.
+The 'mode collapse' effectivly reduces the vocabulary size of the language restricting the expressiveness of the agents.
+To evaluate this concern, an ablation study is performed.
+Two initialisation strategies are compared:
+a standard uniform random initalisation,
+and a data-driven K-Means prior.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|c|c|c|}
+    \hline
+    \textbf{Initialisation Strategy} & \textbf{Final Validation Recon Loss} & \textbf{Active Codes} \\ \hline
+    \textbf{Random Uniform Prior} & $0.064 \pm 0.01$ & $79.13 \pm 12.63$ \\ \hline
+    \textbf{K-Means Prior} & $0.070 \pm 0.004$ & $83.53 \pm 7.67$ \\ \hline
+    \end{tabular}
+    \caption{Memory Management Overhead per Epoch: $T=20,000$, $W=32$}
+    \label{tab:init_vae_eval}
+\end{table}
+
+The table \ref{tab:init_vae_eval} shows the random uniform initialisation achieved a marginly lower reconstruction loss of $\sim 0.064$.
+However, the training proved to be much more volatile than the K-Means initialisation method and analysis post-training revealed a average index utilisation.
+This indicates that the VQ-VAE model initialised with random uniform embeddings is subject to the 'initialisation lottery', which can be mitigated by instead initialising codebook embeddings with a data-driven K-Means prior.
+The reduced volatility of training the language ensures high reproducibility for MARL training. 
 
 \section{Online MARL Task Performance}
 \label{sec:4.4}
@@ -84,6 +143,25 @@ Whilst there is a $5\%$ improvement in allocation time when using Python's dynam
 
 \subsection{Bandwidth-Performance Trade-off}
 \label{sec:4.4.2}
+
+To quantify the improvement in performance relative to the network bandwidth footprint for the AI Mother Tongue, the payload size for each broadcast is calculated for each protocol.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|
+        >{\raggedright\arraybackslash}m{0.20\textwidth}
+        |>{\centering\arraybackslash}m{0.23\textwidth}
+        |>{\centering\arraybackslash}m{0.23\textwidth}
+        |>{\centering\arraybackslash}m{0.17\textwidth}|}
+    \hline
+    \textbf{Protocol} & \textbf{Bandwidth per Broadcast} & \textbf{Compression Ratio} & \textbf{\% of Optimal} \\\hline
+    \textbf{No Communication} & $0$ bits & N/A & $\sim 40\%$ \\\hline
+    \textbf{Continuous Communication} & $256$ bits & $1.0\times$ & $100.0\%$ \\\hline
+    \textbf{AI Mother Tongue} & $5$ bits & $51.2\times$ & $\sim 90\%$ \\\hline
+    \end{tabular}
+    \caption{Protocol Efficiency and Reward Comparison under Optimal Baseline}
+    \label{tab:protocol_reward_comparison}
+\end{table}
 
 
 \section{Analysis of Emergent Linguistics}
@@ -108,3 +186,7 @@ Whilst there is a $5\%$ improvement in allocation time when using Python's dynam
 
 \subsection{VQ-VAE vs SQ-VAE}
 \label{sec:4.6.2}
+
+
+
+% VAE loss of BCE + 1.75 * MSE

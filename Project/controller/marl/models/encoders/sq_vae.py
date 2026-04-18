@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 import math
 
-from controller.marl.logger import MetricTracker
+from controller.marl.core.logger import MetricTracker
 
 
 class SQ_VAE(nn.Module):

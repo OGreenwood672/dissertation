@@ -132,8 +132,8 @@ pub fn get_x_unique_random_locations(count: u32, max_x: u32, max_y: u32, safe_ra
 pub fn get_x_unique_random_locations_with_limit(count: u32, max_x: u32, max_y: u32, safe_radius: f32, taken_points: &Vec<Location>) -> Vec<Location> {
     let mut locations: Vec<Location> = Vec::new();
 
-    const X_RANGE: i32 = 4;
-    const Y_RANGE: i32 = 4;
+    const X_RANGE: i32 = 5;
+    const Y_RANGE: i32 = 5;
 
     let x_offset: i32 = (max_x as i32 - X_RANGE) / 2;
     let y_offset: i32 = (max_y as i32 - Y_RANGE) / 2;
@@ -260,6 +260,12 @@ mod tests {
         assert_eq!(&a - &b, Location { x: -2, y: -2 });
     }
 
+    #[test]
+    fn test_add() {
+        let a = Location { x: 1, y: 2 };
+        let b = Location { x: 3, y: 4 };
+        assert_eq!(a + b, Location { x: 4, y: 6 });
+    }
 
     #[test]
     fn test_get_random_location() {
@@ -294,6 +300,80 @@ mod tests {
         assert_eq!(points[0].y, 5);
         assert_eq!(points[1].x, 3);
         assert_eq!(points[1].y, 5);
+    }
+
+        #[test]
+    fn test_cosine_similarity_zero_magnitude() {
+        let a = Location { x: 0, y: 0 };
+        let b = Location { x: 0, y: 0 };
+        let c = Location { x: 1, y: 0 };
+
+        assert_eq!(Location::cosine_similarity(a, b, c), 0.0);
+    }
+
+    #[test]
+    fn test_get_location_circle_layout() {
+        let width = 10;
+        let height = 10;
+        let count = 4;
+        let locs = get_location(Layout::Circle, width, height, count, 0.0);
+        assert_eq!(locs.len(), count as usize);
+
+        let center = Location { x: (width / 2) as i32, y: (height / 2) as i32 };
+        for loc in &locs {
+            let dx = (loc.x - center.x) as f32;
+            let dy = (loc.y - center.y) as f32;
+            let dist = (dx * dx + dy * dy).sqrt();
+            assert!(dist <= (width as f32 / 2.0) * 0.9);
+        }
+    }
+
+    #[test]
+    fn test_get_location_line_layout() {
+        let width = 10;
+        let height = 10;
+        let count = 5;
+        let locs = get_location(Layout::Line, width, height, count, 0.0);
+        assert_eq!(locs.len(), count as usize);
+
+        let y_expected = (height / 2) as i32;
+        for window in locs.windows(2) {
+            assert_eq!(window[0].y, y_expected);
+            assert_eq!(window[1].y, y_expected);
+            assert!(window[0].x < window[1].x);
+            assert!(window[0].x >= 0 && window[1].x <= width as i32);
+        }
+    }
+
+    #[test]
+    fn test_get_location_random_layout() {
+        let width = 10;
+        let height = 10;
+        let count = 3;
+        let locs = get_location(Layout::Random, width, height, count, 1.0);
+        assert_eq!(locs.len(), count as usize);
+
+        for loc in &locs {
+            assert!(loc.x >= 0 && loc.x < width as i32);
+            assert!(loc.y >= 0 && loc.y < height as i32);
+        }
+    }
+
+    #[test]
+    fn test_get_location_random_limited_layout() {
+        let width = 20;
+        let height = 20;
+        let count = 3;
+        let locs = get_location(Layout::RandomLimited, width, height, count, 1.0);
+        assert_eq!(locs.len(), count as usize);
+
+        let x_offset = (width as i32 - 5) / 2;
+        let y_offset = (height as i32 - 5) / 2;
+
+        for loc in &locs {
+            assert!(loc.x >= x_offset && loc.x < x_offset + 5);
+            assert!(loc.y >= y_offset && loc.y < y_offset + 5);
+        }
     }
 
 }

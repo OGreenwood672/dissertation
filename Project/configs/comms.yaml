@@ -5,3 +5,4 @@ num_comms: 1
 autoencoder_type: "vq-vae"
 rq_levels: 1
 communication_size: 8
+comm_folder: 2026-04-16_16-10-40

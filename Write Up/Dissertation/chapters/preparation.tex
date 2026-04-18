@@ -508,11 +508,11 @@ with a small coefficient $\lambda$ (e.g.\ $0.01$) so that reflection regularises
 \label{sec:2.4.1}
 
 \begin{enumerate}
-\item Design and implement a simulation to train and demo multi-agent interactions. The simulation should be able to have single runs visualised. The simulation should control the state of every agent and collect data.
+\item Design and implement a vectorised MARL simulation in Rust to train and demo multi-agent interactions capable of achieving a minimum throughput of 50,000 environment steps per second (SPS) to ensure sufficient collection of training data. The simulation should be able to have single runs visualised.
 \item Implement a functional MAPPO-based multi-agent reinforcement learning (MARL) system capable of learning, given a simulation program with set methods.
 \item Develop a communication protocol that allows agents to transmit raw data between each other.
-\item Similarly, develop another communication protocol that uses a VQ-VAE to transmit vectors between agents.
-\item The training and evaluation pipeline should be able to train and evaluate models automatically and allow interchangeably using both communication protocols.
+\item Implement the AI Mother Tongue architecture, demonstrating ideal reconstruction loss and commitment cost defined by Liu et al.
+\item The training and evaluation pipeline should be able to train and evaluate models automatically and allow interchangeably with any communication protocols. Automated checkpointing and logging must also run alongside training.
 \end{enumerate}
 
 \subsection{Extension}
@@ -520,7 +520,7 @@ with a small coefficient $\lambda$ (e.g.\ $0.01$) so that reflection regularises
 
 \begin{itemize}
 \item Implement a third communication protocol using a hierarchically quantised variational autoencoder (HQ-VAE). This method was suggested by the AI Mother Tongue paper as a possible future work.
-\item Add hyperparameter tuning for my discrete communication protocol. This can involve the language size, quantisation levels, and message frequency to optimise agent coordination and learning efficiency.
+\item Add hyperparameter tuning for the AI Mother Tongue architecture. This can involve the language size, quantisation levels, and message frequency to optimise agent coordination and learning efficiency.
 \item Add a new task where agents must solve for objectives other than an assembly line (e.g., coordinated navigation, resource gathering, or adversarial avoidance), enabling analysis of communication protocol effectiveness in more diverse MARL settings.
 \end{itemize}
 
@@ -535,14 +535,15 @@ with a small coefficient $\lambda$ (e.g.\ $0.01$) so that reflection regularises
 \small % Slightly smaller font to fit technical text comfortably
 \begin{tabularx}{\textwidth}{@{} l X X @{}}
 \toprule
-\textbf{Priority} & \textbf{Feature} & \textbf{Risk} \\ \midrule
-% \textbf{Must Have} & - \\ \addlinespace
-% \textbf{Must Have} & - \\ \addlinespace
-% \textbf{Must Have} & - \\ \midrule
-% \textbf{Should Have} & - \\ \midrule
-% \textbf{Could Have} & - \\ \midrule
-% \textbf{Won't Have} & - \\ \bottomrule
-\textbf{Must Have} & 
+\textbf{Priority} & \textbf{Feature} \\ \midrule
+\textbf{Must Have} & Vectorised Rust environment with PyO3 bindings \\ \addlinespace
+\textbf{} & Functioning MAPPO-based multi-agent reinforcement learning system \\ \addlinespace
+\textbf{} & At least two communication protocols including the AI Mother Tongue architecture \\ \midrule
+\textbf{Should Have} & Real time visualisation of simulations running \\ \addlinespace
+\textbf{} & Pipeline to train autoencoders \\ \midrule
+\textbf{Could Have} & Advanced VAE varients: SQ-VAE, HQ-VAE \\ \addlinespace
+\textbf{} & A separate environment task to test agents on \\ \midrule
+\textbf{Won't Have} & Obstacles in environment \\ \bottomrule
 \end{tabularx}
 \end{table}
 
@@ -560,15 +561,15 @@ with a small coefficient $\lambda$ (e.g.\ $0.01$) so that reflection regularises
 
 % After reviewing similar projects, I settled on separating my environment and my from my controller.
 Python was chosen as the programming language for the controller, primarily due to its excellent library support for machine learning and data analysis
-(including but not limited to NumPy ¬R, Pandas ¬R, Matplotlib ¬R and Jupyter Notebooks ¬R).
-PyTorch ¬R was chosen to develop the models due to its high performance and imperative execution model, which facilitates rapid iterative prototyping.
-However, Python is not a performance language and, as of development ¬R, has a GIL ¬R meaning executing simulations of my environment must be effectively done serially, bottlenecking my performance heavily.
+(including but not limited to NumPy \cite{numpy}, Pandas \cite{pandas}, Matplotlib \cite{matplotlib}, and Jupyter Notebooks \cite{jupyter}).
+PyTorch \cite{pytorch} was chosen to develop the models due to its high performance and imperative execution model, which facilitates rapid iterative prototyping.
+However, Python is not a performance language and, as of development, has a GIL \cite{python_gil_wiki} meaning executing simulations of my environment must be effectively done serially, bottlenecking my performance heavily.
 I chose Rust to develop my environment for its high performance and memory safety allowing for rapid development.
 
 To streamline my package management and environment integration to the controller, I used a pyproject.toml file.
 This file handled installing packages from external sources and also building my rust environment program to allow my Python controller to access the environment.
 
-For version control, I used GitHub to store my git repository which included both my program and my dissertation.
+For version control, I used GitHub \cite{github} to store my git repository which included both my program and my dissertation.
 I also regularly updated the version of code on my laptop as an extra backup.
 
 

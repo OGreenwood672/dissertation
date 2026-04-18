@@ -3,19 +3,19 @@ from typing import Callable
 import torch
 import torch.nn as nn
 
-from controller.marl.config import ActorHyperparameters, CommConfig
+from controller.marl.core.config import ActorHyperparameters, CommConfig
 
 from .comms import Comms
 
 
 class ContinuousComms(Comms, nn.Module):
 
-    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, log: Callable[[str, float], None], num_agents: int, device: torch.device):
+    def __init__(self, config: CommConfig, actor_config: ActorHyperparameters, log: Callable[[str, float], None], device: torch.device, **kwargs):
         nn.Module.__init__(self)
 
         self.config = config
         self.device = device
-        self.num_agents = num_agents
+        self.num_agents = kwargs["num_agents"]
         self.actor_config = actor_config
 
         self.comm_log_std = nn.Parameter(torch.zeros(1, 1, 1, config.num_comms, config.communication_size))
