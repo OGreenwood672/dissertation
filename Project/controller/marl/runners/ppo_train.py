@@ -108,7 +108,7 @@ def train(system, config: Config, device: torch.device):
 
             comm_choice = np.zeros((W, N, NC, C), dtype=np.float32)
             curr_obs = np.array([sim.get_agents_obs(w) for w in range(W)])
-            curr_global_obs = np.array(sim.get_all_global_obs(comm_choice)) 
+            curr_global_obs = np.array(sim.get_all_global_obs()) 
 
             # Reset hidden states for the recurrent model
             actor_hidden_states = actor.init_hidden(batch_size=W)

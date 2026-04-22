@@ -1,6 +1,5 @@
 \label{sec:1}
 
-
 Since Google DeepMind released AlphaGo in 2016, there has been a steady increase in interest in the field of reinforcement learning.
 This has led to breakthroughs in areas of finance, trading, robotics and even video games.
 A clear next step for reinforcement learning is multi-agent reinforcement learning, where multiple agents are placed into the same environment and have to learn to interact with one another efficiently.
@@ -10,24 +9,27 @@ However, there exists a range of challenges which make multi-agent reinforcement
 Unlike single-agent reinforcement learning, multi-agent reinforcement learning can use communication to improve the agent's knowledge of their environment and/or teach them the optimal next step.
 In Partially Observable Markov Decision Processes (POMDP), communication is required for agents to solve the problem.
 
-Traditionally, communication is facilitated through every agent braodcasting raw continuous values to every other agent.
-While this is perfect for backpropagation, this scales poorly due to limited bandwidth between agents and is difficult for humans to interpret.
+Traditionally, communication is facilitated through every agent broadcasting raw continuous values to every other agent.
+While this is perfect for backpropagation, it scales poorly due to limited bandwidth between agents and is difficult for humans to interpret.
 
 
 Replacing these continuous communication vectors with discrete tokens is highly desirable for both bandwidth and interoperability.
-However, learning a discrete language on-policy suffers from the "Joint Exploration Problem" where agents get stuck in a local optima because they learn to completely ignore the communication channel as it is initially solely noise.
-This local optima is named the "Communication Vaccum Equilibrium".
+However, learning a discrete language on-policy suffers from the "Joint Exploration Problem" where agents get stuck in a local optimum because they learn to completely ignore the communication channel as it is initially solely noise.
+This local optimum is named the "Communication Vacuum Equilibrium".
 
 This dissertation focuses on the paper "AI Mother Tongue: Self-Emergent Communication in MARL via Endogenous Symbol Systems"\cite{AIMotherTongue}.
 In this paper, Liu et al. propose abandoning learning this discrete language during the reinforcement learning phase of training.
 Instead, they propose using a pre-trained discrete language model acting as a semantic bottleneck.
 
 By using a Vector-Quantised Variational Autoencoder (VQ-VAE), continuous observations can be mapped to a finite set of discrete symbols.
-Liu et al. then showed that this autoencoder can be frozen during training and the agents can be taught semantic meaning through reflection strategies - custom loss functions that force agents to understand contextual meaning and intent of these symbols.
-This methodology allows communication protocols to evolve naturally without implementing hard biases ¬R.
+Liu et al. then showed that this autoencoder can be frozen during training, and the agents can be taught semantic meaning through reflection strategies - custom loss functions that force agents to understand contextual meaning and intent of these symbols.
+This methodology allows communication protocols to evolve naturally without implementing hard biases \cite{hard_biases}.
 
-Whilst the paper suggests an interesting novel idea, the paper only evaluates this on a simple niche idea.
-To ascertain whether this architecture is effective and robut enough for practical use, it requires rigourous evaluation within a more complex environment.
+Whilst the paper suggests an interesting novel idea, it only evaluates this on a relatively simple cooperative tasks.
+To ascertain whether this architecture is effective and robust enough for practical use, it requires rigorous evaluation within a more complex environment where agents possess asymmetric information and must cooperate to discover hidden stations.
+This dissertation provides this rigorous evaluation and extends the ideas discussed in the paper.
+
+\textbf{Research Question:} To what extent does the AIMotherTongue architecture enable robust emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput MAPPO with VAE extensions (SQ-VAE, HQ-VAE), relative to no-communication and continuous-vector baselines?
 
 \section{Project Overview \& Contributions}
 \label{sec:1.1}
@@ -38,26 +40,8 @@ In this project, I:
     \item \textbf{Scale the Algorithm}
     The AI Mother Tongue architecture will be integrated into a highly efficient Multi-Agent Proximal Policy Optimisation (MAPPO) framework to test the limits of the architecture.
     \item \textbf{Generative Language Extension}
-    The project will implement the VQ-VAE approach as well as experiment with other generative language models suggested by the paper such as Stochastically-Quantised Variational Autoencoder (SQ-VAE) and Hierarchically-Quantised Variational Autoencoder (HQ-VAE) to determine if probabilistic or multiple codebooks improve coordination.
-    \item \textbf{Emperical Benchmarking}
-    The AI Mother Tongue architecture will be quantitivly compared to other communication methods such as no communication and continuous communication methods.
-    % TODO: How evaluated as well?
+    The project will implement the VQ-VAE approach as well as experiment with other generative language models suggested by the paper, such as Stochastically-Quantised Variational Autoencoder (SQ-VAE) and Hierarchically-Quantised Variational Autoencoder (HQ-VAE), to determine if probabilistic or multiple codebooks improve coordination.
+    \item \textbf{Empirical Benchmarking}
+    The AI Mother Tongue architecture will be quantitatively compared to other communication methods, such as no communication and continuous communication methods.
+    % TODO: How was it evaluated as well?
 \end{enumerate}
-
-
-\section{Background Work}
-\label{sec:1.2}
-
-Previous work:
-
-Obvious direct related work:\\
-AI Mother Tongue - implementing this VQ-VAE idea into basic 2 agent tasks\\
-VQ-VAE - Paper from a few years ago\\
-TRPO -> PPO -> MAPPO\\
-Reinforcement learning paper\\% - \_O_/
-Current communication in RL
-
-Other important works:\\
-VQ-VAE for compression - see info theory\\
-Some form of analysis of communication using information theory
-

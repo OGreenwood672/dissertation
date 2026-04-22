@@ -8,7 +8,7 @@ import pandas as pd
 from controller.marl.core.buffer import RolloutBuffer
 from controller.marl.core.config import CommunicationType, Config
 
-from ..core.logger import CommsLogger, ObsLogger
+# from ..core.logger import CommsLogger, ObsLogger
 
 def run_sim(
         system, config: Config, device: torch.device, episodes,
@@ -38,11 +38,11 @@ def run_sim(
     reward_means = []
     rewards = None
 
-    if collect_obs_file is not None:
-        OL = ObsLogger(collect_obs_file)
+    # if collect_obs_file is not None:
+    #     OL = ObsLogger(collect_obs_file)
 
-    if collect_comms_folder is not None:
-        CL = CommsLogger(collect_comms_folder, config.comms.vocab_size)
+    # if collect_comms_folder is not None:
+    #     CL = CommsLogger(collect_comms_folder, config.comms.vocab_size)
 
     num_codebooks = 0
     if comm_type == CommunicationType.AIM:
@@ -73,7 +73,7 @@ def run_sim(
 
         comm_choice = np.zeros((W, N, NC, C), dtype=np.float32)
         curr_obs = np.array([sim.get_agents_obs(w) for w in range(W)])
-        curr_global_obs = np.array(sim.get_all_global_obs(comm_choice))
+        curr_global_obs = np.array(sim.get_all_global_obs())
         curr_targets = np.array(sim.get_curr_targets())
 
         if not optimal:
@@ -99,10 +99,6 @@ def run_sim(
 
             if not optimal:
                 with torch.no_grad():
-
-                    if comm_type == CommunicationType.NONE:
-                        comm_choice_tensor = None
-
                     action_logits, lstm_output, actor_hidden_states = actor(obs_tensor, actor_hidden_states, comm_choice_tensor)
                     critic_values = critic(global_state_tensor)
 

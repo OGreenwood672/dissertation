@@ -1,7 +1,7 @@
 aim_learning_rate: 0.0001
 obs_runs: 1
 obs_runs_noise: 0.15
-aim_batch_size: 32
+aim_batch_size: 256
 ae_epochs: 50
 architecture:
   hidden_size: 512
@@ -10,6 +10,6 @@ vqvae:
   commitment_cost: 0.25
 
 sqvae:
-  kl_weight: 0.0
-  min_temperature: 0.001
-  init_temperature: 1.0
+  kl_weight: 0.015
+  min_temperature: 0.05
+  init_temperature: 10.0

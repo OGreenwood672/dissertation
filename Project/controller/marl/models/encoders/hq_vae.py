@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from controller.marl.core.metric_tracker import MetricTracker
+
 from .sq_vae import SQ_VAE 
 
 class HQ_VAE(nn.Module):
@@ -21,6 +23,7 @@ class HQ_VAE(nn.Module):
             num_training_steps=num_training_steps, rq_levels=rq_levels[0], kl_weight=kl_weight
         )
         
+        
         self.bottom_quantiser = SQ_VAE(
             vocab_size=vocab_size, 
             latent_dim=latent_dims[1], 
@@ -28,10 +31,11 @@ class HQ_VAE(nn.Module):
             num_training_steps=num_training_steps, rq_levels=rq_levels[1], kl_weight=kl_weight
         )
 
-    def forward(self, top_latent, bottom_latent):
+    def forward(self, top_latent, bottom_latent, top_tracker: MetricTracker = None, bottom_tracker: MetricTracker = None):
         
-        top_loss, top_quantised = self.top_quantiser(top_latent)
-        bottom_loss, bottom_quantised = self.bottom_quantiser(bottom_latent)
+        top_loss, top_quantised = self.top_quantiser(top_latent, top_tracker)
+
+        bottom_loss, bottom_quantised = self.bottom_quantiser(bottom_latent, bottom_tracker)
         
         return top_loss + bottom_loss, torch.cat([top_quantised, bottom_quantised], dim=-1)
 

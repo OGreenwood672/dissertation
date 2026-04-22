@@ -24,7 +24,7 @@ class ContinuousComms(Comms, nn.Module):
             nn.Tanh()
         )
 
-        self.percieve_out_features = 83
+        self.percieve_out_features = 74
         self.out_features = config.communication_size * config.num_comms
         
         self.to(device)

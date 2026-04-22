@@ -27,22 +27,26 @@ class Logging:
             ]
             self.headers += [s for x in range(num_codebooks) for s in [f"usage_count_{x}", f"std_usage_{x}", f"topk_usage_{x}"]]
         
-        elif mode == "language" and config.comms.autoencoder_type == GenerativeLangType.VQ_VAE:
+        elif mode == "language":
             self.headers = [
                 "timestep",
                 "train_reconstruction_loss",
                 "validation_reconstruction_loss"
             ]
-            self.headers += [s for x in range(num_codebooks) for s in [f"train_commitment_loss_{x}", f"validation_commitment_loss_{x}"]]
+            if config.comms.autoencoder_type == GenerativeLangType.VQ_VAE:
+                self.headers += [s for x in range(num_codebooks) for s in [f"train_commitment_loss_{x}", f"validation_commitment_loss_{x}"]]
+            elif config.comms.autoencoder_type == GenerativeLangType.SQ_VAE:
+                self.headers += [s for x in range(num_codebooks) for s in [f"train_kl_divergence_{x}", f"validation_kl_divergence_{x}"]]
+            elif config.comms.autoencoder_type == GenerativeLangType.HQ_VAE:
+                self.headers += [s for x in range(num_codebooks) for s in [
+                    f"train_kl_divergence_{x}",
+                    f"validation_kl_divergence_{x}"
+                    f"train_secondary_kl_divergence_{x}",
+                    f"validation_secondary_kl_divergence_{x}"
+                ]]
+            else:
+                assert False
 
-        elif mode == "language" and config.comms.autoencoder_type == GenerativeLangType.SQ_VAE:
-            self.headers = [
-                "timestep",
-                "train_reconstruction_loss",
-                "validation_reconstruction_loss"
-            ]
-            assert False
-        
         elif mode == "imitate":
             self.headers = [
                 "timestep",
@@ -111,55 +115,55 @@ class Logging:
 
 
 
-class ObsLogger:
+# class ObsLogger:
 
-    def __init__(self, save_file):
+#     def __init__(self, save_file):
 
-        self.save_file = save_file
+#         self.save_file = save_file
 
-        file_exists = os.path.exists(self.save_file)
+#         file_exists = os.path.exists(self.save_file)
 
-        if file_exists:
-            os.remove(self.save_file)
+#         if file_exists:
+#             os.remove(self.save_file)
 
-        self.file = open(self.save_file, "a", newline="")
-        self.writer = csv.writer(self.file)
+#         self.file = open(self.save_file, "a", newline="")
+#         self.writer = csv.writer(self.file)
 
-    @LoggingFunctionIdentification("LOGGER")
-    def log(self, obs):
-        try:
-            self.writer.writerows(obs)
-        except ValueError as e:
-            print(f"Failed to log row: {e}")
-
-
-    def close(self):
-        self.file.close()
-
-class CommsLogger:
-
-    def __init__(self, save_folder, vocab_size):
-
-        self.save_folder = save_folder
-        self.vocab_size = vocab_size
-
-        os.makedirs(save_folder, exist_ok=True)
-
-        for file in os.listdir(save_folder):
-            os.remove(os.path.join(save_folder, file))
-
-        self.save_files = [open(os.path.join(save_folder, f"comms_{i}.csv"), "a", newline="") for i in range(vocab_size)]
-
-        self.writers = [csv.writer(file) for file in self.save_files]
+#     @LoggingFunctionIdentification("LOGGER")
+#     def log(self, obs):
+#         try:
+#             self.writer.writerows(obs)
+#         except ValueError as e:
+#             print(f"Failed to log row: {e}")
 
 
-    @LoggingFunctionIdentification("LOGGER")
-    def log(self, comm_index, obs):
-        try:
-            self.writers[comm_index].writerow(obs)
-        except ValueError as e:
-            print(f"Failed to log row: {e}")
+#     def close(self):
+#         self.file.close()
 
-    def close(self):
-        for writer in self.writers:
-            writer.close()
+# class CommsLogger:
+
+#     def __init__(self, save_folder, vocab_size):
+
+#         self.save_folder = save_folder
+#         self.vocab_size = vocab_size
+
+#         os.makedirs(save_folder, exist_ok=True)
+
+#         for file in os.listdir(save_folder):
+#             os.remove(os.path.join(save_folder, file))
+
+#         self.save_files = [open(os.path.join(save_folder, f"comms_{i}.csv"), "a", newline="") for i in range(vocab_size)]
+
+#         self.writers = [csv.writer(file) for file in self.save_files]
+
+
+#     @LoggingFunctionIdentification("LOGGER")
+#     def log(self, comm_index, obs):
+#         try:
+#             self.writers[comm_index].writerow(obs)
+#         except ValueError as e:
+#             print(f"Failed to log row: {e}")
+
+#     def close(self):
+#         for f in self.save_files:
+#             f.close()

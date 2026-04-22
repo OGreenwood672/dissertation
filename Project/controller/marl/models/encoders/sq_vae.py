@@ -22,6 +22,8 @@ class SQ_VAE(nn.Module):
         self.rq_levels = rq_levels
         self.kl_weight = kl_weight
         self.min_temp = min_temperature
+        # self.current_step = 0
+        # self.warmup_steps = num_training_steps * 0.1
 
         completion_percentages = []
         if rq_levels == 1:
@@ -43,7 +45,8 @@ class SQ_VAE(nn.Module):
             self.anneal_rates[i] = rate
             
             self.embeddings.append(nn.Embedding(vocab_size, latent_dim))            
-            self.logit_scales.append(nn.Parameter(torch.tensor(10.0)))
+            # self.logit_scales.append(nn.Parameter(torch.tensor(10.0)))
+            self.logit_scales.append(nn.Parameter(torch.tensor(20.0), requires_grad=False))
 
     def forward(self, latent, tracker: MetricTracker = None):
         loss, quantised = self.quantise(latent, tracker)
@@ -62,9 +65,9 @@ class SQ_VAE(nn.Module):
 
         is_rl_phase = not next(self.parameters()).requires_grad
         
-        for hq_level, (embedding, logit_scale) in enumerate(zip(self.embeddings, self.logit_scales)):
+        for rq_level, (embedding, logit_scale) in enumerate(zip(self.embeddings, self.logit_scales)):
 
-            if hq_level > 0:
+            if rq_level > 0:
                 scale = curr_residual.std(dim=-1, keepdim=True) + 1e-5
                 scaled_input = curr_residual / scale
             else:
@@ -79,15 +82,15 @@ class SQ_VAE(nn.Module):
 
             logits = torch.matmul(x_norm, embed_norm.t()) * logit_scale
                         
-            temp = self.temperatures[hq_level].item()
+            temp = self.temperatures[rq_level].item()
             
             if self.training and not is_rl_phase:
                 soft_one_hot = F.gumbel_softmax(logits, tau=temp, hard=True)
 
                 with torch.no_grad():
-                    self.temperatures[hq_level] = max(
+                    self.temperatures[rq_level] = max(
                         self.min_temp, 
-                        temp * self.anneal_rates[hq_level].item()
+                        temp * self.anneal_rates[rq_level].item()
                     )
             else:
                 indices = logits.argmax(dim=-1)
@@ -100,11 +103,14 @@ class SQ_VAE(nn.Module):
             uniform_prior = torch.tensor(1.0 / self.vocab_size, device=latent.device)
             
             kl_divergence = torch.sum(probs * (log_probs - torch.log(uniform_prior)), dim=-1).mean()
+
+            if tracker:
+                tracker.update(f"kl_divergence_{rq_level}", kl_divergence.item())
             
             if self.training:
                 loss += self.kl_weight * kl_divergence
 
-            if hq_level > 0:
+            if rq_level > 0:
                 quantised = quantised_scaled * scale
             else:
                 quantised = quantised_scaled

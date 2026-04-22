@@ -23,7 +23,6 @@ def buffer_config():
     }
 
 def test_buffer_shapes(buffer_config):
-    """Checking shapes of tensors in buffer"""
 
     buffer = RolloutBuffer(**buffer_config)
 
@@ -39,7 +38,6 @@ def test_buffer_shapes(buffer_config):
     assert buffer.global_obs.shape == (expected, T, buffer_config["num_global_obs"])
 
 def test_minibatches(buffer_config):
-    """Checking minibatches cover all required data with the correct sizes"""
 
     buffer = RolloutBuffer(**buffer_config)
     
@@ -54,7 +52,6 @@ def test_minibatches(buffer_config):
     assert batches[0]["obs"].shape[0] == MINIBATCH_SIZE
 
 def test_minibatches_with_remainder(buffer_config):
-    """Checking minibatches can handle non-perfect batch sizes"""
     
     buffer = RolloutBuffer(**buffer_config)
     
@@ -66,7 +63,6 @@ def test_minibatches_with_remainder(buffer_config):
     assert batches[-1]["obs"].shape[0] == 2, "Remainder batch did not slice correctly"
 
 def test_minibatches_shuffling(buffer_config):
-    """Ensure minibatches are shuffled correctly"""
 
     buffer = RolloutBuffer(**buffer_config)
     buffer.pos = buffer.buffer_size

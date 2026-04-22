@@ -75,13 +75,11 @@ class SimWrapper:
     def get_global_obs(self, world_id):
         return self._sim.get_global_obs(world_id)
     
-    def get_all_global_obs(self, world_comms):
+    def get_all_global_obs(self):
 
-        num_worlds = len(world_comms)
+        flat_obs = self._sim.get_all_global_obs()
 
-        flat_obs = self._sim.get_all_global_obs(world_comms.ravel())
-
-        obs = np.array(flat_obs, dtype=np.float32).reshape(num_worlds, self.get_global_obs_dim())# + self.get_world_comms_size())
+        obs = np.array(flat_obs, dtype=np.float32).reshape(self._n_worlds, self.get_global_obs_dim())# + self.get_world_comms_size())
         
         return obs
     

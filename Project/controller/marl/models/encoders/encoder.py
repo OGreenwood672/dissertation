@@ -126,4 +126,6 @@ class Encoder(nn.Module):
 
         encoder.encoder.load_state_dict(torch.load(encoder_path, map_location=device))
 
+        print(f"Loaded language: {folder_path}")
+
         return encoder

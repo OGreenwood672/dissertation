@@ -9,6 +9,7 @@ import torch.nn.functional as F
 
 from controller.marl.core.config import AIMConfig, CommConfig, GenerativeLangType
 from controller.marl.models.encoders.hq_encoder import HQ_Encoder
+from controller.marl.core.metric_tracker import MetricTracker
 from project_paths import LANGUAGES_DIR
 
 from .encoders.encoder import Encoder
@@ -61,10 +62,19 @@ class AIM(nn.Module):
                 num_training_steps=aim_config.ae_epochs
             )
 
+        # self.decoder = nn.Sequential(
+        #     nn.Linear(comm_config.communication_size, aim_config.hidden_size // 2),
+        #     nn.ReLU(),
+        #     nn.Linear(aim_config.hidden_size // 2, aim_config.hidden_size),
+        #     nn.ReLU(),
+        #     nn.Linear(aim_config.hidden_size, obs_dim)
+        # )
         self.decoder = nn.Sequential(
-            nn.Linear(comm_config.communication_size, aim_config.hidden_size // 2),
+            nn.Linear(comm_config.communication_size, aim_config.hidden_size),
+            nn.LayerNorm(aim_config.hidden_size),
             nn.ReLU(),
-            nn.Linear(aim_config.hidden_size // 2, aim_config.hidden_size),
+            nn.Linear(aim_config.hidden_size, aim_config.hidden_size),
+            nn.LayerNorm(aim_config.hidden_size),
             nn.ReLU(),
             nn.Linear(aim_config.hidden_size, obs_dim)
         )
@@ -79,9 +89,13 @@ class AIM(nn.Module):
             self.save_folder = self.get_new_folder()
 
 
-    def forward(self, x, tracker=None):
+    def forward(self, x, tracker: MetricTracker = None, secondary_tracker: MetricTracker = None):
+        
 
-        encoder_loss, quantised = self.encoder(x, tracker)
+        if self.comm_config.autoencoder_type == GenerativeLangType.HQ_VAE:
+            encoder_loss, quantised = self.encoder(x, tracker, secondary_tracker)
+        else:
+            encoder_loss, quantised = self.encoder(x, tracker)
 
         reconstructed = self.decoder(quantised)
 
@@ -147,7 +161,7 @@ class AIM(nn.Module):
         aim = cls(obs_dim, comm_config, aim_config, obs_loss_mask, saved_folder=saved_folder)
 
         if comm_config.autoencoder_type == GenerativeLangType.HQ_VAE:
-            aim.encoder = HQ_Encoder.load(saved_folder, device)
+            aim.encoder = HQ_Encoder.load(saved_folder, 1, device)
         else:
             aim.encoder = Encoder.load(saved_folder, device)
             

@@ -84,8 +84,18 @@ Summary
 \subsection{Implementation Approach}
 \label{sec:3.1.3}
 
-\subsubsection{Unit Testing}
+\subsubsection{Testing}
 \label{sec:3.1.3.1}
+
+For the Rust-based environment, unit testing was rigoursly applied.
+Using the \lstinline[language=Rust]|cargo| tool \lstinline[language=Rust]|llvm-cov|, a $97\%$ coverage of functions was achieved by the test suite
+Further to unit testing, a lightweight real-time visualisation is engineered to enable immediate feedback during execution and making system behaviour easier to inspect as the environment runs.
+
+In the Python controller, the core folder containing infrastructure was similarly unit tested.
+Using the \lstinline[language=Python]|pytest| library, $86\%$ coverage of lines of code was achieved by the test suite.
+For the rest of the controller, unit tests were deemed inappropriate.
+% TODO: Shape tests
+
 
 \subsubsection{Documentation}
 \label{sec:3.1.3.2}
@@ -94,7 +104,23 @@ Summary
 \section{Environment}
 \label{sec:3.2}
 
-TODO: Discuss env maybe?
+The core environment involved $N$ agents whose job it is to collect assigned ingredients from fixed stations or other moving agents.
+On completion of ingredient collection, the agent combines their ingredients to form a single output which they are required to drop off at a fixed station.
+
+The environment is built as a two-dimensional grid of cells.
+At each timestep, agents can move from one cell to another or interact with another entity in the same cell. 
+
+In line with creating a dynamic codebase for future testing of communication protocols, the environment was designed to easily be changeable through a configuration file.
+The configuration file allows customisation of:
+\begin{itemize}
+    \item Agents and their input and output ingredients
+    \item Stations and their behaviour
+    \item Agent-to-Agent visibility
+    \item Agent-to-Station visibility
+    \item Environment Size
+\end{itemize}
+
+To ensure cooperation is required, agents are unable to see the entities which they must collect ingredients from.
 
 Reinforcement learning requires millions of datapoints to produce sufficiently usable policy.
 In order to collect this data efficiently, a vectorised environment with efficient movement of data between the RL script and the Rust simulation is designed.
@@ -129,8 +155,8 @@ This computation includes:
     \item Collecting rewards for feedback for the policy
     \item Collecting each agent's observations and each world's global observations for input to the actor and critic networks
 \end{itemize}
-The number of worlds in parallel is decided through empirical profiling.
-For my computer, worlds\_parralised was optimally set to 32, however, this can easily be modified in the configuration files.
+The number of worlds in parallel is decided through empirical profiling (see SPS analysis \ref{sec:4.2.1}).
+For my computer, worlds\_parralised was optimally set to 960, however, this can easily be modified in the configuration files.
 
 
 \subsection{Spatial Hashing}
@@ -265,7 +291,7 @@ This allowed experimental hot-swapping of protocols to be achieved seamlessly wi
 \label{sec:3.3.5}
 
 \begin{algorithm}
-\caption{MAPPO Minibatch Update with Learned Communication}
+\caption{MAPPO Minibatch Update}
 \begin{algorithmic}[1]
 \Require Buffer minibatches, Clip hyperparameter $\epsilon$, Value coefficient $c_{vf}$, Entropy coefficient $c_{ent}$
 \For{batch $\in \text{buffer}$}
@@ -535,12 +561,6 @@ Reflection strategies are defined as follows:
 These losses are all aggregated into one and multiplied by a pre-defined coefficient (eg $\lambda = 0.01$).
 This loss is returned and added to the composite MAPPO objective function for backpropagation.
 
-
-\subsection{Architectural Divergence: On-Policy VQ-VAE}
-\label{sec:3.4.4}
-
-Unlike AI Mother Tongue protocol, this 
-% TODO
 
 \section{Software Engineering, Reproducibility, and Observability}
 \label{sec:3.6}

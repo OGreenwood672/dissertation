@@ -11,17 +11,17 @@ Good requirements analysis, justified selection of suitable tools, good engineer
 \subsection{Simulation}
 \label{sec:2.1.1}
 
-To evaluate communication, we investigate through the following cooperative game.
+To evaluate communication, we investigate the following cooperative game.
 
 There is an $M$x$N$ board.
-The game lasts for $T$ timesteps and at every timestep, every agent simultaneously does one action.
+The game lasts for $T$ timesteps, and at each timestep, every agent simultaneously completes one action.
 The goal of the game is for the agents to cooperate and complete a required recipe.
 
 \subsection{Stations}
 \label{sec:2.1.1.1}
 Stations are dotted randomly across the map and are immovable throughout the course of the game.
 Each station has an assigned ingredient. The station can either be of type 'pick up' or 'drop off'.
-A 'pick up' station only allows the agents to take ingredients from them.
+A 'pick up' station only allows the agents to take ingredients from it.
 A 'drop off' station only allows the agents to give the station the assigned ingredient.
 
 \subsection{Agents}
@@ -33,16 +33,16 @@ Once they have all of their ingredients, they get removed from their inventory a
 The agents can collect ingredients from 'pick up' stations or other agents.
 The agents can drop off their ingredients at 'drop off' stations.
 
-One important feature of this game is the agents have limited range of sight and can only view the nearest entity at any given timestep.
-This converts this game from a Markov Desicion Process to a Partially Observable Markov Decision Process.
+One important feature of this game is that the agents have a limited range of sight and can only view the nearest entity at any given timestep.
+This converts this game from a Markov Decision Process to a Partially Observable Markov Decision Process.
 The agents must work together to discover the required stations and use them to complete recipes.
 
-At every timestep, every agents takes a single action.
+At each timestep, every agent takes a single action.
 Agents have five possible actions: move north, move south, move west, move east and interact.
 The first four of which move the agent one step in the given direction.
 If agent A executes the 'Interact' action:
 \begin{enumerate}
-    \item If visible agent B has a required item, place in A's inventory, and remove from B's inventory.
+    \item If visible agent B has a required item, place it in A's inventory, and remove it from B's inventory.
     \item If visible 'pick up' station has a required item, place in A's inventory.
     \item If visible 'drop off' station wants an item we have, remove from A's inventory.
 \end{enumerate}
@@ -71,10 +71,10 @@ If agent A executes the 'Interact' action:
 \label{sec:2.2}
 
 Reinforcement Learning (RL) is different to classical supervised and unsupervised learning as we do not have all the data before training.
-We must build environments for agents, who take actions and recieve feedback from these actions.
+We must build environments for agents who take actions and receive feedback from these actions.
 The agents must learn to maximise the total reward collected over time.
 
-Classic RL is modelled through Markov Decision Processes (MDPs), but to investigate communication, we must limit the information every agent has so they must communicate missing information with one another.
+Classic RL is modelled through Markov Decision Processes (MDPs), but to investigate communication, we must limit the information every agent has, so they must communicate missing information with one another.
 Therefore, we will model this RL as a Partially Observable Markov Decision Process (POMDP).
 
 A POMDP is formally defined as $\langle \mathcal{S}, \mathcal{A}, \mathcal{P}, \mathcal{R}, \Omega, \mathcal{O}, \gamma \rangle$.
@@ -92,65 +92,117 @@ Where:
 \subsection{Reward Function}
 \label{sec:2.2.1}
 
-Liu et al.\cite{AIMotherTongue} suggests for these more complex games, a dense reward system should be implemented, giving agents to gain useful feedback on every step.
+Liu et al.\cite{AIMotherTongue} suggest that for these more complex games, a dense reward system should be implemented, allowing agents to gain useful feedback on every step.
 
 Each agent $i$:
 
-$$r_t^{(i)} = r_{\text{time}} + r_{\text{move}} + r_{\text{novel}} + r_{\text{interact}} + r_{\text{share}}$$
+% $$r_t^{(i)} = r_{\text{time}} + r_{\text{move}} + r_{\text{novel}} + r_{\text{interact}} + r_{\text{share}}$$
+\begin{equation}
+ r_t^i = r_{\text{step}} + r_{\text{invalid}}(s_t^i, a_t^i) + r_{\text{interact}}(s_t^i, a_t^i) + r_{\text{explore}}(s_{t+1}^i)
+\end{equation}
 
 Where:
 
-\[
-r_{\text{move}} =
-\begin{cases}
--0.02, & \text{if } a_t^{(i)} \in \{\text{Up},\text{Down},\text{Left},\text{Right}\} \text{ and } \ell_{t+1}^{(i)} = \ell_t^{(i)},\\[4pt]
-0, & \text{otherwise}.
-\end{cases}
-\]
+\begin{itemize}
+    \item Step Penalty (Punishment for existing)
+    Agents get a penalty of $-0.005$ every step to prevent idle behaviour.
+    \item Invalid Move Penalty
+    To teach the agents to stay within the confines of the grid, the agents receive:
+    \begin{equation}
+        r_{\text{invalid}}(s_t^i, a_t^i) =
+        \begin{cases}
+            -0.02, & \text{if $a_t^i$ is invalid} \\
+            0, & \text{otherwise}
+        \end{cases}
+    \end{equation}
+    \item{Interaction Reward}
+    Interaction rewards are awarded when an agent executes the interact action on a visible station or another agent. The reward consists of a discovery term and a task-progress term:
+    \begin{equation}
+        r_{\text{interact}}(s_t^i, a_t^i) =
+        \begin{cases}
+            r_{\text{found}} + r_{\text{progress}}, & \text{if } a_t^i = \texttt{Interact} \\
+            0, & \text{otherwise}
+        \end{cases}
+    \end{equation}
+    where
+    \begin{equation}
+        r_{\text{found}} =
+        \begin{cases}
+            0.5, & \text{if the interaction reveals a previously unknown relevant station or agent} \\
+            0, & \text{otherwise}
+        \end{cases}
+    \end{equation}
+    and
+    \begin{equation}
+        r_{\text{progress}} =
+        \begin{cases}
+            1.0, & \text{if the interaction completes a recipe combination} \\
+            0.7, & \text{if the interaction is successful but does not complete a combination} \\
+            0, & \text{if the interaction has no effect}
+        \end{cases}
+    \end{equation}
 
-$$r_{\text{novel}} = 0.002 \, \mathbb{I}_{\text{new}}(\ell_{t+1}^{(i)})$$
+    \item{Exploration Reward}
+    If an agent enters a previously unvisited square, a small reward is added to encourage exploration.
+    \begin{equation}
+        r_{\text{explore}}(s_{t+1}^i) =
+        \begin{cases}
+            0.002, & \text{if $s_{t+1}^i$ is the first to visit the cell} \\
+            0, & \text{otherwise}
+        \end{cases}
+    \end{equation}
+\end{itemize}
 
-\[
-r_{\text{interact}} =
-\begin{cases}
-0.5 \, \mathbb{I}_{\text{found}}^{(i)} + 0.7 \, \mathbb{I}_{\text{basic}}^{(i)} + 1.0 \, \mathbb{I}_{\text{combine}}^{(i)}, & \text{if } a_t^{(i)} = \text{Interact},\\[4pt]
-0, & \text{otherwise}.
-\end{cases}
-\]
+% \[
+% r_{\text{move}} =
+% \begin{cases}
+% -0.02, & \text{if } a_t^{(i)} \in \{\text{Up},\text{Down},\text{Left},\text{Right}\} \text{ and } \ell_{t+1}^{(i)} = \ell_t^{(i)},\\[4pt]
+% 0, & \text{otherwise}.
+% \end{cases}
+% \]
 
-$$\text{FOUND\_REWARD} = 0.5,\quad \text{BASIC\_REWARD} = 0.7,\quad \text{COMBINE\_REWARD} = 1.0$$
+% $$r_{\text{novel}} = 0.002 \, \mathbb{I}_{\text{new}}(\ell_{t+1}^{(i)})$$
 
-$$\bar{r}_t = \frac{1}{N} \sum_{j=1}^N \tilde{r}_t^{(j)}$$
+% \[
+% r_{\text{interact}} =
+% \begin{cases}
+% 0.5 \, \mathbb{I}_{\text{found}}^{(i)} + 0.7 \, \mathbb{I}_{\text{basic}}^{(i)} + 1.0 \, \mathbb{I}_{\text{combine}}^{(i)}, & \text{if } a_t^{(i)} = \text{Interact},\\[4pt]
+% 0, & \text{otherwise}.
+% \end{cases}
+% \]
 
-$$r_t^{(i,\text{final})} = (1 - \alpha)\,\tilde{r}_t^{(i)} + \alpha \,\bar{r}_t$$
+% $$\text{FOUND\_REWARD} = 0.5,\quad \text{BASIC\_REWARD} = 0.7,\quad \text{COMBINE\_REWARD} = 1.0$$
 
-Idea behind rewards
+% $$\bar{r}_t = \frac{1}{N} \sum_{j=1}^N \tilde{r}_t^{(j)}$$
 
-Whats important
-spare reward problem - how we mitigate
-credit assignment problem - how we mitigate
-non stationary problem
+% $$r_t^{(i,\text{final})} = (1 - \alpha)\,\tilde{r}_t^{(i)} + \alpha \,\bar{r}_t$$
 
-Joint Exploration Dilemma
-Communication Vacuum Equilibrium
-Semantic Drift
+% Idea behind rewards
 
-Normalisation of rewards
+% Whats important
+% spare reward problem - how we mitigate
+% credit assignment problem - how we mitigate
+% non stationary problem
+
+% Joint Exploration Dilemma
+% Communication Vacuum Equilibrium
+% Semantic Drift
+
+% Normalisation of rewards
 
 
-\subsection{Multi-Agent Proximal Policy Optimisation(MAPPO)}
+\subsection{Multi-Agent Proximal Policy Optimisation (MAPPO)}
 \label{sec:2.2.1}
 
-TODO Citations for MARL problems
-
 The focus of this project is on communication in multi-agent reinforcement learning.
-However, MARL has many challenges which we are likely to uncover such as the non-stationary problem, credit assignment problem and long training times.
-The non-stationary problem is when multiple agents learn simultaneously creating an unpredicatably changing environment from an individual agent's perspective.
-To mitigate these problem, so we can focus our investigation on the communication aspect, we will adjust the original AI Mother Tongue\cite{AIMotherTongue} algorithm by replacing their chosen reinforcement learning algorithm of REINFORCE\cite{REINFORCE} to one which focuses on stability.
-We will use Multi-agent Proximal Policy Optimisation (MAPPO)\cite{MAPPO} - an extension of an approximation of trust region policy optimisation (TRPO) for multiple agents.
-I have chosen MAPPO in hopes to reduce training times as it only requires a single critic and all agents can share the majority of paramaters, and the global critic can overcome the non-stationary problem and credit assignment problem as argued in \cite{MAPPO}.
+However, MARL has many challenges which we are likely to uncover, such as the non-stationary problem, credit assignment problem and long training times.
+The non-stationary problem is when multiple agents learn simultaneously, creating an unpredictably changing environment from an individual agent's perspective.
+To mitigate these problems, so we can focus our investigation on the communication aspect, we will adjust the original AI Mother Tongue\cite{AIMotherTongue} algorithm by replacing their chosen reinforcement learning algorithm of REINFORCE\cite{REINFORCE} with one which focuses on stability.
+We will use Multi-agent Proximal Policy Optimisation (MAPPO)\cite{MAPPO} - an extension of Proximal Policy Optimisation (PPO)\cite{PPO} to cooperative multi-agent settings, itself derived from Trust Region Policy Optimisation (TRPO)\cite{TRPO}.
+MAPPO shares a policy across all agents and uses a centralised value function with access to the global state during training, whilst each agent acts in a decentralised manner at execution time.
+This centralised critic helps mitigate the non-stationary and credit assignment problems by learning from the joint state and joint rewards, whilst PPO-style clipped updates provide stable policy optimisation.
 
-MAPPO optimises two main components. Each agent's Policy (Actor) ${\pi}_{{\theta}_{i}}$ and the Value Function (Critic) $V_{\phi}$.
+MAPPO optimises two main components: each agent's Policy (Actor) ${\pi}_{{\theta}_{i}}$ and the Value Function (Critic) $V_{\phi}$.
 
 \subsubsection{Policy Objective (Actor)}
 \label{sec:2.2.1.1}
@@ -178,7 +230,7 @@ Where:
 
 Unlike standard Proximal Policy Optimisation (PPO)\cite{PPO}, the Value Function is not per-agent, but per-world.
 It has access to global information.
-The goal of the critic is minimise the Mean Squared Error between its own prediction and the discounted returns $R_t$.
+The goal of the critic is to minimise the Mean Squared Error between its own prediction and the discounted returns $R_t$.
 
 \begin{equation}
 L(\phi) = \mathbb{E}_{t} \left[ (V_{\phi}(S_t) - R_t)^2 \right]
@@ -209,19 +261,26 @@ Making my software re-usable and flexible by making communication protocols inte
 To provide a comparable baseline, we will implement a protocol where agents do not broadcast any information to one another.
 
 
-\subsection{On-Policy Communication using Codebook}
+\subsection{On-Policy Continuous Communication}
 \label{sec:2.3.3}
 
-This is a common (TODO: JUSTIFY) modern methodology to facilitate communication between agents.
-A simple continuous vector being broadcast from each agent adds a lot of noise to the agents' policy.
-To reduce this noise, we discretise the continuous vector into a set number of codes. (TODO: Maths, citations)
+% This is a common (TODO: JUSTIFY) modern methodology to facilitate communication between agents.
+% A simple continuous vector being broadcast from each agent adds a lot of noise to the agents' policy.
+% To reduce this noise, we discretise the continuous vector into a set number of codes. (TODO: Maths, citations)
 
-One issue with this method alone is it is susceptible to codebook collapse.
-This is when the agents' policy only ever output a small subset of these codes.
-To mitigate this, we will implement dead code revival. (TODO: Maths, citation)
+% One issue with this method alone is that it is susceptible to codebook collapse.
+% This is when the agents' policy only ever outputs a small subset of these codes.
+% To mitigate this, we will implement dead code revival. (TODO: Maths, citation)
+
+Another comparable baseline is required, one with communication.
+For this, each agent broadcasts a set of continuous values learned jointly with its policy.
+This yields a simple, differentiable communication that matches standard MARL.
 
 \subsection{AI Mother Tongue}
 \label{2.3.4}
+
+AI Mother Tongue protocol follows Liu et al.'s proposal to use a pre-trained discrete autoencoder as a frozen bottleneck for communication in MARL.
+The protocol extends Liu et al.'s proposal by adding more advanced VAE variants.
 
 \subsubsection{Vector-Quantised Variational Autoencoder (VQ-VAE)}
 \label{2.3.4.1}
@@ -259,9 +318,9 @@ k^{*} = \arg\min_{k \in \{1,\dots,K\}} \lVert \mathbf{z}_e - \mathbf{e}_k \rVert
 
 \item \textbf{Straight-Through Estimator (STE)}
 
-An issue of VQ-VAEs, is the argmin operator is non-differentiable.
+An issue with VQ-VAEs is that the argmin operator is non-differentiable.
 If we were to backpropagate classically, gradients would stop at the quantisation step.
-To solve this, VQ-VAE uses the Straight-Through Estimator where we simply copy the gradients from the decoder input $z_q$ directly to the encoder output $z_e$.
+To solve this, VQ-VAE uses the Straight-Through Estimator, where we copy the gradients from the decoder input $z_q$ directly to the encoder output $z_e$.
 
 \item \textbf{Loss Components}
 
@@ -269,27 +328,28 @@ VQ-VAE Loss Function
 \begin{equation}
 \mathcal{L} = \mathcal{L}_\text{recon} + \mathcal{L}_\text{codebook} + \beta \mathcal{L}_\text{commit}, \label{eq:vqvae-total}
 \end{equation}
-where $sg[\cdot]$ denotes the stop-gradient operator, which prevents gradients flowing through its argument in backpropagation.
+where $sg[\cdot]$ denotes the stop-gradient operator, which prevents gradients from flowing through its argument in backpropagation.
 The components are:
 
 \begin{enumerate}
-\item \emph{Reconstruction loss}: 
-  \begin{equation}
-  \mathcal{L}_\text{recon} = \|x - \hat{x}\|_2^2, \label{eq:recon}
-  \end{equation}
-  Defined as the MSE loss between the input $x$ and the output $\hat{x}$
+    \item \emph{Reconstruction loss}: 
+    \begin{equation}
+        \mathcal{L}_\text{recon} = \|x - \hat{x}\|_2^2, \label{eq:recon}
+    \end{equation}
+    
+    Defined as the MSE loss between the input $x$ and the output $\hat{x}$
 
-\item \emph{Codebook loss}: 
-  \begin{equation}
-  \mathcal{L}_\text{codebook} = \|\mathrm{sg}[z_e(x)] - e\|_2^2, \label{eq:codebook}
-  \end{equation}
-  moves codebook vectors $e$ towards encoder outputs $z_e(x)$.
+    \item \emph{Codebook loss}: 
+    \begin{equation}
+        \mathcal{L}_\text{codebook} = \|\mathrm{sg}[z_e(x)] - e\|_2^2, \label{eq:codebook}
+    \end{equation}
+    moves codebook vectors $e$ towards encoder outputs $z_e(x)$.
 
-\item \emph{Commitment loss}: 
-  \begin{equation}
-  \mathcal{L}_\text{commit} = \|z_q(x) - \mathrm{sg}[z_e(x)]\|_2^2 \label{eq:commit}
-  \end{equation}
-  commits encoder outputs to the nearest codebook entry, weighted by $\beta=0.25$.
+    \item \emph{Commitment loss}: 
+    \begin{equation}
+        \mathcal{L}_\text{commit} = \|z_q(x) - \mathrm{sg}[z_e(x)]\|_2^2 \label{eq:commit}
+    \end{equation}
+    commits encoder outputs to the nearest codebook entry, weighted by $\beta=0.25$.
 \end{enumerate}
 
 \end{enumerate}
@@ -300,21 +360,21 @@ The components are:
 \label{2.3.4.2}
 
 As previously discussed, one major issue of using codebooks is codebook collapse.
-Although this is less prominent in vector-quantised variational autoencoder method implemented in the previous section than the basic version of the on-policy codebook generation (no dead code revival), it still exists due to the 'hacky' straight-through estimator leading to an approximation of the true gradient.
+Although this is less prominent in the vector-quantised variational autoencoder method implemented in the previous section than the basic version of the on-policy codebook generation (no dead code revival), it still exists due to the 'hacky' straight-through estimator leading to an approximation of the true gradient.
 To fix this issue, Takida et al. \cite{SQVAE} propose Stochastically-Quantised Variational Autoencoder (SQ-VAE), a variational Bayes framework for learning VQ-VAE components.
 
 Instead of using the argmin operator, we calculate a categorical probability distribution over the codebook.
-The probability of picking code $k$ is based on a Gaussian distribution with a learnable paramater $\sigma$.
+The probability of picking code $k$ is based on a Gaussian distribution with a learnable parameter $\sigma$.
 \begin{equation}
 q(z_q = e_k | z_e) \propto \exp\left(-\frac{\| z_e - e_k \|_2^2}{2\sigma^2}\right)
 \end{equation}
 
 We apply self-annealing whilst learning $\sigma^2$.
-Early during training, the probability distribution is wide which helps explore the entire codebook.
+Early during training, the probability distribution is wide, which helps explore the entire codebook.
 Later on, $\sigma^2$ naturally shrinks, allowing the model to make hard choices.
 To make this differentiable, we use the Gumbel-Softmax trick.
 In the forward pass, we force the output to be a strict one-hot vector.
-In the backward pass, we act as if the output was continuous, following this formula:
+In the backward pass, we act as if the output were continuous, following this formula:
 
 \begin{equation}
 p_k=\frac{\exp(\frac{\text(logits)_k + g_k}{\tau})}{\sum_{j=1}^K \exp(\frac{\text(logits)_j + g_j}{\tau})}
@@ -326,15 +386,15 @@ where:
 \tau = \max(\tau_{min}, \tau_{old} * annealing_rate)
 \end{equation}
 
-However, this method still uses Euclidian distance, but in tasks such as NLP and audio, semantic meaning of a feature is often entirely captured by the direction of the vector, not the magnitude.
-To improve this method for our use case, we can implement an extension of this model von Mises-Fisher Stochastically-Quantised Variational Autoencoder (vMF SQ-VAE).
-vMF SQ-VAE uses cosine similarity instead of Euclidian distance.
+However, this method still uses Euclidean distance, but in tasks such as NLP and audio, the semantic meaning of a feature is often entirely captured by the direction of the vector, not the magnitude.
+To improve this method for our use case, we can implement an extension of this model, von Mises-Fisher Stochastically-Quantised Variational Autoencoder (vMF SQ-VAE).
+vMF SQ-VAE uses cosine similarity instead of Euclidean distance.
 This is done by first normalising the variables onto a unit sphere.
 \begin{equation}
 z_{norm} = \frac{z_e}{\|z_e\|_2}, \quad e_{norm, k} = \frac{e_k}{\|e_k\|_2}
 \end{equation}
 
-Then using the Gumbel-Softmax trick again but with cosine similarity instead of Euclidian distance.
+Then, using the Gumbel-Softmax trick again, but with cosine similarity instead of Euclidean distance.
 \begin{equation}
 q(z_q = e_k | z_e) = \frac{\exp(\kappa \cdot z_{norm}^T e_{norm, k})}{\sum_j \exp(\kappa \cdot z_{norm}^T e_{norm, j})}
 \end{equation}
@@ -343,7 +403,7 @@ q(z_q = e_k | z_e) = \frac{\exp(\kappa \cdot z_{norm}^T e_{norm, k})}{\sum_j \ex
 \label{2.3.4.3}
 
 For a model to capture finer, more complex details, a larger vocabulary is required.
-Simply increasing the vocabulary size of the codebook can increase training time massively due to struggling to fit the entire embedding matrix in memory and the model struggling to explore the entire codebook.
+Simply increasing the vocabulary size of the codebook can increase training time massively due to struggling to fit the entire embedding matrix in memory, and the model struggling to explore the entire codebook.
 To prevent this, but still gain a larger vocabulary, we can use Residually-Quantised Variational Autoencoder (RQ-VAE).
 
 We can apply this method to all of the pre-mentioned Variational Autoencoder methods (VQ-VAE, SQ-VAE).
@@ -394,7 +454,7 @@ The bottom level, responsible for micro-level strategies, projects these shared 
 z_{\text{bottom}} = MLP_{\text{bottom}}([h_{\text{shared}}, z_{\text{top}}])
 \end{equation}
 
-We quantise both of these vectors using one of our aformentioned methods (VQ-VAE, SQ-VAE).
+We quantise both of these vectors using one of our aforementioned methods (VQ-VAE, SQ-VAE).
 
 \begin{equation}
 z_{q, top} = \text{Quantiser}(z_{top})
@@ -413,19 +473,19 @@ z_q = [z_{q, top}, z_{q, bottom}]
 \subsubsection{Pretraining via Imitation Learning}
 \label{2.3.4.5}
 
-To further reduce the training time required, Liu et al. \cite{AIMotherTongue} suggests initially training both the actor and critic models with supervised learning.
-Required observations, optimal actions and their associated advantages can be precollected from an expert agent.
+To further reduce the training time required, Liu et al. \cite{AIMotherTongue} suggest initially training both the actor and critic models with supervised learning.
+Required observations, optimal actions and their associated advantages can be pre-collected from an expert agent.
 
 \begin{enumerate}
     \item \textbf{Expert Agent}:
     In order to do supervised learning on our actor and critic models, we require optimal data.
-    In our game, creating an optimal agent is intractable as we must decide the most optimal route to travel to multiple stations.
+    In our game, creating an optimal agent is intractable as we must decide the optimal route to travel to multiple stations.
     This is the travelling salesperson problem, a famous NP-Complete problem.
     Instead, we create a greedy expert agent, who always travels to the nearest station they require.
-    Further optimistations can be done by PPO during RL.
+    Further optimisations can be done by PPO during RL.
     \item \textbf{Supervised Learning}:
-    To simulate communication, we send the location of the agent's own nearest current target in its communication slot encoded via a learned codebook lookup from spatial binning.
-    We then use the actor to output actions logits and use cross-entropy to calculate loss:
+    To simulate communication, we send the location of the agent's own nearest current target in its communication slot, encoded via a learned codebook lookup from spatial binning.
+    We then use the actor to output action logits and use cross-entropy to calculate loss:
     \begin{equation}
         \mathcal{L}_\text{actor} = - \log \pi(a_b^* | s_b, c_b)
     \end{equation}
@@ -436,36 +496,36 @@ Required observations, optimal actions and their associated advantages can be pr
 
 \end{enumerate}
 
-\subsubsection{Reflection Strategies and Auxillery Losses}
+\subsubsection{Reflection Strategies and Auxiliary Losses}
 \label{2.3.4.6}
 
 A large emphasis by Liu et al. \cite{AIMotherTongue} is the importance of reflection strategies.
-They introduce additional loss terms during the RL phase, aimed at fostering more xomplex learning and communication beyond simple reward maximisation.
-These reflection losses are defined over \emph{sender} and \emph{reciever} contexts constructed from observations and communication symbols.
-Due to the complexity of my environment, I have had to extend these auxillery losses to be more task-specific.
+They introduce additional loss terms during the RL phase, aimed at fostering more complex learning and communication beyond simple reward maximisation.
+These reflection losses are defined over \emph{sender} and \emph{receiver} contexts constructed from observations and communication symbols.
+Due to the complexity of my environment, I have had to extend these auxiliary losses to be more task-specific.
 
 For each agent, the \textbf{sender context} is defined by the concatenation of its local observations and the communication vector it emits.
-The \textbf{reciever context} concatenates the agents local observations and all communication vectors recieved from other agents.
+The \textbf{receiver context} concatenates the agent's local observations and all communication vectors received from other agents.
 
 \begin{enumerate}
     \item \textbf{Predicted Return Loss}
-    Given \textbf{sender context}, we train an auxilliary head to predict the true return $R_t$ collected from our GAE advantage estimation.
+    Given \textbf{sender context}, we train an auxiliary head to predict the true return $R_t$ collected from our GAE advantage estimation.
     Loss is defined by:
     \begin{equation}
         \mathcal{L}_{\text{return}} = \frac{1}{N} \sum_{i=1}^{N} \left( \hat{R}(c^{\text{send}}_{i}) - R_{i} \right)^2,
     \end{equation}
     This mirrors Liu et al.'s value-prediction reflection, aligning communication with future rewards.
     \item \textbf{Predicted Critic Loss}
-    Given the \textbf{sender context} again, we train another auxillery head to predict the critic's current values estimate.
+    Given the \textbf{sender context} again, we train another auxiliary head to predict the critic's current value estimate.
     \begin{equation}
         \mathcal{L}_{\text{critic}} = \frac{1}{N} \sum_{i=1}^{N} \left( \hat{V}(c^{\text{send}}_{i}) - V_\phi(S_t) \right)^2,
     \end{equation}
 
     \item \textbf{Intent Loss}
-    The intent loss described in the paper models how agents messages influence partners' behaviour and rewards, however, this is not suitable for our needs.
-    Instead, we will will predict their own target using \textbf{sender context} and predict other agent's target using \textbf{reciever context} (explicitly promoting a Theory-of-Mind style understanding of partners' intentions).
-    
-    These losses summed will be our intent loss.
+    The intent loss described in the paper models how agents' messages influence partners' behaviour and rewards; however, this is not suitable for our needs.
+    Instead, we will predict their own target using \textbf{sender context} and predict other agents' targets using \textbf{receiver context} (explicitly promoting a Theory-of-Mind style understanding of partners' intentions).
+
+    These losses will be our intended loss.
     We define:
     \begin{align}
         \mathcal{L}_{\text{sender-goal}} &= \frac{1}{N}\sum_{i=1}^{N} 
@@ -478,14 +538,14 @@ The \textbf{reciever context} concatenates the agents local observations and all
         \item $\hat{\tau}^{\text{send}}$ predicts the sender's own target from its context
         \item $\hat{\tau}^{\text{recv}}$ predicts another agent's target from the receiver context
         \item \[
-                \eta_i =
-                \begin{cases}
-                    1, & \text{if agent } i \text{ has a valid target}, \\
-                    0, & \text{otherwise}.
-                \end{cases}
+            \eta_i =
+            \begin{cases}
+                1, & \text{if agent } i \text{ has a valid target}, \\
+                0, & \text{otherwise}.
+            \end{cases}
             \]
     \end{itemize}
-    
+
     The total intent loss is then:
     \begin{equation}
         \mathcal{L}_{\text{intent}} = \mathcal{L}_{\text{sender-goal}} + \mathcal{L}_{\text{receiver-goal}}.
@@ -498,7 +558,6 @@ The total reflection loss will then be:
     \mathcal{L}_{\text{refl}} = \lambda \left( \mathcal{L}_{\text{return}} + \mathcal{L}_{\text{critic}} + \mathcal{L}_{\text{intent}} \right),
 \end{equation}
 with a small coefficient $\lambda$ (e.g.\ $0.01$) so that reflection regularises, rather than dominates, the RL objective.
-
 
 
 \section{Requirements Analysis}
@@ -556,20 +615,28 @@ with a small coefficient $\lambda$ (e.g.\ $0.01$) so that reflection regularises
 \subsection{Software Development Model}
 \label{sec:2.5.1}
 
+Development of the project used iterative sprints focusing on incremental value following the Agile methodology \cite{agile_guide}.
+The requirements for emergent communication in MARL were inherently exploratory.
+This is due to evolving algorithms reacting to evaluations such as codebook utilisation and training success.
+The Agile methodolgy proceeded with the following phases:
+\begin{center}
+\textsc{Requirements} \(\rightarrow\) \textsc{Planning} \(\rightarrow\) \textsc{Implementation} \(\rightarrow\) \textsc{Testing/Evaluation} \(\rightarrow\) \textsc{Repeat}
+\end{center}
+
 \subsection{Tool Selection \& Justification}
 \label{sec:2.5.2}
 
-% After reviewing similar projects, I settled on separating my environment and my from my controller.
-Python was chosen as the programming language for the controller, primarily due to its excellent library support for machine learning and data analysis
+% After reviewing similar projects, I settled on separating my environment and my code from my controller.
+Python was chosen as the programming language for the controller, primarily due to its excellent library support for machine learning and data analysis.
 (including but not limited to NumPy \cite{numpy}, Pandas \cite{pandas}, Matplotlib \cite{matplotlib}, and Jupyter Notebooks \cite{jupyter}).
 PyTorch \cite{pytorch} was chosen to develop the models due to its high performance and imperative execution model, which facilitates rapid iterative prototyping.
 However, Python is not a performance language and, as of development, has a GIL \cite{python_gil_wiki} meaning executing simulations of my environment must be effectively done serially, bottlenecking my performance heavily.
-I chose Rust to develop my environment for its high performance and memory safety allowing for rapid development.
+I chose Rust to develop my environment for its high, C-like performance and memory safety, allowing for rapid development.
 
 To streamline my package management and environment integration to the controller, I used a pyproject.toml file.
-This file handled installing packages from external sources and also building my rust environment program to allow my Python controller to access the environment.
+This file handled installing packages from external sources and also building my Rust environment program to allow my Python controller to access the environment.
 
-For version control, I used GitHub \cite{github} to store my git repository which included both my program and my dissertation.
+For version control, I used GitHub \cite{github} to store my git repository, which included both my program and my dissertation.
 I also regularly updated the version of code on my laptop as an extra backup.
 
 
@@ -577,7 +644,7 @@ I also regularly updated the version of code on my laptop as an extra backup.
 \label{sec:2.6}
 
 I have extensive prior experience using Python.
-My internship over the previous summer introduced me to the Rust programming language and using the Py03 library to work with both Rust and Python.
-I had no prior experience with PyTorch, however I understood the fundamentals of neural networks from Cambridge courses and self instructed exercises
+My internship over the previous summer introduced me to the Rust programming language and to using the Py03 library to work with both Rust and Python.
+I had no prior experience with PyTorch, however, I understood the fundamentals of neural networks from Cambridge courses and self-instructed exercises
 such as creating a neural network from scratch to solve XOR and using genetic algorithms on the game Snake.
 

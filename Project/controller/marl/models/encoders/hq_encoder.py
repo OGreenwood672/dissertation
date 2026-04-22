@@ -4,6 +4,7 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
+from controller.marl.core.metric_tracker import MetricTracker
 from .hq_vae import HQ_VAE
 
 class HQ_Encoder(nn.Module):
@@ -49,15 +50,20 @@ class HQ_Encoder(nn.Module):
             kl_weight=kl_weight
         )
 
-    def forward(self, x):
+    def forward(self, x, top_tracker: MetricTracker = None, bottom_tracker: MetricTracker = None):
         shared_features = self.shared_encoder(x)
         
         top_latent = self.top_head(shared_features)
+
+        top_loss, top_quantised = self.latent_handler.top_quantiser(top_latent, top_tracker)
         
-        bottom_input = torch.cat([shared_features, top_latent], dim=-1)
+        bottom_input = torch.cat([shared_features, top_quantised.detach()], dim=-1)
         bottom_latent = self.bottom_head(bottom_input)
+
+        bottom_loss, bottom_quantised = self.latent_handler.bottom_quantiser(bottom_latent, bottom_tracker)
         
-        return self.latent_handler(top_latent, bottom_latent)
+        # return self.latent_handler(top_latent, bottom_latent, top_tracker, bottom_tracker)
+        return top_loss + bottom_loss, torch.cat([top_quantised, bottom_quantised], dim=-1)
     
     # For prior
     @torch.no_grad()
@@ -71,13 +77,26 @@ class HQ_Encoder(nn.Module):
         return top_latent, bottom_latent
 
     def encode(self, x):
+        # shared_features = self.shared_encoder(x)
+        # top_latent = self.top_head(shared_features)
+        
+        # bottom_input = torch.cat([shared_features, top_latent], dim=-1)
+        # bottom_latent = self.bottom_head(bottom_input)
+        
+        # return self.latent_handler.encode(top_latent, bottom_latent)
         shared_features = self.shared_encoder(x)
+        
         top_latent = self.top_head(shared_features)
+
+        _, top_quantised = self.latent_handler.top_quantiser(top_latent)
         
-        bottom_input = torch.cat([shared_features, top_latent], dim=-1)
+        bottom_input = torch.cat([shared_features, top_quantised], dim=-1)
         bottom_latent = self.bottom_head(bottom_input)
+
+        _, bottom_quantised = self.latent_handler.bottom_quantiser(bottom_latent)
         
-        return self.latent_handler.encode(top_latent, bottom_latent)
+        # return self.latent_handler(top_latent, bottom_latent, top_tracker, bottom_tracker)
+        return torch.cat([top_quantised, bottom_quantised], dim=-1)
         
     def get_all_embeddings(self):
         top_embs = list(self.latent_handler.top_quantiser.embeddings)

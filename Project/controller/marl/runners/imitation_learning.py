@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
 
-from controller.marl.core.config import CommunicationType, Config
+from controller.marl.core.config import CommunicationType, Config, GenerativeLangType
 from controller.marl.core.datasets import ObsData
 from controller.marl.runners.sim_runner import run_sim
 from controller.marl.core.logger import Logging
@@ -84,7 +84,7 @@ def imitation_learning(system, config: Config, device: torch.device):
 
 
     # dataset = ObsData(obs_logs_file, O, GO, obs_external_mask, device)
-    dataset = ObsData(obs_logs_file, O, GO, device, T, W, N)
+    dataset = ObsData(obs_logs_file, GO, T, W, N, device)
     train_set, val_set, test_set = torch.utils.data.random_split(dataset, [0.8, 0.1, 0.1])
 
     print(f"Using {len(train_set)} datapoints for training...")
@@ -128,23 +128,39 @@ def imitation_learning(system, config: Config, device: torch.device):
             # global_obs_t = batch_global_obs[:, t]
             # returns_t = batch_return_values[:, t]
 
-            action_logits, lstm_output, actor_hidden_states = actor(batch_obs, actor_hidden_states, world_comms)
+            action_logits, _, actor_hidden_states = actor(batch_obs, actor_hidden_states, world_comms)
             
             # comm_output, _, _ = actor.comm_protocol.get_comms_during_rollout(lstm_output)
             # world_comms = comm_output.detach()
-
-            flat_targets = batch_targets.view(-1, batch_targets.shape[-1])
-            target_indices = spatial_index(flat_targets, config.comms.vocab_size)
-            embedded_comms = actor.comm_protocol.aim_codebooks[0][target_indices.long()].view(B, T, N, C)
-
-            # total_comms = embedded_comms.sum(dim=2, keepdim=True)
-            # sent_comms = (total_comms - embedded_comms) / (N - 1)
-
-            # dropout_mask = (torch.rand(B, T, N, 1, device=device) > 0.5).float()
-            # sent_comms = sent_comms * dropout_mask
-
             world_comms = torch.zeros((B, T, N, NC, C), device=device)
-            world_comms[:, :, :, 0, :] = embedded_comms 
+            if config.comms.communication_type == CommunicationType.AIM:
+                
+                flat_targets = batch_targets.view(-1, batch_targets.shape[-1])
+                target_indices = spatial_index(flat_targets, config.comms.vocab_size)
+                # embedded_comms = actor.comm_protocol.aim_codebooks[0][target_indices.long()].view(B, T, N, C)
+
+                if actor.comm_protocol.config.autoencoder_type == GenerativeLangType.HQ_VAE:
+                    top_indices = target_indices[..., 0].long()
+                    top_embedded = actor.comm_protocol.aim_codebooks[0][top_indices]
+                    
+                    bottom_indices = target_indices[..., 1].long()
+                    bottom_embedded = actor.comm_protocol.aim_codebooks[1][bottom_indices]
+                    
+                    embedded_comms = torch.cat([top_embedded, bottom_embedded], dim=-1)
+                    
+                    if embedded_comms.dim() > 4:
+                        embedded_comms = embedded_comms.view(B, T, N, C)
+                else:
+                    embedded_comms = actor.comm_protocol.aim_codebooks[0][target_indices.long()].view(B, T, N, C)
+
+                # total_comms = embedded_comms.sum(dim=2, keepdim=True)
+                # sent_comms = (total_comms - embedded_comms) / (N - 1)
+
+                # dropout_mask = (torch.rand(B, T, N, 1, device=device) > 0.5).float()
+                # sent_comms = sent_comms * dropout_mask
+
+                world_comms[:, :, :, 0, :] = embedded_comms 
+
             world_comms = world_comms.view(B, T, N, NC * C)
 
             actor_loss = F.cross_entropy(action_logits.reshape(-1, A), batch_actions.reshape(-1))
@@ -195,18 +211,34 @@ def imitation_learning(system, config: Config, device: torch.device):
                 # comm_output, _, _ = actor.comm_protocol.get_comms_during_rollout(lstm_output)
                 # world_comms = comm_output.detach()
 
-                flat_targets = batch_targets.view(-1, batch_targets.shape[-1])
-                target_indices = spatial_index(flat_targets, config.comms.vocab_size)
-                embedded_comms = actor.comm_protocol.aim_codebooks[0][target_indices.long()].view(B, T, N, C)
-
-                # total_comms = embedded_comms.sum(dim=2, keepdim=True)
-                # sent_comms = (total_comms - embedded_comms) / (N - 1)
-
-                # dropout_mask = (torch.rand(B, T, N, 1, device=device) > 0.5).float()
-                # sent_comms = sent_comms * dropout_mask
-
                 world_comms = torch.zeros((B, T, N, NC, C), device=device)
-                world_comms[:, :, :, 0, :] = embedded_comms 
+                if config.comms.communication_type == CommunicationType.AIM:
+                    
+                    flat_targets = batch_targets.view(-1, batch_targets.shape[-1])
+                    target_indices = spatial_index(flat_targets, config.comms.vocab_size)
+
+                    if actor.comm_protocol.config.autoencoder_type == GenerativeLangType.HQ_VAE:
+                        top_indices = target_indices[..., 0].long()
+                        top_embedded = actor.comm_protocol.aim_codebooks[0][top_indices]
+                        
+                        bottom_indices = target_indices[..., 1].long()
+                        bottom_embedded = actor.comm_protocol.aim_codebooks[1][bottom_indices]
+                        
+                        embedded_comms = torch.cat([top_embedded, bottom_embedded], dim=-1)
+                        
+                        if embedded_comms.dim() > 4:
+                            embedded_comms = embedded_comms.view(B, T, N, C)
+                    else:
+                        embedded_comms = actor.comm_protocol.aim_codebooks[0][target_indices.long()].view(B, T, N, C)
+
+                    # total_comms = embedded_comms.sum(dim=2, keepdim=True)
+                    # sent_comms = (total_comms - embedded_comms) / (N - 1)
+
+                    # dropout_mask = (torch.rand(B, T, N, 1, device=device) > 0.5).float()
+                    # sent_comms = sent_comms * dropout_mask
+
+                    world_comms[:, :, :, 0, :] = embedded_comms 
+                    
                 world_comms = world_comms.view(B, T, N, NC * C)
 
                 actor_loss = F.cross_entropy(action_logits.reshape(-1, A), batch_actions.reshape(-1))

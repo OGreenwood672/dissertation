@@ -95,7 +95,7 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
     N = system['num_agents']
     T = config.training.simulation_timesteps
     OBS_DIM = system['agent_obs_shape'][0]
-    GLOBAL_OBS_DIM = system['sim'].get_global_obs_dim() + N * config.comms.communication_size
+    GLOBAL_OBS_DIM = system['sim'].get_global_obs_dim()
     COMM_DIM = config.comms.communication_size
     VOCAB_SIZE = config.comms.vocab_size
     NC = config.comms.num_comms
@@ -157,7 +157,7 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
         DataLoader(test_set, batch_size=config.aim_training.aim_batch_size, shuffle=False)
     )
 
-    num_training_steps = config.aim_training.ae_epochs * (len(training_loader) // config.aim_training.aim_batch_size)
+    num_training_steps = config.aim_training.ae_epochs * len(training_loader)
     
     aim = AIM(OBS_DIM, config.comms, config.aim_training, obs_mask=obs_mask, num_training_steps=num_training_steps).to(device)
 
@@ -175,6 +175,7 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
         num_codebooks = config.comms.rq_levels
 
     tracker = MetricTracker()
+    secondary_tracker = MetricTracker()
     logger = Logging(aim.get_save_folder(), config, 0, num_codebooks, "language")
 
     for epoch in range(config.aim_training.ae_epochs):
@@ -186,13 +187,18 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
             batch_obs = batch_obs.to(device)
 
             optimizer.zero_grad()
-            loss = aim(batch_obs, tracker)
+            loss = aim(batch_obs, tracker, secondary_tracker)
 
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(aim.parameters(), max_norm=1.0)
 
             optimizer.step()
+
+        secondary_tracker_keys = list(secondary_tracker.metrics.keys())
+        for key in secondary_tracker_keys:
+            tracker.metrics[f"secondary_{key}"] = secondary_tracker.metrics.pop(key)
+            tracker.counts[f"secondary_{key}"] = secondary_tracker.counts.pop(key)
 
         train_keys = list(tracker.metrics.keys())
         for key in train_keys:
@@ -204,7 +210,12 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
         with torch.no_grad():
             for batch_obs, _, _, _, _, _ in validation_loader:
                 batch_obs = batch_obs.to(device)
-                aim(batch_obs, tracker) 
+                aim(batch_obs, tracker, secondary_tracker) 
+
+        secondary_tracker_keys = list(secondary_tracker.metrics.keys())
+        for key in secondary_tracker_keys:
+            tracker.metrics[f"secondary_{key}"] = secondary_tracker.metrics.pop(key)
+            tracker.counts[f"secondary_{key}"] = secondary_tracker.counts.pop(key)
         
         not_train_keys = list(filter(lambda x: not x.startswith("train"), tracker.metrics.keys()))
         for key in not_train_keys:
@@ -229,6 +240,7 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
 
         logger.log(epoch, tracker)
         tracker.reset_tracker()
+        secondary_tracker.reset_tracker()
 
     aim.eval()
     test_loss = 0.0

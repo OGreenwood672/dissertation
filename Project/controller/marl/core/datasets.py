@@ -47,7 +47,7 @@ class FilteredObsData(Dataset):
     
 
 class ObsData(Dataset):
-    def __init__(self, obs_log_path, obs_count, global_obs_count, device, T, W, N):
+    def __init__(self, obs_log_path, global_obs_count, T, W, N, device):
 
         print(f"Loading CSV from {obs_log_path}...")
 
@@ -56,8 +56,7 @@ class ObsData(Dataset):
         self.device = device
         self.global_obs_count = global_obs_count
         
-        Total_T = raw_obs.shape[0] // (W * N)
-        E = Total_T // T
+        E = raw_obs.shape[0] // (W * N) // T
         F = raw_obs.shape[1]
         
         

@@ -72,7 +72,7 @@ Whilst there is a $\sim 5\%$ improvement in allocation time when using Python's 
 Before we are able to integrate the language into reinforcement learning, its health must be evaluated.
 A poorly initialised frozen encoder could limit the agents' language considerably, preventing them from reaching their maximum cooperation potential.
 
-\subsection{Reconstruction and Commitment Quality}
+\subsection{Variational Autoencoder Comparisons}
 \label{sec:4.3.1}
 
 For this evaluation, reconstruction loss and commitment loss are tracked throughout a training process of 50 epochs using 26880 datapoints.
@@ -141,6 +141,23 @@ The reduced volatility of training the language ensures high reproducibility for
 \subsection{Baseline Comparisons}
 \label{sec:4.4.1}
 
+To assertain the effectiveness of the AI Mother Tongue architecture, it is compared against two other protocols.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{reward_mean_comparison.png}
+    \caption{Reward Mean per Step for $30,000$ training steps over PPO training loop}
+    \label{fig:reward-mean-comparison}
+\end{figure}
+
+As shown in figure \ref{fig:reward-mean-comparison}, AI Mother Tongue architecture was able to outperform both other protocols.
+The No Communication protocol showed the requirement for communication in the simutlation, this protocol converged on a reward mean per step of 0.09.
+The Continuous Comms protocol showed a smooth convergence to 0.11 reward mean per step.
+
+The AI Mother Tongue protocol demonstrates two distinct phases in its training.
+The first phase underperforms all the other protocols, as it struggles to balance optimising its auxiliary losses and the standard training losses.
+The second phase converges to 0.13 reward mean per step as it learns to use the information stored in order to optimise the auxiliary heads to optimise the standard training losses.
+
 \subsection{Bandwidth-Performance Trade-off}
 \label{sec:4.4.2}
 
@@ -155,38 +172,156 @@ To quantify the improvement in performance relative to the network bandwidth foo
         |>{\centering\arraybackslash}m{0.17\textwidth}|}
     \hline
     \textbf{Protocol} & \textbf{Bandwidth per Broadcast} & \textbf{Compression Ratio} & \textbf{\% of Optimal} \\\hline
-    \textbf{No Communication} & $0$ bits & N/A & $\sim 40\%$ \\\hline
-    \textbf{Continuous Communication} & $256$ bits & $1.0\times$ & $100.0\%$ \\\hline
-    \textbf{AI Mother Tongue} & $5$ bits & $51.2\times$ & $\sim 90\%$ \\\hline
+    \textbf{No Communication} & $0$ bits & N/A & $\sim 45\%$ \\\hline
+    \textbf{Continuous Communication} & $256$ bits & $1.0\times$ & $\sim 55\%$ \\\hline
+    \textbf{AI Mother Tongue} & $5$ bits & $51.2\times$ & $\sim 65\%$ \\\hline
     \end{tabular}
     \caption{Protocol Efficiency and Reward Comparison under Optimal Baseline}
     \label{tab:protocol_reward_comparison}
 \end{table}
 
+\subsection{Reflection Strategies - Are They Needed?}
+\label{sec:4.4.3}
 
-\section{Analysis of Emergent Linguistics}
+\section{Information-Theoretic \& Linguistic Properties}
 \label{sec:4.5}
 
 \subsection{Spontaneous Semantic Compression}
 \label{sec:4.5.1}
 
-\subsection{Intent and Semantic Mapping}
+Throughout training, communication perplexity of the agent's vocabulary is tracked.
+Communication perplexity is measured as $e^{-\text{entropy of vocabulary}}$.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{comm_perplexity_over_time.png}
+    \caption{Communication Perplexity tracked over a training run of AI Mother Tongue when using VQ-VAE with a windowed smoothing of 10 steps}
+    \label{fig:comm-perplexity-over-training}
+\end{figure}
+
+At the start of training, the agents are exploring all possible outputs, leading to a uniform random sampling across the majority of the codebook.
+As the RL begins to solve the asymmetric information task (between step 3000 and 7000), communication perplexity collapses and stabilises at ~3.
+This collapse represents spontaneous semantic compression.
+Instead of using the full theoretical capacity of the codebook, a small subset of codes are assigned useful semantic meaning.
+% Do more
+
+\subsection{Codebook Utilisation}
 \label{sec:4.5.2}
 
-\subsection{Decoding the HQ-VAE}
-\label{sec:4.5.3}
+To further understand the agents use of language, the frequency of each code is analysed.
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{vocab-frequency.png}
+    \caption{Normalised frequency of each code across 2880 runs}
+    \label{fig:vocab-frequency}
+\end{figure}
 
-\section{Architectural Ablation Studies}
+From this data \ref{fig:vocab-frequency}, the distribution exhibits a strong skew giving a low entropy score of 4.24 and a high Gini coefficient of 0.91.
+When visualising this empirical distribution with a rank-frequency plot, it demonstrates exponential decay closely resembeling Zipf's Law especially for the first 25 codes.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{rank-frequency-vs-zipf.png}
+    \caption{Vocabulary rank-frequency plot compared to Zipf's Law}
+    \label{fig:rank-frequency-zipf}
+\end{figure}
+
+However, a notable deviation from Zipf's Law does occur at the tail-end of the distribution where the frequency rapidly decreases.
+Although sudden drop to zero is not a feature of a classic Zipfian distribution, it is a feature of the truncated Zipfian distribution \cite{TruncatedZipfianDist}.
+This occurs because in most languages analysed, an infinite number of words can be created, however, in this system there only exists a finite set of codes.
+The emergence of this phenomenon indicates the agents were successful at assigning high frequency tokens to common semantic meaning and low frequency tokens to unnessary tokens.
+
+\section{Cognitive Mapping and Spatial Memory}
 \label{sec:4.6}
 
-\subsection{Reflection Strategies - Are They Needed?}
+\subsection{Memory Probing}
+\label{sec:4.5.2}
+
+To understand what the agent concretly knows, six strict linear probes were developed following Guillaume et al.'s methodolgy \cite{Probing}.
+Each probe takes as input the final layer of the Long-Short Term Memory (LSTM) module, and predicts one of the following using MSE loss:
+\begin{itemize}
+    \item The agent's own next target's coordinates
+    \item The agent's partner's next target's coordinates
+    \item The agent's own next target's relative coordinates from the agent's coordinates
+    \item The agent's partner's next target's relative coordinates from the agent's coordinates
+    \item A unit vector in the direciton of the agent's next target
+    \item A unit vector in the direciton of the agent's partner's next target
+\end{itemize}
+
+Initially in a simulation run, agent's have no way of knowing the location of their targets.
+To account for this, the models are trained only on the last half of the timesteps to ensure the LSTM contains the necassary information for training.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{lstm_probing.png}
+    \caption{LSTM Probing Models Test Loss over simulation runs with various tasks}
+    \label{fig:lstm-probing}
+\end{figure}
+
+The relative distance and unit direction models are shown to never improve over the course of a simulation, suggesting the LSTM does not follow egocentric memory, where information is stored relative from the self (i.e. relative coordinates, or direction to target).
+However, the absolute location model shows the LSTM uses allocentric memory, where information is stored using a global coordinates system.
+
+Even though the absolute loaction model does show the LSTM storing some information, the model converges on an MSE of 1.6.
+This error represents an uncertainty radius of 1.6 cells, showing how the memory acts as a 'regional beacon' for the agent's targets.
+
+An important conclusion from \ref{fig:lstm-probing} is the agents need for communication decreases as the simulation runs and they store target locations in the LSTM module.
+
+\section{Semantic Grounding and Pragmatics}
+\label{sec:4.6}
+
+\subsection{Semantic Grounding: $P(\text{Target} | \text{Code})$}
 \label{sec:4.6.1}
 
+Using the conclusion from LSTM Probing (\ref{sec:4.5.2}) of communication is less required as the simulation runs.
+Therefore, to analyse semantic meaning of messages, only the first six simulation steps are used.
 
-\subsection{VQ-VAE vs SQ-VAE}
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\textwidth]{partner-target-given-code.png}
+    \caption{Liklihood of location of target given the top eight codes broadcasted from partner at different steps in the simulation}
+    \label{fig:probability-target-given-code}
+\end{figure}
+
+\ref{fig:probability-target-given-code} shows the liklihood of location of target given the code broadcasted from partner.
+From this figure, certain codes clearly represent certain regions.
+The most prominent is code ten, which always represents the target is in the bottom left quadrant, weighted towards the middle.
+This figure also further consolidates the loss of use of communication during a simulation run.
+At the inital simulation steps, target locations are clear, however, as the simulation progresses to even step 3, the uncertainty of the location of targets given certain codes increase.
+
+\subsection{Causal Influence on Policy: $P(\text{Action}_{partner}^{t+1} | \text{Code}_{self}^t)$}
 \label{sec:4.6.2}
 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{partners-action-given-code.png}
+    \caption{Probability of partner's action given recieved code within first four simulation steps}
+    \label{fig:partner-action-given-code}
+\end{figure}
+
+As shown in Figure \ref{fig:partner-action-given-code}, calculating the conditional probability of the receiver's next action given the emitted code reveals a relatively uniform distribution across the action space.
+These findings further confirm the findings from the LSTM Probing\ref{sec:4.5.2}, the codes purely communicatie allocentric information.
+As each agent navigates to its target independently based off of its own knowlege of the environment, the action taken follows a uniform distribution.
+
+\subsection{Action and Communication Entanglement: $P(\text{Action}_{self}^{t} | \text{Code}_{self}^t)$}
+\label{sec:4.6.3}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{own-action-given-code.png}
+    \caption{Probability of agent's action given emitted code within first four simulation steps}
+    \label{fig:own-action-given-code}
+\end{figure}
+
+The figure \ref{fig:own-action-given-code}, which calculate the conditional probability of the next action given a code, is unlike \ref{fig:partner-action-given-code}.
+Specifc codes lead to strong probabilities of certain movement actions.
+This is a symptom of state-action entanglement.
+The action head and communication head for the actor are simple and as they are both derived from the LSTM module, they are strongly correlated.
+This leads to the code being outputted by the actor inadvertently encoding its next action choice.
+
+
+\subsection{Context-Aware Signalling (Inventory-Dependent Language)}
+\label{sec:4.6.4}
 
 
 % VAE loss of BCE + 1.75 * MSE

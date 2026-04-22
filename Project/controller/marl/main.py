@@ -151,6 +151,7 @@ def setup_language_analysis(config: Config, device: torch.device):
         folder = LANGUAGES_DIR / config.comms.comm_folder
 
     aim = AIM.load(folder, config.aim_training, config.comms, obs_dim=filtered_obs_dim, obs_loss_mask=loss_obs_mask, device=device)
+    aim.eval()
 
     metric_tracker = MetricTracker()
 
@@ -224,7 +225,7 @@ def main():
         if input("Use optimal actions? (Y/n) ").lower() != "n":
             load_agent_architecture = False
 
-    system, config = setup(config, device, load_agent_architecture, imitate=args.mode != "imitate")
+    system, config = setup(config, device, load_agent_architecture, imitate=args.mode == "train")
 
     if args.mode == "train":
         system["actor"].train()
