@@ -161,7 +161,7 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
     
     aim = AIM(OBS_DIM, config.comms, config.aim_training, obs_mask=obs_mask, num_training_steps=num_training_steps).to(device)
 
-    set_priors(aim, prior_loader, device='cuda')
+    # set_priors(aim, prior_loader, device='cuda')
 
     optimizer = torch.optim.Adam(aim.parameters(), lr=config.aim_training.aim_learning_rate)
 

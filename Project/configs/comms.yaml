@@ -2,8 +2,9 @@ communication_type: aim
 
 vocab_size: 32
 num_comms: 1
-autoencoder_type: "vq-vae"
+autoencoder_type: "sq-vae"
 rq_levels: 1
 communication_size: 8
-comm_folder: 2026-04-20_11-04-54 # 5x5
-# comm_folder: "2026-04-22_15-16-53"
+# comm_folder: 2026-04-20_11-04-54 # 5x5
+# comm_folder: "2026-04-22_15-16-53" # hq-vae
+comm_folder: "2026-04-23_20-22-07" # sq-vae

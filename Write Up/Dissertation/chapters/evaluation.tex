@@ -6,8 +6,12 @@ Excellent critical thought and interpretation which substantiate any claims of s
 \section{Evaluation Setup}
 \label{sec:4.1}
 
-% TODO
-
+For the following evaluations, a specific cooperative simulation setup is created.
+There exist two agents.
+Each agent has two ingredients to collect from unique stations.
+They also each have a station to drop off their product.
+Each agent cannot observe their own pick up stations, but can observe their teammates.
+This setup ensures cooperation be required and therefore communication must emerge for optimal task reward.
 
 \section{System Performance}
 \label{sec:4.2}
@@ -27,7 +31,7 @@ For this RL project, all threads require synchronisation at every simulation tim
 To justify developing the simulation in Rust rather than Python, a simple mock simulation was developed in Python.
 This mock simulation was compared to the vectorised Rust backend.
 Environment steps per second (SPS) was calculated to analyse the throughput of each of the simulations.
-Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^8\}$) to measure concurrency efficiency.
+Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^11\}$) to measure concurrency efficiency.
 
 \begin{figure}[htbp]
     \centering
@@ -35,7 +39,6 @@ Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^8\}$) to measu
     \caption{Concurrent Environment Throughput Performance. Comparison of Python multiprocessing and Rust with Rayon across an exponentially increasing number of parallel worlds}
     \label{fig:sim-time-comparison}
 \end{figure}
-% TODO: Test for how long?
 
 As shown in figure \ref{fig:sim-time-comparison}, the Python baseline completely fails to match the Rust simulation.
 Despite being able to bypass the GIL and using multiple CPU cores, the serialisation and the Inter-Process Communication overhead required to transfer the necassary data between isolated processes at every time step heavily bottleneck the throughput.
@@ -72,7 +75,7 @@ Whilst there is a $\sim 5\%$ improvement in allocation time when using Python's 
 Before we are able to integrate the language into reinforcement learning, its health must be evaluated.
 A poorly initialised frozen encoder could limit the agents' language considerably, preventing them from reaching their maximum cooperation potential.
 
-\subsection{Variational Autoencoder Comparisons}
+\subsection{Discretization Stability: VQ-VAE vs. SQ-VAE}
 \label{sec:4.3.1}
 
 For this evaluation, reconstruction loss and commitment loss are tracked throughout a training process of 50 epochs using 26880 datapoints.
@@ -80,60 +83,119 @@ Liu et al. defined a healthy encoder for the AI Mother Tongue system.
 Reconstruction loss should fall between 0.08 and 0.15.
 Commitment Loss must remain below 1.0.
 
-\begin{figure}[h]
+For this evaluation, reconstruction loss are tracked throughout training processes for VQ-VAE and SQ-VAE.
+For VQ-VAE, commitment loss is also tracked.
+Liu et al. defined a healthy encoder for the AI Mother Tongue system.
+Reconstruction loss should fall between 0.08 and 0.15.
+Commitment Loss must remain below 1.0.
+
+\begin{figure}[htbp]
     \centering
-    \begin{minipage}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{recon_loss_eval.png}
-        \caption{Training and Validation Reconstruction Loss}
-        \label{fig:recon_loss}
-    \end{minipage}\hfill
-    \begin{minipage}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{commit_loss_eval.png}
-        \caption{Training and Validation Commitment Loss}
-        \label{fig:commit_loss}
-    \end{minipage}
-    \caption{Convergence of tracked losses over 50 epochs (with K-means prior)}
+    \includegraphics[width=0.95\textwidth]{recon_loss_eval.png}
+    \caption{Reconstruction Loss over 50 epochs comparing VQ-VAE and SQ-VAE}
     \label{fig:vae_training_eval}
 \end{figure}
 
-As shown in \ref{fig:vae_training_eval}, the model experiences rapid inital convergence.
-By epoch 50, the reconstruction loss has converged to $\sim 0.065$.
-Liu et al.'s recommended loss for a healthy codebook is based on low reconstruction is often a symptom of 'mode collapse'.
+As shown in \ref{fig:vae_training_eval}, both methods of training got below the maximum reconstruction loss of 0.15.
+However, training using SQ-VAE lead to a final reconstruction off of below 0.08.
+Liu et al.'s recommended loss for a healthy codebook is based on low reconstruction often being a symptom of 'mode collapse'.
 This is where the network memorises a small set of generalisable states.
-However, as demonstrated in \ref{sec:4.3.2}, the model maintains a high utilisation of the latent space.
+
+To determine if this 'mode collapse' has occurred, the codebook utilisation was analysed.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{} & \textbf{VQ-VAE} & \textbf{SQ-VAE} \\ \hline
+    \textbf{Codebook Utilisation} & $66.67\% \pm 4.8\%$ & $94.8\% \pm 6.5\%$ \\ \hline
+    \end{tabular}
+    \caption{Codebook utilisation comparison between training with VQ-VAE and SQ-VAE}
+    \label{tab:codebook_util}
+\end{table}
+
+The table \ref{tab:codebook_util} clearly shows using a SQ-VAE, though having a low reconstruction loss, in fact has a better codebook utilisation than using a VQ-VAE.
 Therefore, this low loss indicates high effectiveness in the model rather than 'mode collapse'.
 
-By the end of the training, the commitment loss has converged to $\sim 0.15$.
+By the end of the training the VQ-VAE, the commitment loss has converged to $\sim 0.25$.
 This is well below Liu et al.'s requirement.
 
-\subsection{Initial Codebook Utilisation}
+\subsection{Codebook Initialisation}
 \label{sec:4.3.2}
 
-A potential concern of using a VQ-VAE is the previously discussed 'mode collapse'.
-The 'mode collapse' effectivly reduces the vocabulary size of the language restricting the expressiveness of the agents.
-To evaluate this concern, an ablation study is performed.
+% A potential concern of using a VQ-VAE is the previously discussed 'mode collapse'.
+% The 'mode collapse' effectivly reduces the vocabulary size of the language restricting the expressiveness of the agents.
+% To evaluate this concern, an ablation study is performed.
+% Two initialisation strategies are compared:
+% a standard uniform random initalisation,
+% and a data-driven K-Means prior.
+
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{|l|c|c|c|}
+%     \hline
+%     \textbf{Initialisation Strategy} & \textbf{Final Validation Recon Loss} & \textbf{Active Codes} \\ \hline
+%     \textbf{Random Uniform Prior} & $0.064 \pm 0.01$ & $79.13 \pm 12.63$ \\ \hline
+%     \textbf{K-Means Prior} & $0.070 \pm 0.004$ & $83.53 \pm 7.67$ \\ \hline
+%     \end{tabular}
+%     \caption{Memory Management Overhead per Epoch: $T=20,000$, $W=32$}
+%     \label{tab:init_vae_eval}
+% \end{table}
+
+% The table \ref{tab:init_vae_eval} shows the random uniform initialisation achieved a marginly lower reconstruction loss of $\sim 0.064$.
+% However, the training proved to be much more volatile than the K-Means initialisation method and analysis post-training revealed a average index utilisation.
+% This indicates that the VQ-VAE model initialised with random uniform embeddings is subject to the 'initialisation lottery', which can be mitigated by instead initialising codebook embeddings with a data-driven K-Means prior.
+% The reduced volatility of training the language ensures high reproducibility for MARL training.
+
+To evaluate the robustness of the VAEs, an ablation study is performed.
 Two initialisation strategies are compared:
 a standard uniform random initalisation,
 and a data-driven K-Means prior.
 
-\begin{table}[h]
-    \centering
-    \begin{tabular}{|l|c|c|c|}
-    \hline
-    \textbf{Initialisation Strategy} & \textbf{Final Validation Recon Loss} & \textbf{Active Codes} \\ \hline
-    \textbf{Random Uniform Prior} & $0.064 \pm 0.01$ & $79.13 \pm 12.63$ \\ \hline
-    \textbf{K-Means Prior} & $0.070 \pm 0.004$ & $83.53 \pm 7.67$ \\ \hline
-    \end{tabular}
-    \caption{Memory Management Overhead per Epoch: $T=20,000$, $W=32$}
-    \label{tab:init_vae_eval}
-\end{table}
+For the VQ-VAE, the random uniform prior gave superior reconstruction loss and codebook utilisation compared to the K-Means prior.
+However, the SQ-VAE exhibited the opposite behaviour, the reconstruction loss and codebook utilisation were superior when using K-Means prior instead of the random uniform prior.
 
-The table \ref{tab:init_vae_eval} shows the random uniform initialisation achieved a marginly lower reconstruction loss of $\sim 0.064$.
-However, the training proved to be much more volatile than the K-Means initialisation method and analysis post-training revealed a average index utilisation.
-This indicates that the VQ-VAE model initialised with random uniform embeddings is subject to the 'initialisation lottery', which can be mitigated by instead initialising codebook embeddings with a data-driven K-Means prior.
-The reduced volatility of training the language ensures high reproducibility for MARL training. 
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-vq-vae-no-prior.png}
+        \caption{VQ-VAE without prior}
+        \label{fig:pca-vq-vae-no-prior}
+    \end{subfigure}
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-vq-vae.png}
+        \caption{VQ-VAE with prior}
+        \label{fig:pca-vq-vae}
+    \end{subfigure}
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-sq-vae-no-prior.png}
+        \caption{SQ-VAE without prior}
+        \label{fig:pca-sq-vae-no-prior}
+    \end{subfigure}
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-sq-vae.png}
+        \caption{SQ-VAE with prior}
+        \label{fig:pca-sq-vae}
+    \end{subfigure}
+    
+    \caption{PCA projections of latent codes for SQ-VAE and VQ-VAE with and without the prior.}
+    \label{fig:pca-sq-vq-vae}
+\end{figure}
+
+To visualise, Principal Component Analysis (PCA) was applied to reduce the dimensionality of the learned codebook embeddings, see figure \ref{fig:pca-sq-vae}.
+This visualisation explains the findings.
+For VQ-VAE, the random uniform initialisation scattered the codes across the latent space.
+This allowed the untrained encoder to naturally intersect with them, resulting in gradients successfully flowing through each of the embeddings.
+Conversly, the K-Means prior forced the embeddings into a small area where the untrained encoder would only interact with a select few edge embeddings, leaving a high concentration of unused codes.
+
+For (vMF) SQ-VAE, when using $L_2$-normalised Spherical K-Means prior, the embeddings were each set in the correct region and the model used its stochastic annealing purely for local fine-tuning.
+Whereas, when using the random initialisation, embeddings frequently spawned at extreme angular distances from the true data distribution and the model's annealing process pushed the embeddings into a suboptima local minima.
 
 \section{Online MARL Task Performance}
 \label{sec:4.4}
@@ -150,38 +212,22 @@ To assertain the effectiveness of the AI Mother Tongue architecture, it is compa
     \label{fig:reward-mean-comparison}
 \end{figure}
 
+TODO: Get confidence intervals
+
 As shown in figure \ref{fig:reward-mean-comparison}, AI Mother Tongue architecture was able to outperform both other protocols.
 The No Communication protocol showed the requirement for communication in the simutlation, this protocol converged on a reward mean per step of 0.09.
-The Continuous Comms protocol showed a smooth convergence to 0.11 reward mean per step.
+The Discrete Comms protocol showed a struggle to communicate any useful information from one agent to another and had a similar training convergence to the no communication protocol.
 
 The AI Mother Tongue protocol demonstrates two distinct phases in its training.
 The first phase underperforms all the other protocols, as it struggles to balance optimising its auxiliary losses and the standard training losses.
 The second phase converges to 0.13 reward mean per step as it learns to use the information stored in order to optimise the auxiliary heads to optimise the standard training losses.
 
-\subsection{Bandwidth-Performance Trade-off}
-\label{sec:4.4.2}
-
-To quantify the improvement in performance relative to the network bandwidth footprint for the AI Mother Tongue, the payload size for each broadcast is calculated for each protocol.
-
-\begin{table}[h]
-    \centering
-    \begin{tabular}{|
-        >{\raggedright\arraybackslash}m{0.20\textwidth}
-        |>{\centering\arraybackslash}m{0.23\textwidth}
-        |>{\centering\arraybackslash}m{0.23\textwidth}
-        |>{\centering\arraybackslash}m{0.17\textwidth}|}
-    \hline
-    \textbf{Protocol} & \textbf{Bandwidth per Broadcast} & \textbf{Compression Ratio} & \textbf{\% of Optimal} \\\hline
-    \textbf{No Communication} & $0$ bits & N/A & $\sim 45\%$ \\\hline
-    \textbf{Continuous Communication} & $256$ bits & $1.0\times$ & $\sim 55\%$ \\\hline
-    \textbf{AI Mother Tongue} & $5$ bits & $51.2\times$ & $\sim 65\%$ \\\hline
-    \end{tabular}
-    \caption{Protocol Efficiency and Reward Comparison under Optimal Baseline}
-    \label{tab:protocol_reward_comparison}
-\end{table}
+TODO: Talk about optimal, and shortcomings
 
 \subsection{Reflection Strategies - Are They Needed?}
-\label{sec:4.4.3}
+\label{sec:4.4.2}
+
+TODO: Show training run with and without reflection strategies, perhaps apply reflection strategies to discrete protocol
 
 \section{Information-Theoretic \& Linguistic Properties}
 \label{sec:4.5}
@@ -200,7 +246,7 @@ Communication perplexity is measured as $e^{-\text{entropy of vocabulary}}$.
 \end{figure}
 
 At the start of training, the agents are exploring all possible outputs, leading to a uniform random sampling across the majority of the codebook.
-As the RL begins to solve the asymmetric information task (between step 3000 and 7000), communication perplexity collapses and stabilises at ~3.
+As the RL begins to solve the asymmetric information task (between step 3000 and 7000), communication perplexity collapses and stabilises at $\sim 3.0$.
 This collapse represents spontaneous semantic compression.
 Instead of using the full theoretical capacity of the codebook, a small subset of codes are assigned useful semantic meaning.
 % Do more
@@ -278,7 +324,7 @@ Therefore, to analyse semantic meaning of messages, only the first six simulatio
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=1\textwidth]{partner-target-given-code.png}
+    \includegraphics[width=0.8\textwidth]{partner-target-given-code.png}
     \caption{Liklihood of location of target given the top eight codes broadcasted from partner at different steps in the simulation}
     \label{fig:probability-target-given-code}
 \end{figure}
@@ -292,9 +338,11 @@ At the inital simulation steps, target locations are clear, however, as the simu
 \subsection{Causal Influence on Policy: $P(\text{Action}_{partner}^{t+1} | \text{Code}_{self}^t)$}
 \label{sec:4.6.2}
 
-\begin{figure}[htbp]
+To see if the agent had a direct impact on the action of its partner, a confusion matrix is made:
+
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{partners-action-given-code.png}
+    \includegraphics[width=0.85\textwidth]{partners-action-given-code.png}
     \caption{Probability of partner's action given recieved code within first four simulation steps}
     \label{fig:partner-action-given-code}
 \end{figure}
@@ -306,9 +354,11 @@ As each agent navigates to its target independently based off of its own knowleg
 \subsection{Action and Communication Entanglement: $P(\text{Action}_{self}^{t} | \text{Code}_{self}^t)$}
 \label{sec:4.6.3}
 
-\begin{figure}[htbp]
+To understand the relationship between the agent's code and its own action, a confusion matrix is made:
+
+\begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{own-action-given-code.png}
+    \includegraphics[width=0.9\textwidth]{own-action-given-code.png}
     \caption{Probability of agent's action given emitted code within first four simulation steps}
     \label{fig:own-action-given-code}
 \end{figure}
@@ -323,5 +373,24 @@ This leads to the code being outputted by the actor inadvertently encoding its n
 \subsection{Context-Aware Signalling (Inventory-Dependent Language)}
 \label{sec:4.6.4}
 
+To understand if the agents are using a pragmatic language, the conditional probability of token usage given the ingredients it has is calculated.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{token-given-inventory.png}
+    \caption{Probability of broadcasting token given inventory}
+    \label{fig:token-given-inventory}
+\end{figure}
+
+As shown in figure \ref{fig:token-given-inventory}, the active vocabulary undergoes large changes depending on the specific items currently held in the agent's inventory.
+When the agent has an empty inventory, the vocabulary is highly concentrated on a specific subset of codes.
+However, on progression, the vocabulary immediately suppresses these largely used codes.
+Once the inventory contains the product, the vocabulary uses a concise set of codes likely used to coordinate drop off location.
+These results suggest the agents have a Theory of Mind as intended from the auxiliary losses.
 % VAE loss of BCE + 1.75 * MSE
+
+
+\section{HQ-VAE Analysis}
+TODO
+
+Also TODO: Mutual Information analysis, maybe join with LSTM probing

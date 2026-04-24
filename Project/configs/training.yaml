@@ -5,5 +5,5 @@ training:
   rollout_phases: 1
   batch_size: 512
   worlds_parallised: 960
-  seed: 2
+  seed: -1
   periodic_save_interval: 1000

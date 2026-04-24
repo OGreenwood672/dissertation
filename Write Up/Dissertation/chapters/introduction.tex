@@ -29,19 +29,34 @@ Whilst the paper suggests an interesting novel idea, it only evaluates this on a
 To ascertain whether this architecture is effective and robust enough for practical use, it requires rigorous evaluation within a more complex environment where agents possess asymmetric information and must cooperate to discover hidden stations.
 This dissertation provides this rigorous evaluation and extends the ideas discussed in the paper.
 
-\textbf{Research Question:} To what extent does the AIMotherTongue architecture enable robust emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput MAPPO with VAE extensions (SQ-VAE, HQ-VAE), relative to no-communication and continuous-vector baselines?
+\textbf{Research Question:} To what extent does the AIMotherTongue architecture enable robust emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput MAPPO with VAE extensions (SQ-VAE, HQ-VAE), relative to no-communication and fixed discrete communication baselines?
 
 \section{Project Overview \& Contributions}
 \label{sec:1.1}
 
-In this project, I:
+The main contributions in this project are:
 
 \begin{enumerate}
-    \item \textbf{Scale the Algorithm}
-    The AI Mother Tongue architecture will be integrated into a highly efficient Multi-Agent Proximal Policy Optimisation (MAPPO) framework to test the limits of the architecture.
-    \item \textbf{Generative Language Extension}
-    The project will implement the VQ-VAE approach as well as experiment with other generative language models suggested by the paper, such as Stochastically-Quantised Variational Autoencoder (SQ-VAE) and Hierarchically-Quantised Variational Autoencoder (HQ-VAE), to determine if probabilistic or multiple codebooks improve coordination.
-    \item \textbf{Empirical Benchmarking}
-    The AI Mother Tongue architecture will be quantitatively compared to other communication methods, such as no communication and continuous communication methods.
-    % TODO: How was it evaluated as well?
+    \item \textbf{A configurable high-throughput MARL environment}
+
+    I implement a vectorised, Rust-based simulation that simulates a discrete two-dimensional environment, supporting hundereds of parallel worlds and a real-time lightweight visualisation.
+
+    \item \textbf{A MAPPO algorithm with hot-swappable communication protocols}
+
+    I engineer a MAPPO-based MARL training script under a centralised training, decentralised execution framework.
+    It uses a shared actor, global critic, LSTM module, custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface to allow hot-swapping of protocols.
+
+    \item \textbf{The AI Mother Tongue architecture}
+
+    I build a communication protocol that loyally follows and extends the AI Mother Tongue architecture \cite{AIMotherTongue}.
+    Pretrained VQ-VAE or varients (SQ-VAE or HQ-VAE) are injected into the actor network and frozen before MARL training.
+
+    \item \textbf{Quantitive evaluation of communication protocols}
+
+    I compare communication protocols including AI Mother Tongue, Discrete Communication and No Communication with metrics such as task reward and bandwidth efficiency.
+
+    \item \textbf{Semantic analysis of communication and memory}
+
+    I collect, visualise and qualitivly analyse conditional distributions such as $P(\text{Target}_{\text{partner}}^{t} | \text{Code}_{self}^t)$, $P(\text{Action}_{\text{partner}}^{t+1} | Code_{self}^t)$.
+
 \end{enumerate}

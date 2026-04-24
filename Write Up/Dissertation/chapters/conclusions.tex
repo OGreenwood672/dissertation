@@ -3,11 +3,56 @@
 Conclusions provide a clear and thorough summary, with interesting future work suggested.
 Thoughtful personal reflection on the lessons learned.
 
-\section{Achievements}
+This dissertation investigated whether the AI Mother Tongue architecture can support robust emergent discrete communication in a complex multi-agent POMDP when combined with a high-throughput MAPPO training pipeline. 
+The results found that the architecture can be scaled to substantially more demanding tasks and the language created produced messages that exhibited non-trivial semantic meaning.
+
+\section{Work Completed}
 \label{sec:5.1}
+
+First, I implemented a configurable vectorised, high-throughput MARL environment capable of achieving over 100K steps per second.
+The simulation modelled a discrete two-dimensional environment populated by agents and stations.
+A lightweight real-time visualisation was created to enable inspection of the rollout phase.
+
+Second, a MAPPO-based MARL training script under a centralised training, decentralised execution framework was implemented.
+It uses a shared actor, global critic, LSTM module, custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface that allowed hot-swapping of protocols
+To decrease the training time, a further script was introduced to pre-train the actor-critic networks using imitation learning.
+
+Third, I loyally followed and extended the AI Mother Tongue architecture \cite{AIMotherTongue}.
+Pre-trained VQ-VAE and varients (SQ-VAE and HQ-VAE) were trained on optimal rollout phases and injected into the actor network and frozen before MARL training.
+
+Fourth, a quantitive evaluation of communication protocols was performed.
+The analysis compared task reward and bandwidth efficiency for each of the communication protocols.
+This directly answered the research question proposed at the start of this dissertation.
+
+Finally, the semantics of communication and memory were analysed.
+By collecting and visualising conditional distributions such as the probability of a partner's target given a code and the probability of a partner's next action give a code, the dissertation examined whether the message correlates with goals or next action.
+This analysis showed the agent's communication carried interpretable meaning.
 
 \section{Lessons Learnt}
 \label{sec:5.2}
 
+Developing and evaluating this emergent communication has been a massive undertaking; at over 9000 line of Python code and over 3000 lines of Rust code, it is the largest project I have undertaken.
+It has taught me a few lessons.
+The importance of logging and checkpointing; when running a program that takes over nine hours to complete, waiting until the end to find it overfitted epochs ago is catastrophic without these systems in place.
+% Maybe another lesson
+
 \section{Future Work}
 \label{sec:5.3}
+
+This dissertation gives rise to several promising future directions.
+
+For the communication, each code from every agent is broadcasted to every other agent.
+For simulations with more than two agents, this will inevitably lead to agents listening to codes not relevant for their policy.
+An improvement would be applying an attention mechanism here to determine which codes are sent to which agents.
+This attention mechanism has another key potential use.
+When an agent observes the environment, they only see the closest visible entity.
+This could be improved using the attention mechanism to choose which visible entity is observed.
+
+A second direction for improvement is adding hyperparameter tuning.
+Throughout this project, I found myself determining individual hyperparameters through empirical testing.
+This process was time consuming and likely suboptimal.
+Hyperparameter tuning for autoencoder training, MAPPO training and model architectures would provide optimal results for each communication protocol and therefore provide better comparisons for evaluation.
+
+Finally, in this dissertation, each training run ran for 30,000 training steps.
+This number of training steps was chosen as a trade-off between limited time and achieving sufficient convergence of the policy.
+However, with infinte time I would train for a considerable longer amount of time, and from this clearer results may be achieved.

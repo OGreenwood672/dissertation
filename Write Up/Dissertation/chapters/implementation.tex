@@ -64,18 +64,18 @@ Summary
 
 \vspace{1em}
 \dirtree{%
-.1 / \dotfill (9,909 LOC) .
-.2 configs/ \dotfill Global configuration files (116 LOC) .
-.2 controller/ \dotfill Python/PyTorch MARL logic and autoencoders (3,937 LOC) .
+.1 / \dotfill (12,475 LOC) .
+.2 configs/ \dotfill Global configuration files (118 LOC) .
+.2 controller/ \dotfill Python/PyTorch MARL logic and autoencoders (4,134 LOC) .
 .3 marl/comms/ \dotfill Communication protocols .
 .3 marl/core/ \dotfill Infrastructure (RolloutBuffer, Logging, Config) .
 .3 marl/models/ \dotfill Neural networks (Actor, Critic, VAE Encoders) .
 .3 marl/runners/ \dotfill Training loops (PPO, Imitation, Autoencoder) .
-.2 environment-rs/ \dotfill High-performance vectorised environment (2,898 LOC) .
+.2 environment-rs/ \dotfill High-performance vectorised environment (3,168 LOC) .
 .3 src/ \dotfill Core logic (World, Agent, GridMap, Sim) .
 .2 frontend/ \dotfill Real-time visualisation UI (268 LOC) .
-.2 notebooks/ \dotfill Jupyter notebooks for evaluation (2,554 LOC) .
-.2 tests/ \dotfill Unit tests for controller/ (112 LOC) .
+.2 notebooks/ \dotfill Jupyter notebooks for evaluation (3,982 LOC) .
+.2 tests/ \dotfill Unit tests for controller/ (780 LOC) .
 }
 \vspace{1em}
 
@@ -100,6 +100,8 @@ For the rest of the controller, unit tests were deemed inappropriate.
 \subsubsection{Documentation}
 \label{sec:3.1.3.2}
 
+To provide impact outside of the tripos, a README.md was produced to explain how to use the program.
+The README.md explains how to edit configuration files, add new communication protocols and evaluate the results.
 
 \section{Environment}
 \label{sec:3.2}
@@ -171,7 +173,6 @@ Using this data structure, we can convert our $O(N^2)$ time complexity to $O(1)$
 On top of this functionality, we can also easily calculate an exploration reward.
 Each \lstinline[language=Rust]|GridCell| contains an \lstinline[language=Rust]|is_explored| flag.
 Agents who step on cells with this flag set to \lstinline[language=Rust]|true| collects a small positive reward and negates the flag.
-TODO: explain why? (if not done elsewhere)
 
 \subsection{Visualising the Environment}
 \label{sec:3.2.4}
@@ -187,8 +188,6 @@ Strict types are defined in both the rust simulation and frontend for the data b
 
 To synchronise the configuration between the visualisation and the simulation backend, a Python utility extracts required parameters from the configuration files and places them into a frontend friendly format.
 This synchronisation is integrated into the Vite build script to ensure perfect synchronisation.
-
-(Maybe TODO: dynamic worlds parallisd)
 
 \section{MARL Infrastructure}
 \label{sec:3.3}

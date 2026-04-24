@@ -276,6 +276,9 @@ def train(system, config: Config, device: torch.device):
                         continuous_comms = torch.cat(level_codewords, dim=-1)
                     else:
                         continuous_comms = torch.stack(level_codewords, dim=-2).sum(dim=-2)
+                elif comm_type == CommunicationType.DISCRETE:
+                    cb = actor.comm_protocol.codebook
+                    continuous_comms = cb[comms[..., 0].long()]
                 else:
                     continuous_comms = comms
 

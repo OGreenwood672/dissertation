@@ -261,7 +261,7 @@ Making my software re-usable and flexible by making communication protocols inte
 To provide a comparable baseline, we will implement a protocol where agents do not broadcast any information to one another.
 
 
-\subsection{On-Policy Continuous Communication}
+\subsection{On-Policy Fixed Discrete Communication}
 \label{sec:2.3.3}
 
 % This is a common (TODO: JUSTIFY) modern methodology to facilitate communication between agents.
@@ -273,11 +273,14 @@ To provide a comparable baseline, we will implement a protocol where agents do n
 % To mitigate this, we will implement dead code revival. (TODO: Maths, citation)
 
 Another comparable baseline is required, one with communication.
-For this, each agent broadcasts a set of continuous values learned jointly with its policy.
-This yields a simple, differentiable communication that matches standard MARL.
+For this, each agent broadcasts a set of discrete values learned jointly with its policy.
+To make the discrete value differentiable, the Straight-Through Estimator (STE) is used (explained in \ref{sec:2.3.3}).
+This yields a simple, differentiable communication.
 
 \subsection{AI Mother Tongue}
 \label{2.3.4}
+
+TODO: Diagram of architecure
 
 AI Mother Tongue protocol follows Liu et al.'s proposal to use a pre-trained discrete autoencoder as a frozen bottleneck for communication in MARL.
 The protocol extends Liu et al.'s proposal by adding more advanced VAE variants.
@@ -401,6 +404,8 @@ q(z_q = e_k | z_e) = \frac{\exp(\kappa \cdot z_{norm}^T e_{norm, k})}{\sum_j \ex
 
 \subsubsection{Residually-Quantised Variational Autoencoder (RQ-VAE)}
 \label{2.3.4.3}
+
+TODO: Maybe Remove
 
 For a model to capture finer, more complex details, a larger vocabulary is required.
 Simply increasing the vocabulary size of the codebook can increase training time massively due to struggling to fit the entire embedding matrix in memory, and the model struggling to explore the entire codebook.
