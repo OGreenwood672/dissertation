@@ -31,7 +31,7 @@ For this RL project, all threads require synchronisation at every simulation tim
 To justify developing the simulation in Rust rather than Python, a simple mock simulation was developed in Python.
 This mock simulation was compared to the vectorised Rust backend.
 Environment steps per second (SPS) was calculated to analyse the throughput of each of the simulations.
-Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^11\}$) to measure concurrency efficiency.
+Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^{11}\}$) to measure concurrency efficiency.
 
 \begin{figure}[htbp]
     \centering
@@ -188,7 +188,7 @@ However, the SQ-VAE exhibited the opposite behaviour, the reconstruction loss an
     \label{fig:pca-sq-vq-vae}
 \end{figure}
 
-To visualise, Principal Component Analysis (PCA) was applied to reduce the dimensionality of the learned codebook embeddings, see figure \ref{fig:pca-sq-vae}.
+To visualise, Principal Component Analysis (PCA) was applied to reduce the dimensionality of the learned codebook embeddings, see figure \ref{fig:pca-sq-vq-vae}.
 This visualisation explains the findings.
 For VQ-VAE, the random uniform initialisation scattered the codes across the latent space.
 This allowed the untrained encoder to naturally intersect with them, resulting in gradients successfully flowing through each of the embeddings.
@@ -227,7 +227,19 @@ TODO: Talk about optimal, and shortcomings
 \subsection{Reflection Strategies - Are They Needed?}
 \label{sec:4.4.2}
 
-TODO: Show training run with and without reflection strategies, perhaps apply reflection strategies to discrete protocol
+TODO: Perhaps apply reflection strategies to discrete protocol
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.95\textwidth]{reflection_comparison.png}
+    \caption{Comparison of with and without reflection strategies using Reward Mean per Step for $30,000$ training steps}
+    \label{fig:reward-mean-comparison-reflection}
+\end{figure}
+
+As shown from figure \ref{fig:reward-mean-comparison-reflection}, Liu et al's reflection strategies are vital for the learning process.
+They provide an intermediatery step.
+The communication network learns to optimise auxiliary losses, and only once this is done does the actor learn to optimise the standard training losses using the communication network's output.
+
 
 \section{Information-Theoretic \& Linguistic Properties}
 \label{sec:4.5}
@@ -358,7 +370,7 @@ To understand the relationship between the agent's code and its own action, a co
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{own-action-given-code.png}
+    \includegraphics[width=1\textwidth]{own-action-given-code.png}
     \caption{Probability of agent's action given emitted code within first four simulation steps}
     \label{fig:own-action-given-code}
 \end{figure}
@@ -391,6 +403,10 @@ These results suggest the agents have a Theory of Mind as intended from the auxi
 
 
 \section{HQ-VAE Analysis}
-TODO
 
-Also TODO: Mutual Information analysis, maybe join with LSTM probing
+Replacing the single-level VAE bottleneck with an HQ-VAE did not significantly change task-level performance.
+HQ-VAE's goal was for the top level codebook to capture macro-level strategies and the bottom-level codebook to capture micro-level strategies.
+To test this, I appied the same analyses as in \ref{sec:4.3} - \ref{sec:4.7} on each codebook and on the bottom-level codebook symbols conditioned on the top-level symbols.
+In all cases, no clear, distinguishable strategies emerged at either level.
+Further work is required to understand how the agents are using the hierarchical codes, or to stabilise the hierarchy
+% Also TODO: Mutual Information analysis, maybe join with LSTM probing

@@ -75,8 +75,15 @@ I, the candidate for Part II of the Computer Science Tripos with Blind Grading N
 
 \section*{Original Aims of the Project}
 
-\section*{Work Completed}
+The aim of this project was to evaluate whether the AI Mother Tongue architecture can enable robust emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput MAPPO with VAE extensions (SQ-VAE, HQ-VAE), relative to no-communication and fixed discrete communication baselines.
+The project set out to design a general multi-agent reinforcement learning framework to evaluate several communication protocols (including AI Mother Tongue) over an assembly-line style environment with asymmetric information using metrics such as task reward and semantic meaning of messages.
 
+\section*{Work Completed}
+A configurable vectorised, high-throughput MARL environment modelling an assembly-line style environment was implemented, together with a lightweight real-time visualiser.
+A MAPPO-based MARL training script was developed under a centralised training, decentralised execution paradigm in Python with PyTorch.
+This included a shared actor with LSTM memory, a centralised critic, a custom rollout buffer and support for interchanging communication protocols.
+Three communication protocols were engineered: no communication, on-policy discrete communication, and AI Mother Tongue using pretrained VQ-VAE and experimented with others (SQ-VAE, HQ-VAE).
+A quantitive evaluation of system throughput and learning performance, and a qualitative analysis of the learned communication was performed.
 
 \section*{Special Difficulties}
 
@@ -161,7 +168,7 @@ None.
 
 \chapter{Proposal}
 
-\input{chapters/appendices/proposal/project-proposal.tex}
+% \input{chapters/appendices/proposal/project-proposal.tex}
 
 %TC:endignore
 \end{document}

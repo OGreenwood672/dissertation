@@ -161,6 +161,7 @@ class AimComms(Comms, nn.Module):
             usage_pct = (code_counts > 0).float().sum()
             usage_std = code_counts.std()
             topk_usage = code_counts.topk(10)[0].sum()
+            # assert False # 10 not 5
             self.log(f"usage_count_{rq_level}", usage_pct.item())
             self.log(f"std_usage_{rq_level}", usage_std.item())
             self.log(f"topk_usage_{rq_level}", topk_usage.item())

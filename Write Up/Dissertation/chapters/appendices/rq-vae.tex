@@ -1,0 +1,31 @@
+\section{RQ-VAE}
+
+For a model to capture finer, more complex details, a larger vocabulary is required.
+Simply increasing the vocabulary size of the codebook can increase training time massively due to struggling to fit the entire embedding matrix in memory, and the model struggling to explore the entire codebook.
+To prevent this, but still gain a larger vocabulary, we can use Residually-Quantised Variational Autoencoder (RQ-VAE).
+
+We can apply this method to all of the pre-mentioned Variational Autoencoder methods (VQ-VAE, SQ-VAE).
+We calculate $z_q$ from $z_e$ as usual for the respective method, then we calculate a new $z_e^{1}$ from these:
+
+\begin{equation}
+z_e^{'} = z_e - z_q
+\end{equation}
+
+This new $z_e^{'}$ can be used to calculate another $z_q$.
+
+\begin{equation}
+z_e^{(n)} = z_e^{(n-1)} - z_q^{(n-1)}
+\end{equation}
+
+This process can be repeated any number of times (RQ Levels).
+Once this process has been repeated the chosen number of times, a final $\hat{z_q}$ can be calculated by summing all previous quantised vectors.
+
+\begin{equation}
+\hat{z_q} = \sum_{n=1}^N z_q^{(n)}
+\end{equation}
+
+This produces an effective vocabulary size of:
+
+\begin{equation}
+ \text{Effective Vocab Size} = \text{Original Vocab Size}^{\text{RQ Levels}} 
+\end{equation}

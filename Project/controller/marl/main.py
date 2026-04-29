@@ -65,31 +65,31 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
         ).to(device)
         critic = PPO_Critic(num_agents, global_obs_shape[0], config.critic, config.comms).to(device)
 
-        actor_optimizer = torch.optim.Adam(actor.parameters(), lr=config.mappo.actor_learning_rate)
-        critic_optimizer = torch.optim.Adam(critic.parameters(), lr=config.mappo.critic_learning_rate)
+        actor_optimiser = torch.optim.Adam(actor.parameters(), lr=config.mappo.actor_learning_rate)
+        critic_optimiser = torch.optim.Adam(critic.parameters(), lr=config.mappo.critic_learning_rate)
 
         start_step = 0
         if not cm.is_new_run:
-            actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_checkpoint_models()
+            actor_state, critic_state, actor_optimiser_state, critic_optimiser_state, start_step = cm.load_checkpoint_models()
 
             if actor_state and critic_state:
                 actor.load_state_dict(actor_state)
                 critic.load_state_dict(critic_state)
 
                 try:
-                    actor_optimizer.load_state_dict(actor_optimiser_state)
-                    critic_optimizer.load_state_dict(critic_optimizer_state)
-                    print("Successfully loaded optimizer states.")
+                    actor_optimiser.load_state_dict(actor_optimiser_state)
+                    critic_optimiser.load_state_dict(critic_optimiser_state)
+                    print("Successfully loaded optimiser states.")
                 except ValueError as e:
                     if "different number of parameter groups" in str(e):
-                        print("Optimizer parameter groups changed. Starting with fresh optimizer states.")
+                        print("Optimiser parameter groups changed. Starting with fresh optimiser states.")
                     else:
                         raise e
 
                 print(f"Loaded checkpoint from step {start_step}")
 
         elif imitate:
-            actor_state, critic_state, actor_optimiser_state, critic_optimizer_state, start_step = cm.load_base_models()
+            actor_state, critic_state, actor_optimiser_state, critic_optimiser_state, start_step = cm.load_base_models()
 
             actor.load_state_dict(actor_state)
             critic.load_state_dict(critic_state)
@@ -102,8 +102,8 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
         "sim": sim,
         "actor": actor,
         "critic": critic,
-        "actor_opt": actor_optimizer,
-        "critic_opt": critic_optimizer,
+        "actor_opt": actor_optimiser,
+        "critic_opt": critic_optimiser,
         "start_step": start_step,
         "checkpoint_manager": cm,
         "metric_tracker": tracker,
