@@ -54,7 +54,7 @@
 
 \end{tikzpicture}
 }
-\caption{System Architecture Diagram: The PPO Trainer orchestrates the rollout phase with the Rust environment and the optimization phase using data sampled from the Rollout Buffer.}
+\caption{System Architecture Diagram: The PPO Trainer orchestrates the rollout phase with the Rust environment and the optimisation phase using data sampled from the Rollout Buffer.}
 \end{figure}
 
 
@@ -106,10 +106,12 @@ The README.md explains how to edit configuration files, add new communication pr
 \section{Environment}
 \label{sec:3.2}
 
+This environment is designed specifically to satisfy C1 by providing a configurable, high-throughput environment.
+
 \subsection{Simulation Architecture}
 \label{sec:3.2.1}
 
-The core environment involved $N$ agents whose job it is to collect assigned ingredients from fixed stations or other moving agents.
+The core environment involved $N$ agents whose job is to collect assigned ingredients from fixed stations or other moving agents.
 On completion of ingredient collection, the agent combines their ingredients to form a single output, which they are required to drop off at a fixed station.
 
 The environment is built as a two-dimensional grid of cells.
@@ -141,7 +143,7 @@ This toolchain is defined within the \lstinline[language=bash]|pyproject.toml| c
 
 For interacting with the simulation from Python, a \lstinline[language=Python]|SimWrapper| class is developed following the Adapter Design Pattern \cite{refactoringguru_adapter}.
 This wrapper isolates the high-level reinforcement learning algorithm from the low-level foreign function interface mechanics.
-PyTorch works in high-dimensional matrices and batched state representation, it is considerably computationally faster to pass flat arrays to the Rust simulation to exploit CPU cache locality and parallel throughput.
+PyTorch works in high-dimensional matrices and batched state representation; it is considerably computationally faster to pass flat arrays to the Rust simulation to exploit CPU cache locality and parallel throughput.
 To take a simulation step, the \lstinline[language=Python]|SimWrapper| class reshapes the data and passes it to the Rust simulation.
 On return from the Rust simulation, PyO3 provides an option to return a numpy\cite{numpy} array.
 This is effectively a pointer to a contiguous section of memory, allowing reshaping back to PyTorch's expected tensor shape in O(1) time (zero copying required).
@@ -157,16 +159,17 @@ The Rust library rayon \cite{rayon_rs} is used to parallelise the computation of
 This computation includes:
 \begin{itemize}
     \item Applying actions chosen from the policy
-    \item Collecting rewards for feedback for the policy
+    \item Collecting rewards for feedback on the policy
     \item Collecting each agent's observations and each world's global observations for input to the actor and critic networks
 \end{itemize}
 The number of worlds in parallel is decided through empirical profiling (see SPS analysis \ref{sec:4.2.1}).
-For my computer, worlds\_parralised was optimally set to 960 (found through empirical testing); however, this can easily be modified in the configuration files.
-
+For my computer, worlds\_parallelised was optimally set to 960 (found through empirical testing); however, this can easily be modified in the configuration files.
+This vectorisation directly aids C1 by enabling hundreds of worlds to be simulated in parallel.
 
 \subsection{Spatial Hashing}
 \label{sec:3.2.4}
 
+To further address C1, an efficient spatial hashing method is used to optimise the per-step computation.
 In the environment, the closest entity (agent or station) to each agent is part of each agent's observations.
 A naive implementation would check the Euclidean distance between every entity and every agent.
 This scales with $O(N^2)$, where $N$ is the number of entities.
@@ -181,7 +184,7 @@ Agents who step on cells with this flag set to \lstinline[language=Rust]|false| 
 \label{sec:3.2.5}
 
 
-To help debug the environment, a lightweight real-time visualisation is built.
+To help debug the environment, a lightweight real-time visualisation is built in line with C1.
 Integrating the visualisation directly into the training loops would lead to strong performance degradation as each RL step would have to wait for a complete render of the current state.
 
 To decouple these systems, an independent frontend is developed with TypeScript \cite{typescript} and p5.js \cite{p5js}.
@@ -194,6 +197,9 @@ This synchronisation is integrated into the Vite build script to ensure perfect 
 
 \section{MARL Infrastructure}
 \label{sec:3.3}
+
+The MARL infrastructure implements C2 using Multi-Agent Proximal Policy Optimisation, which includes a shared actor and centralised critic network.
+
 
 \subsection{Reward Function}
 \label{sec:3.3.1}
@@ -418,22 +424,23 @@ However, before applying the final gradients to the networks, the complete actor
 Due to imitation learning (detailed in Section 3.4.2.2), a blanket learning rate is not suitable for MAPPO.
 Because the actor and critic networks have already been partially optimised, aggressive learning rates risk forgetting these pre-trained policies.
 To account for this, a conservative learning rate is applied to the actor's networks that were trained during imitation learning to prevent chaotic updates from losing this information.
-The critic network is exempt from this conservative learning rate otherwise, the network would be unable to rapidly adapt to the agents' shifting policies and provide accurate value function estimates.
+The critic network is exempt from this conservative learning rate; otherwise, the network would be unable to rapidly adapt to the agents' shifting policies and provide accurate value function estimates.
 This variable learning rate is applied using \lstinline[language=Python]|PyTorch|'s optimiser's parameter groups (\lstinline[language=Python]|param_groups|).
 This careful orchestration of advantage normalisation, isolated loss clipping, gradient clamping and variable learning rates ensures monotonic policy improvement across the training landscape.
 
 
 \section{Communication Protocols}
+\label{sec:3.4}
 
-Making my software re-usable and flexible by making communication protocols interchangeable will allow for comparisons between the protocols.
+Making my software re-usable and flexible by making communication protocols interchangeable will allow for comparisons between the protocols and satisfy C3.
 
 \subsection{No Communication}
-\label{sec:2.3.1}
+\label{sec:3.4.1}
 To provide a comparable baseline, we will implement a protocol where agents do not broadcast any information to one another.
 
 
 \subsection{On-Policy Fixed Discrete Communication}
-\label{sec:2.3.3}
+\label{sec:3.4.2}
 
 % This is a common (TODO: JUSTIFY) modern methodology to facilitate communication between agents.
 % A simple continuous vector being broadcast from each agent adds a lot of noise to the agents' policy.
@@ -449,10 +456,9 @@ To make the discrete value differentiable, the Straight-Through Estimator (STE) 
 This yields a simple, differentiable communication.
 
 \subsection{AI Mother Tongue}
-\label{2.3.4}
+\label{3.4.3}
 
 \begin{figure}[htbp]
-    \label{fig:ai-mother-tongue}
     \centering
 
     \resizebox{\textwidth}{!}{
@@ -515,10 +521,12 @@ Another key difference is the action head.
 Instead of the simple rule Liu et al. implemented, we pass the policy output through an MLP to output a probability distribution over the action space.
 
 \section{Variational Autoencoders}
-\label{sec:3.4}
+\label{sec:3.5}
+
+The VQ-VAE, SQ-VAE and HQ-VAE are implemented to support C4, allowing rich codebook utilisation and strong semantic meaning of each token. 
 
 \subsection{Autoencoder Architecture}
-\label{sec:3.4.1}
+\label{sec:3.5.1}
 
 One objective of this project was to investigate different Variational Autoencoders to develop this AI Mother Tongue Language.
 Vector-Quantised Variational Autoencoders (VQ-VAEs) and Stochastically-Quantised Variational Autoencoders (SQ-VAEs) are pure methods of autoencoders.
@@ -539,6 +547,7 @@ The observation space $x$ is split into continuous features $x^\text{cont}$ and 
 where $\lambda_\text{bce}$ balances the scale of the BCE term relative to the MSE term.
 
 \subsection{VQ-VAE}
+\label{sec:3.5.2}
 
 Following van den Oord et al. \cite{VQVAE} and Liu et al. \cite{AIMotherTongue}, a Vector-Quantised Variational Autoencoder (VQ-VAE) is implemented.
 % is a generative model that differs from the standard Variational Autoencoder (VAE) by using a quantised latent space.
@@ -620,6 +629,7 @@ The components are:
 
 
 \subsection{SQ-VAE}
+\label{sec:3.5.3}
 
 A known issue of using learned codebooks is codebook collapse.
 To fix this issue, Takida et al. \cite{SQVAE} propose Stochastically-Quantised Variational Autoencoder (SQ-VAE), a variational Bayes framework for learning VQ-VAE components.
@@ -701,6 +711,7 @@ The loss function relies solely on $L_\text{recon}$ as explained in \ref{sec:3.4
 % As training progresses, the temperature is reduced to make the communication increasling deterministic.
 
 \subsection{HQ-VAE}
+\label{sec:3.5.4}
 
 Liu et al. suggested implementing Hierarchically-Quansited Variational Autoencoder (HQ-VAE) \cite{HQVAE}.
 The idea behind this is to split the communication into a high-level strategy and a low-level strategy, where the low-level strategy is conditioned on the high-level strategy.
@@ -750,10 +761,10 @@ Finally, the quantised vectors are concatenated to produce the final full commun
 % By forcing this conditional hierarchy, the language has an effective voacbulary size of $|\text{top\_level\_codebook}| * |\text{bot\_level\_codebook}|$ while being much less computationally intensive.
 
 \section{Offline Pre-training}
-\label{sec:3.4.2}
+\label{sec:3.6}
 
 \subsection{Expert Agent and Data Collection}
-\label{sec:3.4.2.1}
+\label{sec:3.6.1}
 
 Data for offline pre-training is collected from an expert agent.
 In the game, creating an optimal agent is intractable as we must decide the optimal route to travel to multiple stations.
@@ -763,7 +774,7 @@ By deploying this greedy expert agent, a dataset can be collected with high-qual
 
 
 \subsection{Training VAEs}
-\label{sec:3.4.2.2}
+\label{sec:3.6.2}
 
 The AI Mother Tongue framework requires these autoencoders to be trained prior to the RL phase of the learning process.
 
@@ -838,11 +849,11 @@ For HQ-VAEs (more than one codebook), the clustering operates separately for eac
 
 \textbf{Integration into the RL phase}
 
-After learning the VAE, it is loaded into the encoder for the RL phase and the parameters are frozen to prevent further training.
+After learning the VAE, it is loaded into the encoder for the RL phase, and the parameters are frozen to prevent further training.
 This is done in PyTorch via \lstinline[language=Python]|parameter.requires_grad = False|.
 
 \subsection{Imitation Learning}
-\label{sec:3.4.2.2}
+\label{sec:3.6.3}
 
 Training the RL phase takes a significant amount of time.
 To reduce the training time required, Liu et al. \cite{AIMotherTongue} suggest initially training both the actor and critic models with supervised learning.
@@ -890,7 +901,7 @@ On completion, these models are saved to disk and loaded when the reinforcement 
 % On completion, these models are saved to disk and loaded when the reinforcement learning begins.
 
 \section{Reflection Strategies}
-\label{sec:3.4.3}
+\label{sec:3.7}
 
 A large emphasis by Liu et al. \cite{AIMotherTongue} is the importance of reflection strategies.
 They introduce additional loss terms during the RL phase, aimed at fostering more complex learning and communication beyond simple reward maximisation.
@@ -999,14 +1010,14 @@ This loss is returned and added to the composite MAPPO objective function for ba
 
 
 \section{Software Engineering, Reproducibility, and Observability}
-\label{sec:3.6}
+\label{sec:3.8}
 
 MARL systems take thousands of rollout phases to train.
 Leaving the system until the end of training to evaluate would render debugging practically impossible.
-To ensure strict scientific rigour, custom observability and checkpointing frameworks were implemented.
+To ensure strict scientific rigour, custom observability and checkpointing frameworks were implemented supporting C5.
 
 \subsection{Real-time System Monitoring}
-\label{sec:3.6.1}
+\label{sec:3.8.1}
 
 To prevent computational bottlenecks, three lightweight classes were engineered:
 \begin{itemize}
@@ -1016,7 +1027,7 @@ To prevent computational bottlenecks, three lightweight classes were engineered:
     \item \lstinline[language=Python]|Logging|
     This constantly flushes the statistics collected in \lstinline[language=Python]|MeticTracker| instances to disk to keep run data even in the case of crashes.
     \item \lstinline[language=Python]|Visualiser|
-    Designed specifically for the RL phase, this class uses the Python library \lstinline[language=Python]|rich| to display relevant statisitics for that run.
+    Designed specifically for the RL phase, this class uses the Python library \lstinline[language=Python]|rich| to display relevant statistics for that run.
     The visualisation displays hyperparameters from the configuration files, the current state of the RL loop (rollout or update phase) and shows the past $X$ training steps of \lstinline[language=Python]|MetricTracker| statistics in the form of a basic graph.
 \end{itemize}
 
@@ -1024,7 +1035,7 @@ To prevent computational bottlenecks, three lightweight classes were engineered:
 
 
 \subsection{Configuration Management}
-\label{sec:3.6.2}
+\label{sec:3.8.2}
 
 A modular configuration system was engineered to manage the large number of hyperparameters.
 Separate configuration files were developed for:
@@ -1044,7 +1055,7 @@ The configuration dataclass inherited from \lstinline[language=Python]|pydantic.
 This data class is then passed throughout the program.
 
 \subsection{Checkpointing}
-\label{sec:3.6.3}
+\label{sec:3.8.3}
 
 Simply storing the logs accumulated over the run is insufficient for resuming training in case of hardware failure.
 For this functionality, a \lstinline[language=Python]|CheckpointManager| class is developed.
@@ -1053,14 +1064,14 @@ Then every $X$ training steps (eg $X=100$, but configurable in the configuration
 These saved models and optimisers can be loaded on startup to reproduce any results.
 
 \section{Summary}
-\label{sec:3.7}
+\label{sec:3.9}
 
 This project makes several contributions to the field beyond the scope of a dissertation.
-The project provides a framework for communication in MARL which includes a configurable, vectorised, high-throughput MARL simulation and a MAPPO-based controller with interchangeable communication protocols.
+The project provides a framework for communication in MARL, which includes a configurable, vectorised, high-throughput MARL simulation and a MAPPO-based controller with interchangeable communication protocols.
 This allows other researchers to plug in new alternative protocols and VAE bottlenecks and compare with others in a consistent manner.
 
 The project also extends the AI Mother Tongue architecture \cite{AIMotherTongue} to a more complex cooperative environment and experimented with VAE variants.
-By using the custom framework with logging tools and checkpointing, training and semantic message meaning can be analysed in detail as shown in chapter 4.
+By using the custom framework with logging tools and checkpointing, training and semantic message meaning can be analysed in detail, as shown in chapter 4.
 
 % For the comparitive learning protocol, the language is being trained online.
 % There is no reconstuction loss or any extra auxiliary loss being fed into the lightweight quantiser module.

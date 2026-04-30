@@ -52,8 +52,8 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
 
     actor = None
     critic = None
-    actor_optimizer = None
-    critic_optimizer = None
+    actor_optimiser = None
+    critic_optimiser = None
     start_step = 0
 
     tracker = MetricTracker()
@@ -87,6 +87,8 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
                         raise e
 
                 print(f"Loaded checkpoint from step {start_step}")
+            else:
+                print("No viable checkpoint found, starting fresh")
 
         elif imitate:
             actor_state, critic_state, actor_optimiser_state, critic_optimiser_state, start_step = cm.load_base_models()

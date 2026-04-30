@@ -1,2 +1,2 @@
 epochs: 25
-obs_runs: 3
+obs_runs: 1 # 3

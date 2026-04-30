@@ -122,7 +122,7 @@ def imitation_learning(system, config: Config, device: torch.device):
             critic_optimizer.zero_grad()
 
             # for t in range(T):
-                
+
             # obs_t = batch_obs[:, t]
             # actions_t = batch_actions[:, t]
             # global_obs_t = batch_global_obs[:, t]
@@ -163,7 +163,20 @@ def imitation_learning(system, config: Config, device: torch.device):
 
             world_comms = world_comms.view(B, T, N, NC * C)
 
+            # print("action_logits.shape:", action_logits.shape)
+            # print("batch_actions.shape:", batch_actions.shape)
+
+            # # flat_targets = batch_actions.reshape(-1)
+            # # print("targets min/max:", flat_targets.min().item(), flat_targets.max().item())
+            # print("A:", A)
+
+
             actor_loss = F.cross_entropy(action_logits.reshape(-1, A), batch_actions.reshape(-1))
+
+            # logits = action_logits.reshape(-1, A)        # (B*T*M, A)
+            # targets = batch_actions.reshape(-1)          # (B*T*M, 1) -> still wrong
+            # targets = targets.squeeze(-1).long()         # (B*T*M,)
+            # actor_loss = F.cross_entropy(logits, targets)
 
             flat_global_obs = batch_global_obs[:, :, 0, :].reshape(B * T, -1)
             values = critic(flat_global_obs)

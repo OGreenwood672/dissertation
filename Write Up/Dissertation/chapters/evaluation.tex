@@ -1,37 +1,68 @@
 \label{sec:4}
 
-Compelling argument demonstrating success criteria met, or well-justified explanation of different direction taken.
-Excellent critical thought and interpretation which substantiate any claims of success.
+% Compelling argument demonstrating success criteria met, or well-justified explanation of different direction taken.
+% Excellent critical thought and interpretation which substantiate any claims of success.
 
 \section{Evaluation Setup}
 \label{sec:4.1}
+
+\textbf{Environment Setup}
+\label{sec:4.1.1}
 
 For the following evaluations, a specific cooperative simulation setup is created.
 There exist two agents.
 Each agent has two ingredients to collect from unique stations.
 They also each have a station to drop off their product.
-Each agent cannot observe their own pick up stations, but can observe their teammates.
-This setup ensures cooperation be required and therefore communication must emerge for optimal task reward.
+Each agent cannot observe their own pick-up stations, but can observe their teammates with an infinite range of view.
+This setup ensures cooperation is required and therefore, communication must emerge for optimal task reward.
+
+The world is defined as a 5x5 grid.
+This is chosen to be small enough to minimise the spatial navigation problem, allowing the evaluation to focus on the emergent language.
+For the 5x5 grid, agents with no communication must take on expectation $\sim$ 35 actions to find both stations \ref{sec:A}.
+Therefore, to elevate the difference in mean task reward per step for communication and no communication protocols, the number of actions agents are allowed to take in each world is limited to 30.
+
+\textbf{MAPPO Hyperparameters}
+\label{sec:4.1.2}
+
+The use of standardised hyperparameters is chosen rather than performing aggressive grid searches to demonstrate the robustness of the AI Mother Tongue architecture.
+
+A batch size of 512, 57,600 datapoints per update phase (see section \ref{sec:4.2.1}) and four optimisation epochs are selected to optimise stability and sample efficiency.
+The batch size of 512, a common power of two choice in machine learning, reduces gradient variance for LSTM-based actor-critic networks whilst maximising GPU usage.
+The low four epochs prevent overfitting to stale data during update phases, aligning with PPO recommendation of 3-10 epochs \cite{ppo_bestpractices}.
+
+\textbf{Communication Hyperparameters}
+\label{sec:4.1.3}
+
+These communication hyperparameters apply to all communication protocols.
+A vocabulary size of 32 is chosen to be deliberately small compared to the theoretical number of possible external observations to encourage information compression.
+Each code in the codebook is of size eight to allow sufficient spatial encoding whilst also respecting the reality of limited bandwidth.
+
+These hyperparameters are inappropriate for the AI Mother Tongue architecture with a discrete bottleneck using HQ-VAE.
+For this, each codebook is given a vocabulary size of 16 (giving an effective vocabulary size of 256), allowing different levels of detail in different codebooks.
+The code size also had to be increased from eight to sixteen.
+In HQ-VAE, the code size is split across the codebooks (in a 1:2 ratio), so a total code size of eight would allocate only two dimensions to the top-level latent. 
+With vMF SQ-VAE at the top level, a 2-dimensional unit sphere cannot support 16 codes, leading to a collapsed top-level codebook.
+Using the code size of sixteen gives a sufficient five dimensions for the top-level codebook.
 
 \section{System Performance}
 \label{sec:4.2}
 
-Reinforcement Learning with multiple agents requires millions of datapoints for updating the polcies and an equal number to evaluate the language and policy.
-This section quantitivley measures the performance gains through the custom systems developed.
-Specifically, it analyses the steps per second of the rust simulation developed and the memory efficiency of the \lstinline[language=Python]|RolloutBuffer|.
-Benchmarks were evaludated on NVIDIA RTX 5060 Ti and AMD Ryzen 7 3700X.
+Reinforcement Learning with multiple agents requires millions of datapoints for updating the policies and an equal number to evaluate the language and policy.
+This section quantitatively measures the performance gains through the custom systems developed.
+Specifically, it analyses the steps per second of the Rust simulation developed and the memory efficiency of the \lstinline[language=Python]|RolloutBuffer|.
+Benchmarks were evaluated on NVIDIA RTX 5060 Ti and AMD Ryzen 7 3700X.
 
 \subsection{Vectorised Environment Throughput}
 \label{sec:4.2.1}
 
 A major issue with Python running multiple threads concurrently is the GIL.
-While Python's builtin library \lstinline[language=Python]|multiprocessing| can, in theory, bypass this limitation, it introduces considerable overhead.
+While Python's built-in library \lstinline[language=Python]|multiprocessing| can, in theory, bypass this limitation, it introduces considerable overhead.
 For this RL project, all threads require synchronisation at every simulation timestep.
 
-To justify developing the simulation in Rust rather than Python, a simple mock simulation was developed in Python.
+To justify developing the simulation in Rust rather than Python, whilst evaluating C1, a simple mock simulation was developed in Python.
 This mock simulation was compared to the vectorised Rust backend.
 Environment steps per second (SPS) was calculated to analyse the throughput of each of the simulations.
-Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^{11}\}$) to measure concurrency efficiency.
+Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^{12}\}$) to measure concurrency efficiency.
 
 \begin{figure}[htbp]
     \centering
@@ -40,17 +71,20 @@ Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^{11}\}$) to me
     \label{fig:sim-time-comparison}
 \end{figure}
 
-As shown in figure \ref{fig:sim-time-comparison}, the Python baseline completely fails to match the Rust simulation.
-Despite being able to bypass the GIL and using multiple CPU cores, the serialisation and the Inter-Process Communication overhead required to transfer the necassary data between isolated processes at every time step heavily bottleneck the throughput.
+As shown in figure \ref{fig:sim-time-comparison}, the Python baseline has 100x less SPS than the Rust simulation.
+Despite being able to use multiple CPU cores, the serialisation and the Inter-Process Communication overhead required to transfer the necessary data between isolated processes at every time step heavily bottleneck the throughput.
 
-In contrast, the Rust is able utilise \lstinline[language=Rust]|Rayon|'s thread-pool to efficiently manage the parallel world steps nativly in C-space.
-After a minor scheduling overhead at $W=2$, throughput scales linearly with number of worlds parallised in $\log_2$.
-By using Rust's native Rayon threading, the sequential fraction of the program is minimised per Amdahl's Law allowing near-perfect scaling that saturates the CPU cores.
+In contrast, Rust is able to utilise \lstinline[language=Rust]|Rayon|'s thread-pool to efficiently manage the parallel world steps.
+Throughput scales with the number of worlds parallelised, reaching $239,007$ SPS.
+By using Rust's native Rayon threading, the sequential fraction of the program is minimised per Amdahl's Law, allowing near-perfect scaling that saturates the CPU cores.
+
+For the evaluation, $960$ worlds parallelised over a single rollout phase were chosen.
+This maximised the parallisation whilst also collecting an apt amount of datapoints for the update phase ($960 * 30 * 2 = 57,600$).
 
 \subsection{Rollout Buffer Efficiency}
 
-A secondary major potential bottleneck is transferring the results of the rollout phase to the training phase (across CPU-GPU boundary).
-To evaluate the \lstinline[language=Python]|RolloutBuffer|, the memory allocation and transfer overhead is compared to a baseline method (appending to Python lists and executing \lstinline[language=Python]|torch.stack| after the rollout phase).
+A secondary major potential bottleneck is transferring the results of the rollout phase to the training phase (across the CPU-GPU boundary).
+To evaluate the \lstinline[language=Python]|RolloutBuffer|, the memory allocation and transfer overhead are compared to a baseline method (appending to Python lists and executing \lstinline[language=Python]|torch.stack| after the rollout phase).
 
 \begin{table}[h]
     \centering
@@ -65,7 +99,7 @@ To evaluate the \lstinline[language=Python]|RolloutBuffer|, the memory allocatio
 \end{table}
 
 As shown in \ref{tab:rolloutbuffer-eval}, the \lstinline[language=Python]|RolloutBuffer| method reduces VRAM by over $50\%$.
-This is as Python's dynamic arrays often require copying their contents from one memory location to another to increase their size.
+This is because Python's dynamic arrays often require copying their contents from one memory location to another to increase their size.
 Whilst there is a $\sim 5\%$ improvement in allocation time when using Python's dynamic list, the large improvement in VRAM will enable scaling this method to millions of datapoints.
 
 
@@ -74,8 +108,9 @@ Whilst there is a $\sim 5\%$ improvement in allocation time when using Python's 
 
 Before we are able to integrate the language into reinforcement learning, its health must be evaluated.
 A poorly initialised frozen encoder could limit the agents' language considerably, preventing them from reaching their maximum cooperation potential.
+These results contribute to C4.
 
-\subsection{Discretization Stability: VQ-VAE vs. SQ-VAE}
+\subsection{Discretisation Stability: VQ-VAE vs. SQ-VAE}
 \label{sec:4.3.1}
 
 For this evaluation, reconstruction loss and commitment loss are tracked throughout a training process of 50 epochs using 26880 datapoints.
@@ -83,7 +118,7 @@ Liu et al. defined a healthy encoder for the AI Mother Tongue system.
 Reconstruction loss should fall between 0.08 and 0.15.
 Commitment Loss must remain below 1.0.
 
-For this evaluation, reconstruction loss are tracked throughout training processes for VQ-VAE and SQ-VAE.
+For this evaluation, reconstruction losses are tracked throughout the training processes for VQ-VAE and SQ-VAE.
 For VQ-VAE, commitment loss is also tracked.
 Liu et al. defined a healthy encoder for the AI Mother Tongue system.
 Reconstruction loss should fall between 0.08 and 0.15.
@@ -97,8 +132,8 @@ Commitment Loss must remain below 1.0.
 \end{figure}
 
 As shown in \ref{fig:vae_training_eval}, both methods of training got below the maximum reconstruction loss of 0.15.
-However, training using SQ-VAE lead to a final reconstruction off of below 0.08.
-Liu et al.'s recommended loss for a healthy codebook is based on low reconstruction often being a symptom of 'mode collapse'.
+However, training using SQ-VAE lead to a final reconstruction of below 0.08.
+Liu et al.'s recommended loss for a healthy codebook is based on low reconstruction, often being a symptom of 'mode collapse'.
 This is where the network memorises a small set of generalisable states.
 
 To determine if this 'mode collapse' has occurred, the codebook utilisation was analysed.
@@ -114,10 +149,10 @@ To determine if this 'mode collapse' has occurred, the codebook utilisation was 
     \label{tab:codebook_util}
 \end{table}
 
-The table \ref{tab:codebook_util} clearly shows using a SQ-VAE, though having a low reconstruction loss, in fact has a better codebook utilisation than using a VQ-VAE.
+The table \ref{tab:codebook_util} clearly shows that using an SQ-VAE, though having a low reconstruction loss, in fact has a better codebook utilisation than using a VQ-VAE.
 Therefore, this low loss indicates high effectiveness in the model rather than 'mode collapse'.
 
-By the end of the training the VQ-VAE, the commitment loss has converged to $\sim 0.25$.
+By the end of the training, the VQ-VAE, the commitment loss has converged to $\sim 0.25$.
 This is well below Liu et al.'s requirement.
 
 \subsection{Codebook Initialisation}
@@ -149,61 +184,63 @@ This is well below Liu et al.'s requirement.
 
 To evaluate the robustness of the VAEs, an ablation study is performed.
 Two initialisation strategies are compared:
-a standard uniform random initalisation,
+a standard uniform random initialisation,
 and a data-driven K-Means prior.
 
 For the VQ-VAE, the random uniform prior gave superior reconstruction loss and codebook utilisation compared to the K-Means prior.
-However, the SQ-VAE exhibited the opposite behaviour, the reconstruction loss and codebook utilisation were superior when using K-Means prior instead of the random uniform prior.
+However, the SQ-VAE exhibited the opposite behaviour; the reconstruction loss and codebook utilisation were superior when using K-Means prior instead of the random uniform prior.
 
 \begin{figure}[H]
     \centering
 
     \begin{subfigure}{0.48\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{pca-vq-vae-no-prior.png}
-        \caption{VQ-VAE without prior}
-        \label{fig:pca-vq-vae-no-prior}
-    \end{subfigure}
-    \begin{subfigure}{0.48\textwidth}
-        \centering
         \includegraphics[width=\linewidth]{pca-vq-vae.png}
         \caption{VQ-VAE with prior}
         \label{fig:pca-vq-vae}
     \end{subfigure}
-
     \begin{subfigure}{0.48\textwidth}
         \centering
-        \includegraphics[width=\linewidth]{pca-sq-vae-no-prior.png}
-        \caption{SQ-VAE without prior}
-        \label{fig:pca-sq-vae-no-prior}
+        \includegraphics[width=\linewidth]{pca-vq-vae-no-prior.png}
+        \caption{VQ-VAE without prior}
+        \label{fig:pca-vq-vae-no-prior}
     \end{subfigure}
+
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=\linewidth]{pca-sq-vae.png}
         \caption{SQ-VAE with prior}
         \label{fig:pca-sq-vae}
     \end{subfigure}
-    
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-sq-vae-no-prior.png}
+        \caption{SQ-VAE without prior}
+        \label{fig:pca-sq-vae-no-prior}
+    \end{subfigure}
+
     \caption{PCA projections of latent codes for SQ-VAE and VQ-VAE with and without the prior.}
     \label{fig:pca-sq-vq-vae}
 \end{figure}
 
 To visualise, Principal Component Analysis (PCA) was applied to reduce the dimensionality of the learned codebook embeddings, see figure \ref{fig:pca-sq-vq-vae}.
 This visualisation explains the findings.
-For VQ-VAE, the random uniform initialisation scattered the codes across the latent space.
+For VQ-VAE (Figures \ref{fig:pca-vq-vae} and \ref{fig:pca-vq-vae-no-prior}), the random uniform initialisation scattered the codes across the latent space.
 This allowed the untrained encoder to naturally intersect with them, resulting in gradients successfully flowing through each of the embeddings.
-Conversly, the K-Means prior forced the embeddings into a small area where the untrained encoder would only interact with a select few edge embeddings, leaving a high concentration of unused codes.
+Conversely, the K-Means prior forced the embeddings into a small area where the untrained encoder would only interact with a select few edge embeddings, leaving a high concentration of unused codes.
 
-For (vMF) SQ-VAE, when using $L_2$-normalised Spherical K-Means prior, the embeddings were each set in the correct region and the model used its stochastic annealing purely for local fine-tuning.
-Whereas, when using the random initialisation, embeddings frequently spawned at extreme angular distances from the true data distribution and the model's annealing process pushed the embeddings into a suboptima local minima.
+For (vMF) SQ-VAE (Figures \ref{fig:pca-sq-vae} and \ref{fig:pca-sq-vae-no-prior}), when using $L_2$-normalised Spherical K-Means prior, the embeddings were each set in the correct region and the model used its stochastic annealing purely for local fine-tuning.
+Whereas, when using the random initialisation, embeddings frequently spawned at extreme angular distances from the true data distribution, and the model's annealing process pushed the embeddings into a suboptimal local minima.
 
 \section{Online MARL Task Performance}
 \label{sec:4.4}
 
+This section directly evaluates C3 and C4 by comparing the mean task reward per step under a variety of communication protocols developed.
+
 \subsection{Baseline Comparisons}
 \label{sec:4.4.1}
 
-To assertain the effectiveness of the AI Mother Tongue architecture, it is compared against two other protocols.
+To ascertain the effectiveness of the AI Mother Tongue architecture, it is compared against two other protocols.
 
 \begin{figure}[htbp]
     \centering
@@ -212,22 +249,25 @@ To assertain the effectiveness of the AI Mother Tongue architecture, it is compa
     \label{fig:reward-mean-comparison}
 \end{figure}
 
-TODO: Get confidence intervals
-
-As shown in figure \ref{fig:reward-mean-comparison}, AI Mother Tongue architecture was able to outperform both other protocols.
-The No Communication protocol showed the requirement for communication in the simutlation, this protocol converged on a reward mean per step of 0.09.
-The Discrete Comms protocol showed a struggle to communicate any useful information from one agent to another and had a similar training convergence to the no communication protocol.
+As shown in Figure \ref{fig:reward-mean-comparison}, the AI Mother Tongue architecture was able to outperform both other protocols.
+The No Communication protocol showed the requirement for communication in the simulation; this protocol converged on a reward mean per step of 0.09.
+The Discrete Comms protocol showed a struggle to communicate any useful information from one agent to another and had a similar training convergence to the No Communication protocol.
 
 The AI Mother Tongue protocol demonstrates two distinct phases in its training.
 The first phase underperforms all the other protocols, as it struggles to balance optimising its auxiliary losses and the standard training losses.
 The second phase converges to 0.13 reward mean per step as it learns to use the information stored in order to optimise the auxiliary heads to optimise the standard training losses.
 
-TODO: Talk about optimal, and shortcomings
+No protocol is able to reach the 0.24 reward mean per step recorded by the expert agent.
+This is due to a limitation the agents have.
+The agents can only view the nearest entity (that isn't their own pick-up station) whereas the expert agent has a pure, global view of the environment.
+This means other entities often hide other, more important entities, preventing agents from matching this expert agent's score.
+Therefore, the 0.13 reward demonstrates that the agents successfully utilised the AI Mother Tongue protocol to overcome the POMDP.
+
+Training MARL policies often require 10x or 100x number of steps than 30,000 steps.
+However, for this evaluation 30,000 steps is sufficient as (see section \ref{sec:4.5.1}) the core research focus—the spontaneous semantic compression emerged within the first 12,000 steps. 
 
 \subsection{Reflection Strategies - Are They Needed?}
 \label{sec:4.4.2}
-
-TODO: Perhaps apply reflection strategies to discrete protocol
 
 \begin{figure}[htbp]
     \centering
@@ -236,18 +276,20 @@ TODO: Perhaps apply reflection strategies to discrete protocol
     \label{fig:reward-mean-comparison-reflection}
 \end{figure}
 
-As shown from figure \ref{fig:reward-mean-comparison-reflection}, Liu et al's reflection strategies are vital for the learning process.
-They provide an intermediatery step.
+As shown in Figure \ref{fig:reward-mean-comparison-reflection}, Liu et al's reflection strategies are vital for the learning process.
+They provide an intermediary step.
 The communication network learns to optimise auxiliary losses, and only once this is done does the actor learn to optimise the standard training losses using the communication network's output.
 
 
 \section{Information-Theoretic \& Linguistic Properties}
 \label{sec:4.5}
 
+Sections \ref{sec:4.5} - \ref{sec:4.7} provide the deeper evaluation required by C4.
+
 \subsection{Spontaneous Semantic Compression}
 \label{sec:4.5.1}
 
-Throughout training, communication perplexity of the agent's vocabulary is tracked.
+Throughout training, the communication perplexity of the agent's vocabulary is tracked.
 Communication perplexity is measured as $e^{-\text{entropy of vocabulary}}$.
 
 \begin{figure}[htbp]
@@ -258,15 +300,14 @@ Communication perplexity is measured as $e^{-\text{entropy of vocabulary}}$.
 \end{figure}
 
 At the start of training, the agents are exploring all possible outputs, leading to a uniform random sampling across the majority of the codebook.
-As the RL begins to solve the asymmetric information task (between step 3000 and 7000), communication perplexity collapses and stabilises at $\sim 3.0$.
+As the RL begins to solve the asymmetric information task (between step 3,000 and 10,000), communication perplexity collapses and stabilises at $\sim 3.0$.
 This collapse represents spontaneous semantic compression.
-Instead of using the full theoretical capacity of the codebook, a small subset of codes are assigned useful semantic meaning.
-% Do more
+Instead of using the full theoretical capacity of the codebook, a small subset of codes is assigned useful semantic meaning.
 
 \subsection{Codebook Utilisation}
 \label{sec:4.5.2}
 
-To further understand the agents use of language, the frequency of each code is analysed.
+To further understand the agent's use of language, the frequency of each code is analysed.
 
 \begin{figure}[htbp]
     \centering
@@ -275,8 +316,8 @@ To further understand the agents use of language, the frequency of each code is 
     \label{fig:vocab-frequency}
 \end{figure}
 
-From this data \ref{fig:vocab-frequency}, the distribution exhibits a strong skew giving a low entropy score of 4.24 and a high Gini coefficient of 0.91.
-When visualising this empirical distribution with a rank-frequency plot, it demonstrates exponential decay closely resembeling Zipf's Law especially for the first 25 codes.
+From this data \ref{fig:vocab-frequency}, the distribution exhibits a strong skew, giving a low entropy score of 2.98 and a high Gini coefficient of 0.78.
+When visualising this empirical distribution with a rank-frequency plot, it demonstrates exponential decay closely resembling Zipf's Law, especially for the first 25 codes.
 
 \begin{figure}[htbp]
     \centering
@@ -286,9 +327,9 @@ When visualising this empirical distribution with a rank-frequency plot, it demo
 \end{figure}
 
 However, a notable deviation from Zipf's Law does occur at the tail-end of the distribution where the frequency rapidly decreases.
-Although sudden drop to zero is not a feature of a classic Zipfian distribution, it is a feature of the truncated Zipfian distribution \cite{TruncatedZipfianDist}.
-This occurs because in most languages analysed, an infinite number of words can be created, however, in this system there only exists a finite set of codes.
-The emergence of this phenomenon indicates the agents were successful at assigning high frequency tokens to common semantic meaning and low frequency tokens to unnessary tokens.
+Although a sudden drop to zero is not a feature of a classic Zipfian distribution, it is a feature of the truncated Zipfian distribution \cite{TruncatedZipfianDist}.
+This occurs because in most languages analysed, an infinite number of words can be created; however, in this system, there only exists a finite set of codes.
+The emergence of this phenomenon suggests the agents were successful at assigning high-frequency tokens to common semantic meaning and low-frequency tokens to unnecessary tokens.
 
 \section{Cognitive Mapping and Spatial Memory}
 \label{sec:4.6}
@@ -296,19 +337,19 @@ The emergence of this phenomenon indicates the agents were successful at assigni
 \subsection{Memory Probing}
 \label{sec:4.5.2}
 
-To understand what the agent concretly knows, six strict linear probes were developed following Guillaume et al.'s methodolgy \cite{Probing}.
+To understand what the agent concretely knows, six strict linear probes were developed following Guillaume et al.'s methodology \cite{Probing}.
 Each probe takes as input the final layer of the Long-Short Term Memory (LSTM) module, and predicts one of the following using MSE loss:
 \begin{itemize}
     \item The agent's own next target's coordinates
     \item The agent's partner's next target's coordinates
     \item The agent's own next target's relative coordinates from the agent's coordinates
     \item The agent's partner's next target's relative coordinates from the agent's coordinates
-    \item A unit vector in the direciton of the agent's next target
-    \item A unit vector in the direciton of the agent's partner's next target
+    \item A unit vector in the direction of the agent's next target
+    \item A unit vector in the direction of the agent's partner's next target
 \end{itemize}
 
-Initially in a simulation run, agent's have no way of knowing the location of their targets.
-To account for this, the models are trained only on the last half of the timesteps to ensure the LSTM contains the necassary information for training.
+Initially, in a simulation run, agents have no way of knowing the location of their targets.
+To account for this, the models are trained only on the last half of the timesteps to ensure the LSTM contains the necessary information for training.
 
 \begin{figure}[htbp]
     \centering
@@ -317,13 +358,13 @@ To account for this, the models are trained only on the last half of the timeste
     \label{fig:lstm-probing}
 \end{figure}
 
-The relative distance and unit direction models are shown to never improve over the course of a simulation, suggesting the LSTM does not follow egocentric memory, where information is stored relative from the self (i.e. relative coordinates, or direction to target).
-However, the absolute location model shows the LSTM uses allocentric memory, where information is stored using a global coordinates system.
+The relative distance and unit direction models are shown to never improve over the course of a simulation, suggesting the LSTM does not follow egocentric memory, where information is stored relative to the self (i.e. relative coordinates, or direction to target).
+However, the absolute location model shows the LSTM uses allocentric memory, where information is stored using a global coordinate system.
 
-Even though the absolute loaction model does show the LSTM storing some information, the model converges on an MSE of 1.6.
+Even though the absolute location model does show the LSTM storing some information, the model converges on an MSE of 1.6.
 This error represents an uncertainty radius of 1.6 cells, showing how the memory acts as a 'regional beacon' for the agent's targets.
 
-An important conclusion from \ref{fig:lstm-probing} is the agents need for communication decreases as the simulation runs and they store target locations in the LSTM module.
+An important conclusion from section \ref{fig:lstm-probing} is that the agent's need for communication decreases as the simulation runs, and they store target locations in the LSTM module.
 
 \section{Semantic Grounding and Pragmatics}
 \label{sec:4.6}
@@ -331,21 +372,21 @@ An important conclusion from \ref{fig:lstm-probing} is the agents need for commu
 \subsection{Semantic Grounding: $P(\text{Target} | \text{Code})$}
 \label{sec:4.6.1}
 
-Using the conclusion from LSTM Probing (\ref{sec:4.5.2}) of communication is less required as the simulation runs.
-Therefore, to analyse semantic meaning of messages, only the first six simulation steps are used.
+Using the conclusion from LSTM Probing (\ref{sec:4.5.2}), less communication is required as the simulation runs.
+Therefore, to analyse the semantic meaning of messages, only the first six simulation steps are used.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{partner-target-given-code.png}
-    \caption{Liklihood of location of target given the top eight codes broadcasted from partner at different steps in the simulation}
+    \caption{Likelihood of location of target given the top four codes broadcast from partner at simulation steps zero and four. Yellow is high likelihood, blue is low likelihood}
     \label{fig:probability-target-given-code}
 \end{figure}
 
-\ref{fig:probability-target-given-code} shows the liklihood of location of target given the code broadcasted from partner.
-From this figure, certain codes clearly represent certain regions.
-The most prominent is code ten, which always represents the target is in the bottom left quadrant, weighted towards the middle.
+Figure \ref{fig:probability-target-given-code} shows the likelihood of the location of the target given the code broadcast from the partner.
+It demonstrates that certain codes represent certain regions.
+The most prominent is code 6, which suggests the target is in the bottom, right quadrant.
 This figure also further consolidates the loss of use of communication during a simulation run.
-At the inital simulation steps, target locations are clear, however, as the simulation progresses to even step 3, the uncertainty of the location of targets given certain codes increase.
+At the initial simulation step, target locations are clear; however, as the simulation progresses to even step 4, the uncertainty of the location of targets given certain codes increases.
 
 \subsection{Causal Influence on Policy: $P(\text{Action}_{partner}^{t+1} | \text{Code}_{self}^t)$}
 \label{sec:4.6.2}
@@ -355,13 +396,13 @@ To see if the agent had a direct impact on the action of its partner, a confusio
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{partners-action-given-code.png}
-    \caption{Probability of partner's action given recieved code within first four simulation steps}
+    \caption{Probability of partner's action given received code within first four simulation steps}
     \label{fig:partner-action-given-code}
 \end{figure}
 
 As shown in Figure \ref{fig:partner-action-given-code}, calculating the conditional probability of the receiver's next action given the emitted code reveals a relatively uniform distribution across the action space.
-These findings further confirm the findings from the LSTM Probing\ref{sec:4.5.2}, the codes purely communicatie allocentric information.
-As each agent navigates to its target independently based off of its own knowlege of the environment, the action taken follows a uniform distribution.
+These findings further confirm the findings from the LSTM Probing (\ref{sec:4.5.2}), the codes purely communicate allocentric information.
+As each agent navigates to its target independently based on its own knowledge of the environment, the action taken follows a uniform distribution.
 
 \subsection{Action and Communication Entanglement: $P(\text{Action}_{self}^{t} | \text{Code}_{self}^t)$}
 \label{sec:4.6.3}
@@ -375,12 +416,11 @@ To understand the relationship between the agent's code and its own action, a co
     \label{fig:own-action-given-code}
 \end{figure}
 
-The figure \ref{fig:own-action-given-code}, which calculate the conditional probability of the next action given a code, is unlike \ref{fig:partner-action-given-code}.
-Specifc codes lead to strong probabilities of certain movement actions.
+The figure \ref{fig:own-action-given-code}, which calculates the conditional probability of the next action given a code, is unlike \ref{fig:partner-action-given-code}.
+Specific codes lead to strong probabilities of certain movement actions.
 This is a symptom of state-action entanglement.
-The action head and communication head for the actor are simple and as they are both derived from the LSTM module, they are strongly correlated.
-This leads to the code being outputted by the actor inadvertently encoding its next action choice.
-
+The action head and communication head for the actor are simple, and as they are both derived from the LSTM module, they are strongly correlated.
+This leads to the code being output by the actor, inadvertently encoding its next action choice.
 
 \subsection{Context-Aware Signalling (Inventory-Dependent Language)}
 \label{sec:4.6.4}
@@ -397,16 +437,51 @@ To understand if the agents are using a pragmatic language, the conditional prob
 As shown in figure \ref{fig:token-given-inventory}, the active vocabulary undergoes large changes depending on the specific items currently held in the agent's inventory.
 When the agent has an empty inventory, the vocabulary is highly concentrated on a specific subset of codes.
 However, on progression, the vocabulary immediately suppresses these largely used codes.
-Once the inventory contains the product, the vocabulary uses a concise set of codes likely used to coordinate drop off location.
+Once the inventory contains the product, the vocabulary uses a concise set of codes likely used to coordinate the drop-off location.
 These results suggest the agents have a Theory of Mind as intended from the auxiliary losses.
 % VAE loss of BCE + 1.75 * MSE
 
 
 \section{HQ-VAE Analysis}
+\label{sec:4.7}
 
 Replacing the single-level VAE bottleneck with an HQ-VAE did not significantly change task-level performance.
-HQ-VAE's goal was for the top level codebook to capture macro-level strategies and the bottom-level codebook to capture micro-level strategies.
-To test this, I appied the same analyses as in \ref{sec:4.3} - \ref{sec:4.7} on each codebook and on the bottom-level codebook symbols conditioned on the top-level symbols.
+HQ-VAE's goal was for the top-level codebook to capture macro-level strategies and the bottom-level codebook to capture micro-level strategies.
+To test this, I applied the same analyses as in \ref{sec:4.3} - \ref{sec:4.7} on each codebook and on the bottom-level codebook symbols conditioned on the top-level symbols.
 In all cases, no clear, distinguishable strategies emerged at either level.
-Further work is required to understand how the agents are using the hierarchical codes, or to stabilise the hierarchy
-% Also TODO: Mutual Information analysis, maybe join with LSTM probing
+The lack of strategies in either codebook is likely due to the flat nature task (e.g. Find Station A).
+A hierarchical language may require a more hierarchical task.
+
+
+\section{Evaluation of Success Criteria}
+\label{sec:4.8}
+
+\paragraph{C1 - High-Throughput Environment}
+C1 required a configurable, vectorised Rust environment with Python bindings, achieving at least 50K environment steps per second and supporting real-time visualisations.
+Section \ref{sec:3.4} detailed how this was implemented.
+The final system was able to reach over 200K environment steps per second on my hardware, as shown in section \ref{sec:4.2.1}.
+C1 was fully achieved.
+
+\paragraph{C2 - MARL Framework}
+C2 required a functioning multi-agent reinforcement learning implementation with a shared actor and a centralised critic capable of learning the complex environment.
+Section \ref{sec:3.3} detailed how this was implemented using MAPPO.
+The final system with no communication was able to reach $\sim 40\%$ of the mean task reward of the expert agent, as shown in section \ref{sec:4.4.1}.
+C2 was fully achieved.
+
+\paragraph{C3 - Interchangeable Communication Protocols}
+C3 required at least two protocols (no communication and discrete communication) and the implementation of the AI Mother Tongue architecture suitable for this setup, which are all interchangeable within the same training pipeline.
+The communication strategy pattern (as detailed in section \ref{sec:3.3.5}) demonstrated that protocols can be interchanged easily.
+The MARL baseline comparison in section \ref{sec:4.4.1} could not be implemented without the hot-swapping of protocols.
+C3 was fully achieved.
+
+\paragraph{C4 - Evalutaion of Emergent Communication}
+C4 required a quantitative and qualitative evaluation of the communication protocols, including learned performance, codebook utilisation and semantic/pragmatic analysis.
+The evaluation sections (\ref{sec:4.3}, \ref{sec:4.5} - \ref{sec:4.7}) detail in-depth evaluation of communication perplexity, reconstruction losses, LSTM probing and conditional distributions.
+C4 was fully achieved.
+
+\paragraph{C5 - Software Engineering and Reproducibility}
+C5 required the framework to be reusable for other researchers.
+This includes high testing coverage, logging, and checkpointing.
+Sections \ref{sec:3.1.3} and \ref{sec:3.8} detail this implementation.
+The evaluation would not have been possible without this toolkit.
+C5 was fully achieved.

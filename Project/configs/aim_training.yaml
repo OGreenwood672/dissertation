@@ -2,7 +2,7 @@ aim_learning_rate: 0.0001
 obs_runs: 1
 obs_runs_noise: 0.15
 aim_batch_size: 256
-ae_epochs: 50
+ae_epochs: 25
 architecture:
   hidden_size: 512
 

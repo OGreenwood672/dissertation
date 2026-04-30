@@ -267,7 +267,7 @@ class AimComms(Comms, nn.Module):
 
     def get_loss(self, x, comm_output, all_comms, true_returns, new_critic_values, targets):
 
-        return 0.0
+        # return 0.0
 
         sender_context = self.get_sender_context(comm_output, x)
 

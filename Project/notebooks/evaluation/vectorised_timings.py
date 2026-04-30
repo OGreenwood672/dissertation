@@ -38,7 +38,7 @@ GO = 95
 NC = 1
 C = 8
 
-WORLDS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
+WORLDS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -72,6 +72,28 @@ if __name__ == "__main__":
 
     print(f"Using device: {device}")
 
+    rust_worlds_parallised_to_sps = []
+
+    for W in tqdm(WORLDS):
+        config.training.worlds_parallised = W
+        system, config = setup(config, device) 
+        sim = system['sim']
+        
+        dummy_actions = np.zeros((W, N), dtype=np.int32)
+
+        start = perf_counter()
+        
+        for t in range(T):
+            curr_obs, curr_global_obs, curr_targets, rewards = sim.parallel_step(dummy_actions)
+            
+        runtime = perf_counter() - start
+        sps = (T * W) / runtime
+        
+        rust_worlds_parallised_to_sps.append([W, sps])
+        
+        sim.shutdown()
+        del system
+
     python_worlds_parallised_to_sps = []
 
     with Pool() as pool:
@@ -85,37 +107,13 @@ if __name__ == "__main__":
             runtime = perf_counter() - start
             sps = (T * W) / runtime
             python_worlds_parallised_to_sps.append([W, sps])
-
-
-    rust_worlds_parallised_to_sps = []
-
-    for W in tqdm(WORLDS):
-        config.training.worlds_parallised = W
-        system, config = setup(config, device) 
-        sim = system['sim']
-        
-        dummy_actions = np.zeros((W, N), dtype=np.int32)
-        dummy_comms = np.zeros((W, N, NC, C), dtype=np.float32)
-
-        start = perf_counter()
-        
-        for t in range(T):
-            curr_obs, curr_global_obs, curr_targets, rewards = sim.parallel_step(dummy_actions, dummy_comms)
-            
-        runtime = perf_counter() - start
-        sps = (T * W) / runtime
-        
-        rust_worlds_parallised_to_sps.append([W, sps])
-        
-        sim.shutdown()
-        del system
-
     
     worlds_parallised_to_sps = [[i[0], i[1], j[1]] for i, j in zip(python_worlds_parallised_to_sps, rust_worlds_parallised_to_sps)]
 
     df = pd.DataFrame(worlds_parallised_to_sps, columns=["worlds_parallelised", "python_steps_per_second", "rust_steps_per_second"])
 
     plt.figure(figsize=(8, 5))
+
     sns.lineplot(
         data=df,
         x="worlds_parallelised",
@@ -131,16 +129,62 @@ if __name__ == "__main__":
         label="Rust"
     )
 
-    plt.xscale("log", base=2)
-    # plt.yscale('log')
-    plt.xlabel("Worlds parallelised (log 2)")
-    plt.ylabel("Steps per Second (SPS)")
-
-
+    plt.yscale("log", base=10)
+    plt.xlabel("Worlds parallelised")
+    plt.ylabel("Steps per Second (SPS) (log scale)")
     plt.title("SPS vs Worlds parallelised")
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
 
+    optimal_worlds = 960
+    optimal_sps = 240000
+
+    plt.axvline(
+        x=optimal_worlds,
+        color="black",
+        linestyle="--",
+        linewidth=1.2,
+        alpha=0.8
+    )
+
+    plt.text(
+        optimal_worlds,
+        45,
+        "Optimal = 960 worlds",
+        rotation=90,
+        va="bottom",
+        ha="right",
+        fontsize=8,
+        color="black"
+    )
+
+    python_idx = df["python_steps_per_second"].idxmax()
+    python_x = df.loc[python_idx, "worlds_parallelised"]
+    python_y = df.loc[python_idx, "python_steps_per_second"]
+
+    rust_idx = df["rust_steps_per_second"].idxmax()
+    rust_x = df.loc[rust_idx, "worlds_parallelised"]
+    rust_y = df.loc[rust_idx, "rust_steps_per_second"]
+
+    plt.annotate(
+        f"Python peak ≈ {python_y:,.0f} SPS",
+        xy=(python_x, python_y),
+        xytext=(python_x + 40, python_y * 0.7),
+        textcoords="data",
+        arrowprops=dict(arrowstyle="->", lw=1),
+        fontsize=8
+    )
+
+    plt.annotate(
+        f"Rust peak ≈ {rust_y:,.0f} SPS",
+        xy=(rust_x, rust_y),
+        xytext=(rust_x - 220, rust_y / 1.6),
+        textcoords="data",
+        arrowprops=dict(arrowstyle="->", lw=1),
+        fontsize=8
+    )
+
+    plt.grid(True, alpha=0.3, which="both")
+    plt.tight_layout()
     
-    plt.savefig(FIGURES_DIR / "sim-comparison.png", dpi=300, bbox_inches='tight', facecolor='white')
+    plt.savefig(FIGURES_DIR / "sim-comparison.png", dpi=600, bbox_inches='tight', facecolor='white')
+    # plt.show()
     plt.close('all')

@@ -103,7 +103,7 @@ If agent A executes the 'Interact' action:
 
 Figure \ref{fig:example_world} shows an example of a typical world where there are two agents and two stations.
 Here, each agent's own pick-up station is visible only to the other if within the limited field of view.
-Without commnuication, both agents would have to independently search the map until it discovers the station.
+Without communication, both agents would have to independently search the map until they discover the station.
 With communication, the agents can tell one another the location of the required pick-up station.
 This shows how the environment creates asymmetric information and how communication can solve it.
 
@@ -121,7 +121,7 @@ A POMDP is formally defined as $\langle \mathcal{S}, \mathcal{A}, \mathcal{P}, \
 Where:
 \begin{itemize}
 \item $\mathcal{S}$ is the set of all possible states of the environment.
-\item $\mathcal{A}$ is the action space. {North, South, East, West, Interact}.
+\item $\mathcal{A}$ is the action space. \{North, South, East, West, Interact\}.
 \item $\mathcal{P}$ is the transition probability function $P(s'|s,a)$, representing the probability that taking action $a$ in state $s$ will lead to state $s'$.
 \item $\mathcal{R}$ is the reward function. See \ref{sec:3.2.2}.
 \item $\Omega$ is the set of all possible local observations.
@@ -268,7 +268,7 @@ This baseline captures the typical on-policy setting that suffers from the "Join
 \end{figure}
 
 Figure \ref{fig:ai-mother-tongue} shows the architecture of the AI Mother Tongue protocol proposed by Liu et al.\cite{AIMotherTongue}
-Phase 1 is trained offline using collected observation, and the encoder and codebook produced are saved.
+Phase 1 is trained offline using collected observations, and the encoder and codebook produced are saved.
 On initialisation of phase 2, the encoder and codebook are loaded and used for the actor network training.
 
 
@@ -278,47 +278,71 @@ On initialisation of phase 2, the encoder and codebook are loaded and used for t
 \subsection{Emergent Communication in MARL}
 \label{sec:2.2.1}
 
+
 Early work in emergent communication studied how agents can learn to communicate with one another without a concern for interoperability and bandwidth \cite{InitialEmergent}.
-More recent research in multi-agent reinforcement learning, studies agents learning to send discrete symbols, showing that discrete channels can match or outperform continuous channels, whilst also allowing for interoperability \cite{DiscreteComms}.
-A large challenge in learning discrete communication on-policy is the "Joint Exploration Problem" and the resulting "Communication Vacuum Problem", as stated by Eccles et al\cite{Biases}, where agent learn to ignore the communication channel.
+More recent research in multi-agent reinforcement learning studies agents learning to send discrete symbols, showing that discrete channels can match or outperform continuous channels, whilst also allowing for interoperability \cite{DiscreteComms}.
+A large challenge in learning discrete communication on-policy is the "Joint Exploration Problem" and the resulting "Communication Vacuum Problem", as stated by Eccles et al\cite{Biases}, where agents learn to ignore the communication channel.
 
 \subsection{AI Mother Tongue and VAE-based symbol systems}
 \label{sec:2.2.2}
 
 The AI Mother Tongue \cite{AIMotherTongue} architecture addresses the "Joint Exploration Problem" by decoupling the emergence of discrete symbols from the reinforcement learning training and adding auxiliary losses as described in figure \ref{fig:ai-mother-tongue}.
-Liu et al. report promising phenomena such as sudden semantic compression and interpretable symbol usage, but its evaluation is restricted to a simple cooperative task.
-The underlying discrete bottleneck uses VQ-VAE \cite{VQVAE}, but the Liu et al. proposes more expressive codebook learning methods such as SQ-VAE \cite{SQVAE} and ways to advance the language such as using HQ-VAE \cite{HQVAE}.
+Liu et al. report promising phenomena such as sudden semantic compression and interpretable symbol usage, but their evaluation is restricted to a simple cooperative task.
+The underlying discrete bottleneck uses VQ-VAE \cite{VQVAE}, but Liu et al. propose more expressive codebook learning methods, such as SQ-VAE \cite{SQVAE}, and ways to advance the language, such as using HQ-VAE \cite{HQVAE}.
 
 \subsection{MARL algorithms \& MAPPO}
 \label{sec:2.2.3}
 
 The framework being implemented in the project is built on the standard centralised training, decentralised execution (CTDE) paradigm for cooperative MARL.
-Multi-Agent Proximal Policy Optimisation (MAPPO) \cite{MAPPO} is chosen as empirical studies have shown a suprisingly competitive results when compared with more complex off-policy and value-decomposition networks \cite{MAPPO}.
-Alternatives such as QMIX or MADDPG offer different trade-offs but ultimately introduce extra architectural complexity which may convolute the communication protocol evaluation.
+Multi-Agent Proximal Policy Optimisation (MAPPO) \cite{MAPPO} is chosen as empirical studies have shown surprisingly competitive results when compared with more complex off-policy and value-decomposition networks \cite{MAPPO}.
+Alternatives such as QMIX or MADDPG offer different trade-offs but ultimately introduce extra architectural complexity, which may complicate the communication protocol evaluation.
 
 \section{Requirements Analysis}
 \label{sec:2.3}
 
-\subsection{Success Criteria}
+\subsection[Success Criteria]{Success Criteria\footnotemark}
 \label{sec:2.3.1}
+\footnotetext{These success criteria restate the content of the project proposal in a more structured form.}
 
-\begin{enumerate}
-    \item Design and implement a vectorised MARL simulation in Rust to train and demo multi-agent interactions capable of achieving a minimum throughput of 50,000 environment steps per second (SPS) to ensure sufficient collection of training data. The simulation should be able to have single runs visualised.
-    \item Implement a functional MAPPO-based multi-agent reinforcement learning (MARL) system capable of learning, given a simulation program with set methods.
-    \item Develop a communication protocol that allows agents to transmit raw data between each other.
-    \item Implement the AI Mother Tongue architecture, demonstrating ideal reconstruction loss and commitment cost defined by Liu et al.
-    \item The training and evaluation pipeline should be able to train and evaluate models automatically and allow interchangeably with any communication protocols. Automated checkpointing and logging must also run alongside training.
-\end{enumerate}
+% \begin{enumerate}
+%     \item Design and implement a vectorised MARL simulation in Rust to train and demo multi-agent interactions capable of achieving a minimum throughput of 50,000 environment steps per second (SPS) to ensure sufficient collection of training data. The simulation should be able to have single runs visualised.
+%     \item Implement a functional MAPPO-based multi-agent reinforcement learning (MARL) system capable of learning, given a simulation program with set methods.
+%     \item Develop a communication protocol that allows agents to transmit raw data between each other.
+%     \item Implement the AI Mother Tongue architecture, demonstrating ideal reconstruction loss and commitment cost defined by Liu et al.
+%     \item The training and evaluation pipeline should be able to train and evaluate models automatically and allow interchangeably with any communication protocols. Automated checkpointing and logging must also run alongside training.
+% \end{enumerate}
 
-\subsection{Extension}
-\label{sec:2.3.2}
+% \subsection{Extension}
+% \label{sec:2.3.2}
 
-\begin{itemize}
-    \item Implement a third communication protocol using a hierarchically quantised variational autoencoder (HQ-VAE). This method was suggested by the AI Mother Tongue paper as a possible future work.
-    \item Add hyperparameter tuning for the AI Mother Tongue architecture. This can involve the language size, quantisation levels, and message frequency to optimise agent coordination and learning efficiency.
-    \item Add a new task where agents must solve for objectives other than an assembly line (e.g., coordinated navigation, resource gathering, or adversarial avoidance), enabling analysis of communication protocol effectiveness in more diverse MARL settings.
-\end{itemize}
+% \begin{itemize}
+%     \item Implement a third communication protocol using a hierarchically quantised variational autoencoder (HQ-VAE). This method was suggested by the AI Mother Tongue paper as a possible future work.
+%     \item Add hyperparameter tuning for the AI Mother Tongue architecture. This can involve the language size, quantisation levels, and message frequency to optimise agent coordination and learning efficiency.
+%     \item Add a new task where agents must solve for objectives other than an assembly line (e.g., coordinated navigation, resource gathering, or adversarial avoidance), enabling analysis of communication protocol effectiveness in more diverse MARL settings.
+% \end{itemize}
 
+\textbf{C1 - High-Throughput MARL enviornment}
+The system should provide a configurable, vectorised Rust environment with Python bindings, achieving at least 50K environment steps per second and supporting real-time visualisations.
+
+\textbf{C2 - MARL Framework}
+A functioning multi-agent reinforcement learning implementation with a shared actor and centralised critic capable of learning the complex environment.
+
+\textbf{C3 - Interchangeable Communication Protocols}
+At least two protocols (no communication and discrete communication) and the implementation of the AI Mother Tongue architecture, suitable for this setup, which are all interchangeable within the same training pipeline.
+
+\textbf{C4 - Evaluation of Emergent Communication}
+A quantitative and qualitative evaluation of the communication protocols, including learned performance, codebook utilisation and semantic/pragmatic analysis.
+
+\textbf{C5 - Software Engineering and Reproducibility}
+The framework should be reusable for other researchers.
+This includes high testing coverage, logging, and checkpointing.
+
+These criteria directly follow from the central research question from section \ref{sec:1}.
+C1 and C2 ensure the question is asked in a non-toy setting.
+Without the high-throughput MARL environment and the stable MARL training, the AI Mother Tongue architecture \cite{AIMotherTongue} would not be evaluated under realistic conditions.
+C3 ensures a comparative evaluation for evaluating the AI Mother Tongue architecture against realistic baselines.
+C4 allows for a fair in-depth evaluation of the protocol.
+Finally, C5 encourages testing, configuration, logging and checkpointing to create a reusable toolkit for other researchers to further this work.
 
 \subsection{MoSCoW Analysis}
 \label{sec:2.3.3}
@@ -338,6 +362,7 @@ Alternatives such as QMIX or MADDPG offer different trade-offs but ultimately in
         \textbf{} & Pipeline to train autoencoders \\ \midrule
         \textbf{Could Have} & Advanced VAE varients: SQ-VAE, HQ-VAE \\ \addlinespace
         \textbf{} & A separate environment task to test agents on \\ \midrule
+        \textbf{} & Hyperparameter tuning for all ML training loops \\ \midrule
         \textbf{Won't Have} & Obstacles in environment \\ \bottomrule
     \end{tabularx}
 \end{table}
@@ -352,7 +377,7 @@ Alternatives such as QMIX or MADDPG offer different trade-offs but ultimately in
 Development of the project used iterative sprints focusing on incremental value following the Agile methodology \cite{agile_guide}.
 The requirements for emergent communication in MARL were inherently exploratory.
 This is due to evolving algorithms reacting to evaluations such as codebook utilisation and training success.
-The Agile methodolgy proceeded with the following phases:
+The Agile methodology proceeded with the following phases:
 \begin{center}
 \textsc{Requirements} \(\rightarrow\) \textsc{Planning} \(\rightarrow\) \textsc{Implementation} \(\rightarrow\) \textsc{Testing/Evaluation} \(\rightarrow\) \textsc{Repeat}
 \end{center}
@@ -380,6 +405,6 @@ I also regularly updated the version of code on my laptop as an extra backup.
 
 I have extensive prior experience using Python.
 My internship over the previous summer introduced me to the Rust programming language and to using the Py03 library to work with both Rust and Python.
-I had no prior experience with PyTorch, however, I understood the fundamentals of neural networks from Cambridge courses and self-instructed exercises
+I had no prior experience with PyTorch; however, I understood the fundamentals of neural networks from Cambridge courses and self-instructed exercises
 such as creating a neural network from scratch to solve XOR and using genetic algorithms on the game Snake.
 

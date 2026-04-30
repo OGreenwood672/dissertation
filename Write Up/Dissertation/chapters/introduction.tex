@@ -24,7 +24,7 @@ By using a Vector-Quantised Variational Autoencoder (VQ-VAE), continuous observa
 Liu et al. then showed that this autoencoder can be frozen during training, and the agents can be taught semantic meaning through reflection strategies - custom loss functions that force agents to understand contextual meaning and intent of these symbols.
 This methodology allows communication protocols to evolve naturally without implementing hard biases \cite{Biases}.
 
-Whilst the AI Mother Tongue \cite{AIMotherTongue} paper suggests an interesting novel idea, it only evaluates this on a relatively simple cooperative tasks.
+Whilst the AI Mother Tongue \cite{AIMotherTongue} paper suggests an interesting novel idea, it only evaluates this on relatively simple cooperative tasks.
 To ascertain whether this architecture is effective and robust enough for practical use, it requires rigorous evaluation within a more complex environment where agents possess asymmetric information and must cooperate to discover hidden stations.
 This dissertation provides this rigorous evaluation and extends the ideas discussed in the paper.
 
@@ -34,20 +34,20 @@ This dissertation provides this rigorous evaluation and extends the ideas discus
 \label{sec:1.1}
 
 To answer the research question proposed, this project implements a general framework for emergent communication in multi-agent systems using a configurable assembly-line style environment.
-It is designed to be a reusable-toolkit for training, analysing communication protocols in POMDPs.
+It is designed to be a reusable toolkit for training and analysing communication protocols in POMDPs.
 Users can interact with the framework through a single script with modes for language pretraining, imitation learning and reinforcement learning.
 
 The main contributions in this project are:
 
-\textbf{A configurable high-throughput MARL environment} - a vectorised, Rust-based simulation was imlpemented that simulates a discrete two-dimensional environment, supporting hundereds of parallel worlds and a real-time lightweight visualisation.
+\textbf{A configurable high-throughput MARL environment} - a vectorised, Rust-based simulation was implemented that simulates a discrete two-dimensional environment, supporting hundreds of parallel worlds and a real-time, lightweight visualisation.
 
 \textbf{A MAPPO algorithm with hot-swappable communication protocols} - a MAPPO-based MARL training script under a centralised training, decentralised execution framework was engineered.
 It used a shared actor, global critic, LSTM module, custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface to allow hot-swapping of protocols.
 
 \textbf{The AI Mother Tongue architecture} - a communication protocol that follows and extends the AI Mother Tongue architecture \cite{AIMotherTongue} was built.
-Pretrained VQ-VAE or varients (SQ-VAE or HQ-VAE) were injected into the actor network and frozen before MARL training.
+Pretrained VQ-VAE or variants (SQ-VAE or HQ-VAE) were injected into the actor network and frozen before MARL training.
 
-\textbf{Quantitive evaluation of communication protocols} - communication protocols including AI Mother Tongue, Discrete Communication and No Communication were evaluated using metrics such as task reward.
+\textbf{Quantitative evaluation of communication protocols} - communication protocols, including AI Mother Tongue, Discrete Communication and No Communication, were evaluated using metrics such as task reward.
 
-\textbf{Semantic analysis of communication and memory} - conditional distributions such as $P(\text{Target}_{\text{partner}}^{t} | \text{Code}_{self}^t)$, $P(\text{Action}_{\text{partner}}^{t+1} | Code_{self}^t)$ were collected, visualised and qualitivly analysed.
+\textbf{Semantic analysis of communication and memory} - conditional distributions such as $P(\text{Target}_{\text{partner}}^{t} | \text{Code}_{self}^t)$, $P(\text{Action}_{\text{partner}}^{t+1} | Code_{self}^t)$ were collected, visualised and qualitatively analysed.
 
