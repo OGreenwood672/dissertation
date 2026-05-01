@@ -69,7 +69,7 @@ Despite being able to use multiple CPU cores, the serialisation and the Inter-Pr
 
 In contrast, Rust is able to utilise \lstinline[language=Rust]|Rayon|'s thread-pool to efficiently manage the parallel world steps.
 Throughput scales with the number of worlds parallelised, reaching $239,007$ SPS.
-By using Rust's native Rayon threading, the sequential fraction of the program is minimised per Amdahl's Law, allowing near-perfect scaling that saturates the CPU cores.
+By using Rust's native Rayon threading, the sequential fraction of the program is minimised per Amdahl's Law \cite{amdahl}, allowing near-perfect scaling that saturates the CPU cores.
 
 For the evaluation, $960$ worlds parallelised over a single rollout phase were chosen.
 This maximised the parallisation whilst also collecting an apt amount of datapoints for the update phase ($960 * 30 * 2 = 57,600$).

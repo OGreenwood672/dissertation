@@ -744,8 +744,8 @@ Required observations, optimal actions and their associated advantages can be pr
 Using this data, supervised learning is applied to the actor and critic networks.
 To simulate communication, we send the location of the agent's own nearest current target in its communication slot, encoded via a learned codebook lookup from spatial binning.
 
-The arena is broken into K discrete areas.
-K was chosen such that the arena is discretised into no more than K spatial bins, matching the vocabulary size, to balance two effects: avoiding unrealistically precise target locations that the communication channel cannot represent, whilst still providing sufficiently precise spatial information.
+The world is broken into K discrete areas.
+K was chosen such that the world is discretised into no more than K spatial bins, matching the vocabulary size, to balance two effects: avoiding unrealistically precise target locations that the communication channel cannot represent, whilst still providing sufficiently precise spatial information.
 A unique ID is assigned to each of these areas:
 $$\text{unique\_id} = \text{world width} * y + x$$
 where $x$ and $y$ are the discrete column and row indices, respectively.
