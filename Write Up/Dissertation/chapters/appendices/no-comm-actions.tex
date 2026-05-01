@@ -4,7 +4,7 @@
 To determine the location of a target which is not visible, the agent must be on top of the invisible entity and interact with it.
 In a 5x5 world, to search the entire grid takes 50 actions (25 movement and 25 interaction).
 For a single entity, it would be expected to find the entity after searching half the location ($(25+1)/2=13$ location, = 26 actions)
-Therefore for two entities, the expectation of the larger number locations searched for the two entities is calculated.
+Therefore, for two entities, the expectation of the larger number of locations searched for the two entities is calculated.
 \begin{equation}
     \mathbb{E}[\text{Maximum Location}] = \frac{2(25+1)}{2 + 1} = \frac{52}{3} \approx 17.33 \text{ locations}
 \end{equation}

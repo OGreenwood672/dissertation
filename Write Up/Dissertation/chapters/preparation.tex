@@ -13,7 +13,7 @@ To evaluate communication in this framework, we investigate the following cooper
 
 There is an $M$x$N$ board.
 The game lasts for $T$ timesteps, and at each timestep, every agent simultaneously completes one action.
-The goal of the game is for the agents to cooperate and complete a required recipe.
+The goal of the game is for the agents to cooperate and complete a recipe.
 
 The world contains entities called agents and stations.
 
@@ -111,7 +111,7 @@ This shows how the environment creates asymmetric information and how communicat
 \label{sec:2.1.2}
 
 Reinforcement Learning (RL) is different to classical supervised and unsupervised learning as we do not have all the data before training.
-We must build environments for agents who take actions and receive feedback from these actions.
+We must build environments for agents to take actions and receive feedback from these actions.
 The agents must learn to maximise the total reward collected over time.
 
 Classic RL is modelled through Markov Decision Processes (MDPs), but to investigate communication, we must limit the information every agent has, so they must communicate missing information with one another.
@@ -123,10 +123,10 @@ Where:
 \item $\mathcal{S}$ is the set of all possible states of the environment.
 \item $\mathcal{A}$ is the action space. \{North, South, East, West, Interact\}.
 \item $\mathcal{P}$ is the transition probability function $P(s'|s,a)$, representing the probability that taking action $a$ in state $s$ will lead to state $s'$.
-\item $\mathcal{R}$ is the reward function. See \ref{sec:3.3.1}.
+\item $\mathcal{R}$ is the reward function. See section \ref{sec:3.3.1}.
 \item $\Omega$ is the set of all possible local observations.
 \item $\mathcal{O}$ is the observation function $P(o|s,a)$, representing the agent seeing observation $o$ given state $s$ and previous action was $a$.
-\item $\gamma$ is the discount factor. Set at 0.99.
+\item $\gamma$ is the discount factor. Set at 0.99 following \cite{ppo_bestpractices}.
 \end{itemize}
 
 \subsubsection{Multi-Agent Proximal Policy Optimisation (MAPPO)}
@@ -144,7 +144,7 @@ MAPPO optimises two main components: each agent's Policy (Actor) ${\pi}_{{\theta
 
 \subsubsection{Actor: Policy Optimisation}
 \label{sec:2.1.2.2}
-The policy network is paramaterised by $\theta$ whose goal it is to maximise the clipped surrogate objective, preventing drastic changes to the policy from single timesteps.
+The policy network is parameterised by $\theta$ whose goal is to maximise the clipped surrogate objective, preventing drastic changes to the policy from single timesteps.
 For every agent $i$, define the probability ratio $r_i(\theta)$ as:
 
 \begin{equation}
@@ -164,7 +164,7 @@ Where:
 \item $\pi_{\theta}(a_i | o_i)$ is the current policy's probability of taking action $a_i$ given observation $o_i$.
 \item $\pi_{\theta_{old}}(a_i | o_i)$ is the old policy's probability of taking the same action prior to the update.
 \item $\mathbb{E}_{i}$ denotes the empirical expectation over a batch of agent experiences.
-\item $\hat{A}_i$ is the Advantage Estimation for agent $i$ (detailed in Section \ref{sec:2.1.2.4}).
+\item $\hat{A}_i$ is the Advantage Estimation for agent $i$ (detailed later in Section \ref{sec:2.1.2.4}).
 \item $\epsilon$ is a hyperparameter that limits the policy update.
 \end{itemize}
 
@@ -173,7 +173,7 @@ Where:
 
 Unlike standard Proximal Policy Optimisation (PPO)\cite{PPO}, the Value Function is not per-agent, but per-world.
 It has access to global information.
-The critic network is paramaterised by $\phi$ whose goal it is to minimise the Mean Squared Error between its own prediction and the discounted returns $R_t$.
+The critic network is parameterised by $\phi$ whose goal is to minimise the Mean Squared Error between its own prediction and the discounted returns $R_t$.
 
 \begin{equation}
 L(\phi) = \mathbb{E}_{t} \left[ (V_{\phi}(S_t) - R_t)^2 \right]
@@ -254,7 +254,7 @@ This baseline captures the typical on-policy setting that suffers from the "Join
     \draw[line] (pre_cb) -- (pre_dec);
     \draw[line] (pre_dec) -- (pre_out);
 
-    \node[above=0.8cm of pre_cb, font=\sffamily\bfseries\large] (pre_title) {Phase 1: VQ-VAE Training Loop};
+    \node[above=0.8cm of pre_cb, font=\sffamily\bfseries\large] (pre_title) {Phase 1: Quantised VAE Training Loop};
 
     \begin{scope}[on background layer]
         \node[draw, dashed, thick, fill=blue!5, rounded corners, inner sep=15pt, fit=(pre_in)(pre_out)(pre_title)] (pre_box) {};
@@ -262,7 +262,7 @@ This baseline captures the typical on-policy setting that suffers from the "Join
 
     \node[txt, below=4.5cm of pre_in, xshift=-0.4cm] (obs) {Observations};
 
-    \node[frozen, right=0.5cm of obs] (frozen_enc) {Frozen VQ-VAE Encoder\\+ Quantiser};
+    \node[frozen, right=0.5cm of obs] (frozen_enc) {Frozen Encoder\\+ Quantiser};
 
     \draw[line] (obs) -- (frozen_enc);
         
@@ -270,7 +270,7 @@ This baseline captures the typical on-policy setting that suffers from the "Join
     
     \draw[line] (frozen_enc.east) -- (actor_net.west);
 
-    \node[action, fill=purple!15, above right=0.6cm and 1cm of actor_net] (out_comm) {Codebook\\(from pretrained VQ-VAE)};
+    \node[action, fill=purple!15, above right=0.6cm and 1cm of actor_net] (out_comm) {Codebook\\(from pretrained\\Quantised VAE)};
     \node[action, fill=teal!15, right=1cm of actor_net] (out_act) {Action};
     \node[action, fill=yellow!15, below right=0.6cm and 1cm of actor_net] (out_aux) {Auxiliary Losses};
 
@@ -282,13 +282,30 @@ This baseline captures the typical on-policy setting that suffers from the "Join
 
     \end{tikzpicture}
     }
-    \caption{Architecture diagram for frozen VQ-VAE pretraining and RL training the actor network.}
+    \caption{Architecture diagram for frozen Quantised Variational Autoencoder (VAE) pretraining and RL training the actor network.}
     \label{fig:ai-mother-tongue}
 \end{figure}
 
 Figure \ref{fig:ai-mother-tongue} shows the architecture of the AI Mother Tongue protocol proposed by Liu et al.\cite{AIMotherTongue}
-Phase 1 is trained offline using collected observations, and the encoder and codebook produced are saved.
+Phase 1 is trained offline using collected observations, and the encoder and codebook (all possible quantised values) produced are saved.
 On initialisation of phase 2, the encoder and codebook are loaded and used for the actor network training.
+The architecture has three outputs:
+\begin{itemize}
+    \item \textbf{Codebook}
+    A code is emitted from the pretrained codebook chosen by a Multi-Layer Perceptron (MLP).
+    \item \textbf{Action Head}
+    Liu et al. use a simple linear rule as the action head based on the code emitted by the architecture and a pre-selected value $K$.
+    \begin{equation}
+        \text{Action}(code) =
+        \begin{cases}
+            \text{Action 1}, & \text{if code} < \frac{K}{2} \\
+            \text{Action 2}, & \text{otherwise}
+        \end{cases}
+    \end{equation}
+    \item \textbf{Auxiliary Head}
+    These heads predict the value or likely effect of the codes emitted, helping the agents learn which codes are useful and how other agents may respond.
+    The auxiliary heads provide additional learning signals that are backpropagated into the actor network to guide and improve policy optimisation.
+\end{itemize}
 
 
 \section{Related Work}
@@ -299,14 +316,14 @@ On initialisation of phase 2, the encoder and codebook are loaded and used for t
 
 Early work in emergent communication studied how agents can learn to communicate with one another without a concern for interoperability and bandwidth \cite{InitialEmergent}.
 More recent research in multi-agent reinforcement learning studies agents learning to send discrete symbols, showing that discrete channels can match or outperform continuous channels, whilst also allowing for interoperability \cite{DiscreteComms}.
-A large challenge in learning discrete communication on-policy is the "Joint Exploration Problem" and the resulting "Communication Vacuum Problem", as stated by Eccles et al\cite{Biases}, where agents learn to ignore the communication channel.
+A challenge in learning discrete communication on-policy is the "Joint Exploration Problem" and the resulting "Communication Vacuum Problem", as stated by Eccles et al\cite{Biases}, where agents learn to ignore the communication channel.
 
 \subsection{AI Mother Tongue and VAE-based symbol systems}
 \label{sec:2.2.2}
 
 The AI Mother Tongue \cite{AIMotherTongue} architecture addresses the "Joint Exploration Problem" by decoupling the emergence of discrete symbols from the reinforcement learning training and adding auxiliary losses as described in figure \ref{fig:ai-mother-tongue}.
 Liu et al. report promising phenomena such as sudden semantic compression and interpretable symbol usage, but their evaluation is restricted to a simple cooperative task.
-The underlying discrete bottleneck uses VQ-VAE \cite{VQVAE}, but Liu et al. propose more expressive codebook learning methods, such as SQ-VAE \cite{SQVAE}, and ways to advance the language, such as using HQ-VAE \cite{HQVAE}.
+The underlying discrete bottleneck uses Vector-Quantised Variational Autoencoders (VQ-VAE) \cite{VQVAE}, but Liu et al. propose more expressive codebook learning methods, such as Stochastically-Quantised Variational Autoencoders (SQ-VAE) \cite{SQVAE}, and ways to advance the language, such as using Hierarchically-Quantised Variational Autoencoders (HQ-VAE) \cite{HQVAE}.
 
 \subsection{MARL algorithms \& MAPPO}
 \label{sec:2.2.3}
@@ -318,15 +335,15 @@ The underlying discrete bottleneck uses VQ-VAE \cite{VQVAE}, but Liu et al. prop
 The framework being implemented in the project is built on the standard centralised training, decentralised execution (CTDE) paradigm for cooperative MARL.
 Multi-Agent Proximal Policy Optimisation (MAPPO) \cite{MAPPO} was selected, and alternatives were actively rejected.
 
-Value-Decomposition Networks (VDN) \cite{VDN} such as QMIX \cite{QMIX} are unsuitable for the given game.
-QMIX relies on a monotonicity assumption (the global optimal action-value is monotonic for each individual agent action-values).
-For training communication, the utility of a code broadcast from agents have value contextually-dependent on the enviornment state which directly violates the monotonicity assumption.
+Value-Decomposition Networks (VDN) \cite{VDN}, such as QMIX \cite{QMIX}, are unsuitable for the given game.
+QMIX relies on a monotonicity assumption (the global optimal action-value is monotonic for each individual agent's action-values).
+For training communication, the utility of a code broadcast from agents has a value contextually dependent on the environment state, which directly violates the monotonicity assumption.
 
-Off-policy actor-critic methods such as MADDPG \cite{MADDPG} are also unsuitable as codes broadcast semantically shift during training, leading to new policies being trained on stale data.
+Off-policy actor-critic methods such as Multi-Agent Deep Deterministic Policy Gradient (MADDPG) \cite{MADDPG} are also unsuitable as codes broadcast semantically shift during training, leading to new policies being trained on stale data.
 
 MAPPO avoids these issues \cite{MAPPO}.
-MAPPO evaluates the codes current semantic meaning, eliminating training on stale codes.
-Furthermore, the clipped surrogate objective of the PPO algorithm is used preventing any aggressive gradient updates causing forgetting semantic meaning of codes.
+MAPPO evaluates the code's current semantic meaning, eliminating training on stale code.
+Furthermore, the clipped surrogate objective of the PPO algorithm is used, preventing any aggressive gradient updates, causing forgetting of the semantic meaning of codes.
 
 \section{Requirements Analysis}
 \label{sec:2.3}
@@ -371,8 +388,8 @@ This includes high testing coverage, logging, and checkpointing.
 These criteria directly follow from the central research question from section \ref{sec:1}.
 C1 and C2 ensure the question is asked in a non-toy setting.
 Without the high-throughput MARL environment and the stable MARL training, the AI Mother Tongue architecture \cite{AIMotherTongue} would not be evaluated under realistic conditions.
-C3 ensures a comparative evaluation for evaluating the AI Mother Tongue architecture against realistic baselines.
-C4 allows for a fair in-depth evaluation of the protocol.
+C3 ensures a comparative evaluation of the AI Mother Tongue architecture against realistic baselines.
+C4 allows for a fair, in-depth evaluation of the protocol.
 Finally, C5 encourages testing, configuration, logging and checkpointing to create a reusable toolkit for other researchers to further this work.
 
 \subsection{MoSCoW Analysis}
@@ -422,14 +439,14 @@ Python was chosen as the programming language for the controller, primarily due 
 (including but not limited to NumPy \cite{numpy}, Pandas \cite{pandas}, Matplotlib \cite{matplotlib}, and Jupyter Notebooks \cite{jupyter}).
 PyTorch \cite{pytorch} was chosen to develop the models due to its high performance and imperative execution model, which facilitates rapid iterative prototyping.
 
-However, Python is not a performance language and, as of development, has a GIL \cite{python_gil_wiki} meaning executing simulations of my environment must be effectively done serially, bottlenecking my performance heavily.
-I chose Rust to develop my environment for its high, C-like performance and memory safety, allowing for rapid development.
+However, Python is not a performance language and, as of development, has a GIL \cite{python_gil_wiki} meaning executing simulations of the environment must be effectively done serially, bottlenecking the performance heavily.
+Rust was used to develop the environment for its high, C-like performance and memory safety, allowing for rapid development.
 
-To streamline my package management and environment integration to the controller, I used a pyproject.toml file.
-This file handled installing packages from external sources and also building my Rust environment program to allow my Python controller to access the environment.
+To streamline the package management and environment integration to the controller, I used a pyproject.toml file.
+This file handled installing packages from external sources and also building the Rust environment program to allow the Python controller to access the environment.
 
-For version control, I used GitHub \cite{github} to store my git repository, which included both my program and my dissertation.
-I also regularly updated the version of code on my laptop as an extra backup.
+For version control, GitHub \cite{github} was used to store the git repository, which included both the program and the dissertation.
+Regular updates were made to the version of code on my laptop as an extra backup.
 
 \section{Starting Point}
 \label{sec:2.5}

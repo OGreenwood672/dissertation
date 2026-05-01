@@ -14,7 +14,7 @@ There exist two agents.
 Each agent has two ingredients to collect from unique stations.
 They also each have a station to drop off their product.
 Each agent cannot observe their own pick-up stations, but can observe their teammates with an infinite range of view.
-This setup ensures cooperation is required and therefore, communication must emerge for optimal task reward.
+This setup ensures cooperation is required and, therefore, communication must emerge for optimal task reward.
 
 The world is defined as a 5x5 grid.
 This is chosen to be small enough to minimise the spatial navigation problem, allowing the evaluation to focus on the emergent language.
@@ -75,6 +75,7 @@ For the evaluation, $960$ worlds parallelised over a single rollout phase were c
 This maximised the parallisation whilst also collecting an apt amount of datapoints for the update phase ($960 * 30 * 2 = 57,600$).
 
 \subsection{Rollout Buffer Efficiency}
+\label{sec:4.2.2}
 
 A secondary major potential bottleneck is transferring the results of the rollout phase to the training phase (across the CPU-GPU boundary).
 To evaluate the \lstinline[language=Python]|RolloutBuffer|, the memory allocation and transfer overhead are compared to a baseline method (appending to Python lists and executing \lstinline[language=Python]|torch.stack| after the rollout phase).
@@ -107,12 +108,6 @@ These results contribute to C4.
 \label{sec:4.3.1}
 
 For this evaluation, reconstruction loss and commitment loss are tracked throughout a training process of 50 epochs using 26880 datapoints.
-Liu et al. defined a healthy encoder for the AI Mother Tongue system.
-Reconstruction loss should fall between 0.08 and 0.15.
-Commitment Loss must remain below 1.0.
-
-For this evaluation, reconstruction losses are tracked throughout the training processes for VQ-VAE and SQ-VAE.
-For VQ-VAE, commitment loss is also tracked.
 Liu et al. defined a healthy encoder for the AI Mother Tongue system.
 Reconstruction loss should fall between 0.08 and 0.15.
 Commitment Loss must remain below 1.0.
@@ -238,13 +233,13 @@ To ascertain the effectiveness of the AI Mother Tongue architecture, it is compa
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{reward_mean_comparison.png}
-    \caption{Reward Mean per Step for $30,000$ training steps over PPO training loop}
+    \caption{Reward mean per step over 30,000 PPO training steps. Each protocol was trained across three runs, and a 95\% confidence interval is shown.}
     \label{fig:reward-mean-comparison}
 \end{figure}
 
 As shown in Figure \ref{fig:reward-mean-comparison}, the AI Mother Tongue architecture was able to outperform both other protocols.
 The No Communication protocol showed the requirement for communication in the simulation; this protocol converged on a reward mean per step of 0.09.
-The Discrete Comms protocol showed a struggle to communicate any useful information from one agent to another and had a similar training convergence to the No Communication protocol.
+The Discrete Comms protocol showed a struggle to communicate any useful information from one agent to another and had a similar training convergence to the No Communication protocol, suggesting it experienced the "Joint Exploration Problem".
 
 The AI Mother Tongue protocol demonstrates two distinct phases in its training.
 The first phase underperforms all the other protocols, as it struggles to balance optimising its auxiliary losses and the standard training losses.
@@ -252,12 +247,12 @@ The second phase converges to 0.13 reward mean per step as it learns to use the 
 
 No protocol is able to reach the 0.24 reward mean per step recorded by the expert agent.
 This is due to a limitation the agents have.
-The agents can only view the nearest entity (that isn't their own pick-up station) whereas the expert agent has a pure, global view of the environment.
+The agents can only view the nearest entity (that isn't their own pick-up station), whereas the expert agent has a pure, global view of the environment.
 This means other entities often hide other, more important entities, preventing agents from matching this expert agent's score.
 Therefore, the 0.13 reward demonstrates that the agents successfully utilised the AI Mother Tongue protocol to overcome the POMDP.
 
-Training MARL policies often require 10x or 100x number of steps than 30,000 steps.
-However, for this evaluation 30,000 steps is sufficient as (see section \ref{sec:4.5.1}) the core research focus—the spontaneous semantic compression emerged within the first 12,000 steps. 
+Training MARL policies often requires 10x or 100x the number of steps than 30,000 steps.
+However, for this evaluation, 30,000 steps is sufficient as the core research focus - the spontaneous semantic compression emerged within the first 12,000 steps (see section \ref{sec:4.5.1}). 
 
 \subsection{Reflection Strategies - Are They Needed?}
 \label{sec:4.4.2}
@@ -265,7 +260,7 @@ However, for this evaluation 30,000 steps is sufficient as (see section \ref{sec
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{reflection_comparison.png}
-    \caption{Comparison of with and without reflection strategies using Reward Mean per Step for $30,000$ training steps}
+    \caption{Comparison of with and without reflection strategies using Reward Mean per Step for $30,000$ training steps. Each experiment was trained across three runs, and a 95\% confidence interval is shown.}
     \label{fig:reward-mean-comparison-reflection}
 \end{figure}
 
@@ -283,12 +278,12 @@ Sections \ref{sec:4.5} - \ref{sec:4.7} provide the deeper evaluation required by
 \label{sec:4.5.1}
 
 Throughout training, the communication perplexity of the agent's vocabulary is tracked.
-Communication perplexity is measured as $e^{-\text{entropy of vocabulary}}$.
+Communication perplexity represents how uncertain the agent is about the next token, measured as $e^{-\text{entropy of vocabulary}}$.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{comm_perplexity_over_time.png}
-    \caption{Communication Perplexity tracked over a training run of AI Mother Tongue when using VQ-VAE with a windowed smoothing of 10 steps}
+    \caption{Communication Perplexity tracked over a training run of AI Mother Tongue when using SQ-VAE trained across three runs, and a 95\% confidence interval is shown.}
     \label{fig:comm-perplexity-over-training}
 \end{figure}
 
@@ -309,7 +304,7 @@ To further understand the agent's use of language, the frequency of each code is
     \label{fig:vocab-frequency}
 \end{figure}
 
-From this data \ref{fig:vocab-frequency}, the distribution exhibits a strong skew, giving a low entropy score of 2.98 and a high Gini coefficient of 0.78.
+From Figure \ref{fig:vocab-frequency}, the distribution exhibits a strong skew, giving a low entropy score of 2.98 and a high Gini coefficient of 0.78.
 When visualising this empirical distribution with a rank-frequency plot, it demonstrates exponential decay closely resembling Zipf's Law, especially for the first 25 codes.
 
 \begin{figure}[htbp]
@@ -337,7 +332,7 @@ Each probe takes as input the final layer of the Long-Short Term Memory (LSTM) m
     \item The agent's own next target's coordinates (tests for allocentric memory)
     \item The agent's partner's next target's coordinates(tests for allocentric memory)
     \item The agent's own next target's relative coordinates from the agent's coordinates (tests for egocentric positional memory)
-    \item The agent's partner's next target's relative coordinates from the agent's coordinates(tests for egocentric positional memory)
+    \item The agent's partner's next target's relative coordinates from the agent's coordinates (tests for egocentric positional memory)
     \item A unit vector in the direction of the agent's next target (tests for egocentric directional memory)
     \item A unit vector in the direction of the agent's partner's next target (tests for egocentric directional memory)
 \end{itemize}
@@ -353,12 +348,12 @@ To account for this, the models are trained only on the last half of the timeste
 \end{figure}
 
 The relative distance and unit direction models are shown to never improve over the course of a simulation, suggesting the LSTM does not follow egocentric memory.
-However, the absolute location model shows the LSTM uses allocentric memory.
+However, the absolute location model shows that the LSTM uses allocentric memory.
 
 Even though the absolute location model does show the LSTM storing some information, the model converges on an MSE of 1.6.
 This error represents an uncertainty radius of 1.6 cells, showing how the memory acts as a 'regional beacon' for the agent's targets.
 
-An important conclusion from section \ref{fig:lstm-probing} is that the agent's need for communication decreases as the simulation runs, and they store target locations in the LSTM module.
+An important conclusion from figure \ref{fig:lstm-probing} is that the agent's need for communication decreases as the simulation runs, and they store target locations in the LSTM module.
 
 \section{Semantic Grounding and Pragmatics}
 \label{sec:4.7}
@@ -366,13 +361,13 @@ An important conclusion from section \ref{fig:lstm-probing} is that the agent's 
 \subsection{Semantic Grounding: $P(\text{Target} | \text{Code})$}
 \label{sec:4.7.1}
 
-Using the conclusion from LSTM Probing (\ref{sec:4.5.2}), less communication is required as the simulation runs.
+Using the conclusion from LSTM Probing (section \ref{sec:4.6.1}), less communication is required as the simulation runs.
 Therefore, to analyse the semantic meaning of messages, only the first six simulation steps are used.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{partner-target-given-code.png}
-    \caption{Likelihood of location of target given the top four codes broadcast from partner at simulation steps zero and four. Yellow is high likelihood, blue is low likelihood}
+    \caption{Likelihood of location of target given the top four codes broadcast from partner at simulation steps zero and four. Yellow is high likelihood, blue is low likelihood.}
     \label{fig:probability-target-given-code}
 \end{figure}
 
@@ -395,11 +390,11 @@ To see if the agent had a direct impact on the action of its partner, a confusio
 \end{figure}
 
 As shown in Figure \ref{fig:partner-action-given-code}, calculating the conditional probability of the receiver's next action given the emitted code reveals a relatively uniform distribution across the action space.
-These findings further confirm the findings from the LSTM Probing (\ref{sec:4.5.2}), the codes purely communicate allocentric information.
+These findings further confirm the findings from the LSTM Probing (see section \ref{sec:4.6.1}), the codes purely communicate allocentric information.
 As each agent navigates to its target independently based on its own knowledge of the environment, the action taken follows a uniform distribution.
 
 \subsection{Action and Communication Entanglement: $P(\text{Action}_{self}^{t} | \text{Code}_{self}^t)$}
-\label{sec:4.6.3}
+\label{sec:4.7.3}
 
 To understand the relationship between the agent's code and its own action, a confusion matrix is made:
 
@@ -417,7 +412,7 @@ The action head and communication head for the actor are simple, and as they are
 This leads to the code being output by the actor, inadvertently encoding its next action choice.
 
 \subsection{Context-Aware Signalling (Inventory-Dependent Language)}
-\label{sec:4.6.4}
+\label{sec:4.7.4}
 
 To understand if the agents are using a pragmatic language, the conditional probability of token usage given the ingredients it has is calculated.
 
@@ -437,7 +432,7 @@ These results suggest the agents have a Theory of Mind as intended from the auxi
 
 
 \section{Evaluation of Success Criteria}
-\label{sec:4.7}
+\label{sec:4.8}
 
 \paragraph{C1 - High-Throughput Environment}
 C1 required a configurable, vectorised Rust environment with Python bindings, achieving at least 50K environment steps per second and supporting real-time visualisations.
