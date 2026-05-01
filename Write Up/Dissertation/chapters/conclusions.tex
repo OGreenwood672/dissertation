@@ -18,7 +18,7 @@ It uses a shared actor, global critic, LSTM module, custom rollout buffer for ef
 To decrease the training time, a further script was introduced to pre-train the actor-critic networks using imitation learning.
 
 Third, I loyally followed and extended the AI Mother Tongue architecture \cite{AIMotherTongue}.
-Pre-trained VQ-VAE and variants (SQ-VAE and HQ-VAE) were trained on optimal rollout phases and injected into the actor network and frozen before MARL training.
+Pre-trained VQ-VAE and SQ-VAE (with exploratory HQ-VAE variant, detailed in Appendix \ref{sec:hq-vae}) were trained on optimal rollout phases and injected into the actor network and frozen before MARL training.
 
 Fourth, a quantitative evaluation of communication protocols was performed.
 The analysis compared task reward and bandwidth efficiency for each of the communication protocols.
@@ -36,8 +36,18 @@ It has taught me a few lessons.
 The importance of logging and checkpointing; when running a program that takes over nine hours to complete, waiting until the end to find it overfitted epochs ago is catastrophic without these systems in place.
 % Maybe another lesson
 
-\section{Future Work}
+\section{Social and Ethical Considerations}
 \label{sec:5.3}
+
+Integrating these trained models into real-world settings carries social and ethical implications.
+A significant concern is the "black box" nature of MARL communication creating a trust-deficit in applications.
+The analysis tools produced take a step further towards AI transparency, reducing this trust-deficit.
+
+In this project, data is generated from a built-in simulation, but for integration into real-world settings, real data must be used.
+For example, the expert agent would likely be human which would invoke strict data protection laws (like GDPR) to come into effect.
+
+\section{Future Work}
+\label{sec:5.4}
 
 This dissertation gives rise to several promising future directions.
 
@@ -54,8 +64,9 @@ This could be improved using the attention mechanism to choose which visible ent
 % Hyperparameter tuning for autoencoder training, MAPPO training and model architectures would provide optimal results for each communication protocol and therefore provide better comparisons for evaluation.
 
 A second direction for improvement is an evaluation of the established communication protocols are able to scale to highly complex, hierarchical environments (such as 50x50 grids with agents passing ingredients to one another).
-This would theoretically push the HQ-VAE to establish the macro/micro strategies.
+This would theoretically push the HQ-VAE to establish the macro/micro strategies (see \ref{sec:hq-vae}).
 
 Finally, in this dissertation, each training run ran for 30,000 training steps.
 The number of training steps was chosen as a trade-off between limited time and achieving sufficient convergence of the policy.
 However, with infinite time and compute, I would train for a considerably longer amount of time, and from this, clearer results may be achieved.
+

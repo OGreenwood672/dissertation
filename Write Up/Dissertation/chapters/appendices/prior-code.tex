@@ -1,0 +1,45 @@
+\begin{algorithm}
+\caption{Data-driven Codebook Initialisation via K-Means}
+\label{alg:codebook-priors}
+\begin{algorithmic}[1]
+\Procedure{FitRQStream}{$X, Q, d$}
+    \State \textbf{Input:} Initial continuous latents/residuals $X$, Quantiser $Q$, latent dim $d$
+    \State $X \gets \text{Reshape}(X, [-1, d])$ \Comment{Flatten batch and time dimensions}
+    \State $L \gets Q.\text{rq\_levels}$
+    \State $K \gets \text{VocabSize}$
+    
+    \For{$l = 1$ \textbf{to} $L$}
+        \State $X_{\text{norm}} \gets \frac{X}{||X||_2 + \epsilon}$ \Comment{L2 Normalise residuals ($\epsilon = 10^{-5}$)}
+        
+        \State $C \gets \text{MiniBatchKMeans}(X_{\text{norm}}, \text{clusters}=K)$ \Comment{Find $K$ centroids}
+        
+        \If{Encoder is SQ-VAE}
+            \State $C \gets \frac{C}{||C||_2}$ \Comment{Normalise centroids onto unit sphere}
+        \EndIf
+        
+        \State $Q.\text{codebook}[l] \gets C$ \Comment{Set embedding weights}
+        
+        \State $A \gets \text{PredictClusters}(X_{\text{norm}}, C)$ \Comment{Get cluster assignments}
+        \State $X \gets X - C[A]$ \Comment{Compute residuals for the next RQ level}
+    \EndFor
+\EndProcedure
+
+\vspace{2mm}
+
+\Procedure{SetPriors}{$M, \mathcal{D}$}
+    \State \textbf{Input:} Model $M$, Dataloader $\mathcal{D}$
+    \State $\mathcal{Z}_{\text{top}} \gets [], \quad \mathcal{Z}_{\text{bot}} \gets [], \quad \mathcal{Z} \gets []$
+    
+    \State \Comment{\textbf{Step 1: Collect Continuous Latents}}
+    \For{batch $O \in \mathcal{D}$}
+        \State $z \gets M.\text{encoder}.\text{GetContinuous}(O)$
+        \State Append $z$ to $\mathcal{Z}$
+    \EndFor
+    
+    \State \Comment{\textbf{Step 2: Fit Residual Quantisation Streams}}
+    \State $X \gets \text{Concatenate}(\mathcal{Z})$
+    \State \Call{FitRQStream}{$X, M.Q, d$}
+    
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}

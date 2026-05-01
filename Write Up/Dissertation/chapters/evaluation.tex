@@ -18,7 +18,7 @@ This setup ensures cooperation is required and therefore, communication must eme
 
 The world is defined as a 5x5 grid.
 This is chosen to be small enough to minimise the spatial navigation problem, allowing the evaluation to focus on the emergent language.
-For the 5x5 grid, agents with no communication must take on expectation $\sim$ 35 actions to find both stations \ref{sec:A}.
+For the 5x5 grid, agents with no communication must take on expectation $\sim$ 35 actions to find both stations (see Appendix \ref{sec:num-actions}).
 Therefore, to elevate the difference in mean task reward per step for communication and no communication protocols, the number of actions agents are allowed to take in each world is limited to 30.
 
 \textbf{MAPPO Hyperparameters}
@@ -36,13 +36,6 @@ The low four epochs prevent overfitting to stale data during update phases, alig
 These communication hyperparameters apply to all communication protocols.
 A vocabulary size of 32 is chosen to be deliberately small compared to the theoretical number of possible external observations to encourage information compression.
 Each code in the codebook is of size eight to allow sufficient spatial encoding whilst also respecting the reality of limited bandwidth.
-
-These hyperparameters are inappropriate for the AI Mother Tongue architecture with a discrete bottleneck using HQ-VAE.
-For this, each codebook is given a vocabulary size of 16 (giving an effective vocabulary size of 256), allowing different levels of detail in different codebooks.
-The code size also had to be increased from eight to sixteen.
-In HQ-VAE, the code size is split across the codebooks (in a 1:2 ratio), so a total code size of eight would allocate only two dimensions to the top-level latent. 
-With vMF SQ-VAE at the top level, a 2-dimensional unit sphere cannot support 16 codes, leading to a collapsed top-level codebook.
-Using the code size of sixteen gives a sufficient five dimensions for the top-level codebook.
 
 \section{System Performance}
 \label{sec:4.2}
@@ -335,17 +328,18 @@ The emergence of this phenomenon suggests the agents were successful at assignin
 \label{sec:4.6}
 
 \subsection{Memory Probing}
-\label{sec:4.5.2}
+\label{sec:4.6.1}
 
 To understand what the agent concretely knows, six strict linear probes were developed following Guillaume et al.'s methodology \cite{Probing}.
+Memory is tested for allocentric memory (information is stored using a global coordinate system) and egocentric memory (information is stored relative to the self).
 Each probe takes as input the final layer of the Long-Short Term Memory (LSTM) module, and predicts one of the following using MSE loss:
 \begin{itemize}
-    \item The agent's own next target's coordinates
-    \item The agent's partner's next target's coordinates
-    \item The agent's own next target's relative coordinates from the agent's coordinates
-    \item The agent's partner's next target's relative coordinates from the agent's coordinates
-    \item A unit vector in the direction of the agent's next target
-    \item A unit vector in the direction of the agent's partner's next target
+    \item The agent's own next target's coordinates (tests for allocentric memory)
+    \item The agent's partner's next target's coordinates(tests for allocentric memory)
+    \item The agent's own next target's relative coordinates from the agent's coordinates (tests for egocentric positional memory)
+    \item The agent's partner's next target's relative coordinates from the agent's coordinates(tests for egocentric positional memory)
+    \item A unit vector in the direction of the agent's next target (tests for egocentric directional memory)
+    \item A unit vector in the direction of the agent's partner's next target (tests for egocentric directional memory)
 \end{itemize}
 
 Initially, in a simulation run, agents have no way of knowing the location of their targets.
@@ -358,8 +352,8 @@ To account for this, the models are trained only on the last half of the timeste
     \label{fig:lstm-probing}
 \end{figure}
 
-The relative distance and unit direction models are shown to never improve over the course of a simulation, suggesting the LSTM does not follow egocentric memory, where information is stored relative to the self (i.e. relative coordinates, or direction to target).
-However, the absolute location model shows the LSTM uses allocentric memory, where information is stored using a global coordinate system.
+The relative distance and unit direction models are shown to never improve over the course of a simulation, suggesting the LSTM does not follow egocentric memory.
+However, the absolute location model shows the LSTM uses allocentric memory.
 
 Even though the absolute location model does show the LSTM storing some information, the model converges on an MSE of 1.6.
 This error represents an uncertainty radius of 1.6 cells, showing how the memory acts as a 'regional beacon' for the agent's targets.
@@ -367,10 +361,10 @@ This error represents an uncertainty radius of 1.6 cells, showing how the memory
 An important conclusion from section \ref{fig:lstm-probing} is that the agent's need for communication decreases as the simulation runs, and they store target locations in the LSTM module.
 
 \section{Semantic Grounding and Pragmatics}
-\label{sec:4.6}
+\label{sec:4.7}
 
 \subsection{Semantic Grounding: $P(\text{Target} | \text{Code})$}
-\label{sec:4.6.1}
+\label{sec:4.7.1}
 
 Using the conclusion from LSTM Probing (\ref{sec:4.5.2}), less communication is required as the simulation runs.
 Therefore, to analyse the semantic meaning of messages, only the first six simulation steps are used.
@@ -389,7 +383,7 @@ This figure also further consolidates the loss of use of communication during a 
 At the initial simulation step, target locations are clear; however, as the simulation progresses to even step 4, the uncertainty of the location of targets given certain codes increases.
 
 \subsection{Causal Influence on Policy: $P(\text{Action}_{partner}^{t+1} | \text{Code}_{self}^t)$}
-\label{sec:4.6.2}
+\label{sec:4.7.2}
 
 To see if the agent had a direct impact on the action of its partner, a confusion matrix is made:
 
@@ -442,19 +436,8 @@ These results suggest the agents have a Theory of Mind as intended from the auxi
 % VAE loss of BCE + 1.75 * MSE
 
 
-\section{HQ-VAE Analysis}
-\label{sec:4.7}
-
-Replacing the single-level VAE bottleneck with an HQ-VAE did not significantly change task-level performance.
-HQ-VAE's goal was for the top-level codebook to capture macro-level strategies and the bottom-level codebook to capture micro-level strategies.
-To test this, I applied the same analyses as in \ref{sec:4.3} - \ref{sec:4.7} on each codebook and on the bottom-level codebook symbols conditioned on the top-level symbols.
-In all cases, no clear, distinguishable strategies emerged at either level.
-The lack of strategies in either codebook is likely due to the flat nature task (e.g. Find Station A).
-A hierarchical language may require a more hierarchical task.
-
-
 \section{Evaluation of Success Criteria}
-\label{sec:4.8}
+\label{sec:4.7}
 
 \paragraph{C1 - High-Throughput Environment}
 C1 required a configurable, vectorised Rust environment with Python bindings, achieving at least 50K environment steps per second and supporting real-time visualisations.

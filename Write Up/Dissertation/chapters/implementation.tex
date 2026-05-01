@@ -13,51 +13,52 @@
 \label{sec:3.1.1}
 
 \begin{figure}[htbp]
-\centering
-\resizebox{\textwidth}{!}{
-\begin{tikzpicture}[
-    node distance=1.5cm,
-    font=\sffamily,
-    block/.style={draw, rectangle, thick, fill=blue!5, align=center, minimum width=3.5cm, minimum height=1.2cm, rounded corners},
-    envblock/.style={draw, rectangle, thick, fill=green!5, align=center, minimum width=4.5cm, minimum height=2cm, rounded corners},
-    hub/.style={draw, rectangle, thick, fill=red!10, align=center, minimum width=4.5cm, minimum height=1.8cm, rounded corners},
-    storage/.style={draw, rectangle, thick, fill=gray!10, align=center, minimum width=3.5cm, minimum height=1.2cm, rounded corners},
-    arrow/.style={-Stealth, thick}
-]
+    \centering
+    \resizebox{\textwidth}{!}{
+    \begin{tikzpicture}[
+        node distance=1.5cm,
+        font=\sffamily,
+        block/.style={draw, rectangle, thick, fill=blue!5, align=center, minimum width=3.5cm, minimum height=1.2cm, rounded corners},
+        envblock/.style={draw, rectangle, thick, fill=green!5, align=center, minimum width=4.5cm, minimum height=2cm, rounded corners},
+        hub/.style={draw, rectangle, thick, fill=red!10, align=center, minimum width=4.5cm, minimum height=1.8cm, rounded corners},
+        storage/.style={draw, rectangle, thick, fill=gray!10, align=center, minimum width=3.5cm, minimum height=1.2cm, rounded corners},
+        arrow/.style={-Stealth, thick}
+    ]
 
-\node (Trainer) [hub] {\textbf{PPO Trainer} \\ \textit{(train.py)} \\ Logic Orchestrator};
+    \node (Trainer) [hub] {\textbf{PPO Trainer} \\ \textit{(train.py)} \\ Logic Orchestrator};
 
-\node (Env) [envblock, above=2.5cm of Trainer] {\textbf{Simulation Environment} \\ \textit{(Rust / World.rs)} \\ $W$ Parallel Worlds};
+    \node (Env) [envblock, above=2.5cm of Trainer] {\textbf{Simulation Environment} \\ \textit{(Rust / World.rs)} \\ $W$ Parallel Worlds};
 
-\node (Buffer) [storage, left=3cm of Trainer] {\textbf{Rollout Buffer} \\ \textit{(buffer.py)} \\ Episode Memory};
+    \node (Buffer) [storage, left=3cm of Trainer] {\textbf{Rollout Buffer} \\ \textit{(buffer.py)} \\ Episode Memory};
 
-\node (Actor) [block, right=3cm of Trainer, yshift=1.5cm] {\textbf{Decentralised Actors} \\ \textit{(actor.py)}};
-\node (Critic) [block, right=3cm of Trainer, yshift=-1.5cm] {\textbf{Centralised Critic} \\ \textit{(critic.py)}};
+    \node (Actor) [block, right=3cm of Trainer, yshift=1.5cm] {\textbf{Decentralised Actors} \\ \textit{(actor.py)}};
+    \node (Critic) [block, right=3cm of Trainer, yshift=-1.5cm] {\textbf{Centralised Critic} \\ \textit{(critic.py)}};
 
-\node (Frontend) [block, left=2.5cm of Env, fill=orange!5, minimum width=3cm] {\textbf{p5.js UI} \\ \textit{(Websocket)}};
+    \node (Frontend) [block, left=2.5cm of Env, fill=orange!5, minimum width=3cm] {\textbf{p5.js UI} \\ \textit{(Websocket)}};
 
-% *** EDGES ***
-\draw [arrow] (Trainer.110) -- node[anchor=east, xshift=-2pt] {Step(Actions)} (Env.250);
-\draw [arrow] (Env.290) -- node[anchor=west, xshift=2pt] {Obs, Rewards} (Trainer.70);
+    % *** EDGES ***
+    \draw [arrow] (Trainer.110) -- node[anchor=east, xshift=-2pt] {Step(Actions)} (Env.250);
+    \draw [arrow] (Env.290) -- node[anchor=west, xshift=2pt] {Obs, Rewards} (Trainer.70);
 
-\draw [arrow] (Trainer.160) -- node[anchor=south] {Store Trajectories} (Buffer.20);
+    \draw [arrow] (Trainer.160) -- node[anchor=south] {Store Trajectories} (Buffer.20);
 
-\draw [arrow] (Buffer.340) -- node[anchor=north] {Sample Minibatches} (Trainer.200);
+    \draw [arrow] (Buffer.340) -- node[anchor=north] {Sample Minibatches} (Trainer.200);
 
-\draw [arrow] (Trainer.0) -- node[anchor=west, pos=0.5, align=left] {Update Weights} (Actor.250);
-\draw [arrow] (Trainer.0) -- node[anchor=west, pos=0.5, align=left] {Update Weights} (Critic.110);
+    \draw [arrow] (Trainer.0) -- node[anchor=west, pos=0.5, align=left] {Update Weights} (Actor.250);
+    \draw [arrow] (Trainer.0) -- node[anchor=west, pos=0.5, align=left] {Update Weights} (Critic.110);
 
-\draw [arrow, dashed] (Actor.180) -| node[anchor=south, pos=0.25] {Actions} (Trainer.45);
-\draw [arrow, dashed] (Critic.180) -| node[anchor=north, pos=0.25] {Values} (Trainer.315);
+    \draw [arrow, dashed] (Actor.180) -| node[anchor=south, pos=0.25] {Actions} (Trainer.45);
+    \draw [arrow, dashed] (Critic.180) -| node[anchor=north, pos=0.25] {Values} (Trainer.315);
 
-\draw [arrow, dotted] (Env.west) -- node[anchor=south] {JSON} (Frontend.east);
+    \draw [arrow, dotted] (Env.west) -- node[anchor=south] {JSON} (Frontend.east);
 
-\end{tikzpicture}
-}
-\caption{System Architecture Diagram: The PPO Trainer orchestrates the rollout phase with the Rust environment and the optimisation phase using data sampled from the Rollout Buffer.}
+    \end{tikzpicture}
+    }
+    \caption{System Architecture Diagram: The PPO Trainer orchestrates the rollout phase with the Rust environment and the optimisation phase using data sampled from the Rollout Buffer.}
+    \label{fig:system-layout}
 \end{figure}
 
-
+Figure \ref{fig:system-layout} displays the high-level system architecture.
 
 \subsection{Repository Overview}
 \label{sec:3.1.2}
@@ -162,7 +163,7 @@ This computation includes:
     \item Collecting rewards for feedback on the policy
     \item Collecting each agent's observations and each world's global observations for input to the actor and critic networks
 \end{itemize}
-The number of worlds in parallel is decided through empirical profiling (see SPS analysis \ref{sec:4.2.1}).
+The number of worlds in parallel is decided through analysis (see SPS analysis \ref{sec:4.2.1}).
 For my computer, worlds\_parallelised was optimally set to 960 (found through empirical testing); however, this can easily be modified in the configuration files.
 This vectorisation directly aids C1 by enabling hundreds of worlds to be simulated in parallel.
 
@@ -187,8 +188,10 @@ Agents who step on cells with this flag set to \lstinline[language=Rust]|false| 
 To help debug the environment, a lightweight real-time visualisation is built in line with C1.
 Integrating the visualisation directly into the training loops would lead to strong performance degradation as each RL step would have to wait for a complete render of the current state.
 
-To decouple these systems, an independent frontend is developed with TypeScript \cite{typescript} and p5.js \cite{p5js}.
-On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library \cite{tokio} to manage the websocket connection setup by the \lstinline[language=Rust]|warp| library \cite{warp}.
+To decouple these systems, an independent frontend is developed.
+TypeScript \cite{typescript} is chosen for its strict typing to enforce type of data being communicated through the websocket, ensuring consistency between the frontend and the simulation.
+P5.js \cite{p5js} is used to render the visualisation, chosen for its simplicity.
+On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library \cite{tokio} to manage the websocket without slowing down the main simulation, utilising the \lstinline[language=Rust]|warp| framework \cite{warp} to establish the connection and stream state data to the frontend.
 During runtime, current state data is streamed from this websocket.
 Strict types are defined in both the Rust simulation and frontend for the data being communicated through the websocket to ensure the system accurately reflects the current state.
 
@@ -206,7 +209,7 @@ The MARL infrastructure implements C2 using Multi-Agent Proximal Policy Optimisa
 
 Liu et al.\cite{AIMotherTongue} suggest that for these more complex games, a dense reward system should be implemented, allowing agents to gain useful feedback on every step.
 
-Each agent $i$:
+Each agent $i$ at timestep $t$ receives a reward of $r_t^i$:
 
 % $$r_t^{(i)} = r_{\text{time}} + r_{\text{move}} + r_{\text{novel}} + r_{\text{interact}} + r_{\text{share}}$$
 \begin{equation}
@@ -216,9 +219,9 @@ Each agent $i$:
 Where:
 
 \begin{itemize}
-    \item Step Penalty (Punishment for existing)
+    \item \textbf{Step Penalty ($r_{\text{step}}$)}
     Agents get a penalty of $-0.005$ every step to prevent idle behaviour.
-    \item Invalid Move Penalty
+    \item \textbf{Invalid Move Penalty ($r_{\text{invalid}}(s_t^i, a_t^i)$)}
     To teach the agents to stay within the confines of the grid, the agents receive:
     \begin{equation}
         r_{\text{invalid}}(s_t^i, a_t^i) =
@@ -227,7 +230,7 @@ Where:
             0, & \text{otherwise}
         \end{cases}
     \end{equation}
-    \item{Interaction Reward}
+    \item \textbf{Interaction Reward ($r_{\text{interact}}(s_t^i, a_t^i)$)}
     Interaction rewards are awarded when an agent executes the interact action on a visible station or another agent. The reward consists of a discovery term and a task-progress term:
     \begin{equation}
         r_{\text{interact}}(s_t^i, a_t^i) =
@@ -254,7 +257,7 @@ Where:
         \end{cases}
     \end{equation}
 
-    \item{Exploration Reward}
+    \item \textbf{Exploration Reward ($r_{\text{explore}}(s_{t+1}^i)$)}
     If an agent enters a previously unvisited square, a small reward is added to encourage exploration.
     \begin{equation}
         r_{\text{explore}}(s_{t+1}^i) =
@@ -270,7 +273,7 @@ Where:
 
 Similar to Liu et al.\cite{AIMotherTongue}, an actor-critic network is set up following the Centralised Training Decentralised Execution (CTDE) paradigm.
 The PyTorch module \lstinline[language=Python]|PPO_Critic| operates solely during the training phase and receives global knowledge of the current state of the world.
-The global knowledge is the complete, unmasked environmental state concatenated with the communication vectors of all agents.
+The global knowledge is the complete, unmasked environmental state.
 This is processed through a deep Multi-Layer Perceptron (MLP) body.
 To maintain network stability, \lstinline[language=Python]|nn.LayerNorm| and ReLU activation functions are applied sequentially.
 The network outputs an estimate of the return for each agent in the given state.
@@ -361,53 +364,7 @@ This allowed experimental hot-swapping of protocols to be achieved seamlessly wi
 \subsection{MAPPO Algorithm}
 \label{sec:3.3.6}
 
-\begin{algorithm}
-\caption{MAPPO Minibatch Update}
-\begin{algorithmic}[1]
-\Require Buffer minibatches, Clip hyperparameter $\epsilon$, Value coefficient $c_{vf}$, Entropy coefficient $c_{ent}$
-\For{batch $\in \text{buffer}$}
-    \State \textbf{Extract:} Observations $O, O_{global}$, Actions $a$, Comms $c$, Advantage $A$, Returns $\hat{R}$
-    \State \textbf{Extract:} Old log probs $\log \pi_{\text{old}}(a), \log \pi_{\text{old}}(c)$, Initial LSTM states $h_0, c_0$
-    
-    \State \Comment{\textbf{Critic Evaluation}}
-    \State $V \gets V_{\psi}(O_{global})$ \Comment{Compute new state values}
-    \State $L_{\text{critic}} \gets \text{MSE}(V, \hat{R})$
-    
-    \State \Comment{\textbf{Communication Embedding \& Shifting}}
-    \State $C_{\text{cont}} \gets \text{EmbedCodebooks}(c)$ \Comment{Convert discrete comms to continuous embeddings}
-    \State $C_{\text{shifted}} \gets \text{ShiftRight}(C_{\text{cont}}, \text{steps}=1)$ 
-    
-    \State \Comment{\textbf{Actor \& Comm Protocol Forward Pass}}
-    \State $\pi_{\theta}(a), h' \gets \text{ActorRNN}(O, h_0, c_0, C_{\text{shifted}})$
-    \State $\pi_{\phi}(c), \mathcal{H}_c, L_{\text{proto}} \gets \text{CommProtocol}(h', c, C_{\text{cont}}, \hat{R}, V)$
-        
-    \State \Comment{\textbf{Action PPO Surrogate Loss}}
-    \State $r_a \gets \exp(\log \pi_{\theta}(a) - \log \pi_{\text{old}}(a))$
-    \State $L_{\text{action}} \gets -\mathbb{E}\left[ \min \left( r_a A, \text{clip}(r_a, 1-\epsilon, 1+\epsilon) A \right) \right]$
-    
-    \State \Comment{\textbf{Communication PPO Surrogate Loss}}
-    \State $r_c \gets \exp(\log \pi_{\phi}(c) - \log \pi_{\text{old}}(c))$
-    \State $L_{\text{comm}} \gets -\mathbb{E}\left[ \min \left( r_c A, \text{clip}(r_c, 1-\epsilon, 1+\epsilon) A \right) \right]$
-
-    \State \Comment{\textbf{Distributions \& Entropy}}
-    \State $\log \pi_{\theta}(a) \gets \text{LogProb}(\pi_{\theta}, a)$
-    \State $\mathcal{H}_a \gets \text{Entropy}(\pi_{\theta})$
-    \State $L_{\text{ent}} \gets - \mathbb{E}[\mathcal{H}_a + \mathcal{H}_c]$
-    
-    \State \Comment{\textbf{Total Loss Computation}}
-    \State $L_{\text{actor}} \gets L_{\text{action}} + L_{\text{comm}} + L_{\text{proto}}$
-    \State $L_{\text{total}} \gets L_{\text{actor}} + c_{vf} L_{\text{critic}} + c_{ent} L_{\text{ent}}$
-    
-    \State \Comment{\textbf{Optimisation Step}}
-    \State $\theta, \phi, \psi \gets \text{ZeroGradients}()$
-    \State Compute $\nabla_{\theta, \phi, \psi} L_{\text{total}}$
-    \State $\text{ClipGradNorm}(\theta, 0.5)$; $\text{ClipGradNorm}(\psi, 0.5)$
-    \State $\text{OptimiserStep}()$
-\EndFor
-\end{algorithmic}
-\end{algorithm}
-
-Algorithm 2 depicts the update loop for MAPPO.
+Algorithm \ref{alg:mappo} (see Appendix) depicts the update loop for MAPPO.
 To ensure stability in the updates, advantage normalisation is applied to the GAE advantages \cite{gae_normalisation}.
 
 For every epoch, the data collected by the rollout phase is split into random minibatches.
@@ -432,7 +389,10 @@ This careful orchestration of advantage normalisation, isolated loss clipping, g
 \section{Communication Protocols}
 \label{sec:3.4}
 
-Making my software re-usable and flexible by making communication protocols interchangeable will allow for comparisons between the protocols and satisfy C3.
+Communication allows the agent to mitigate the POMDP effect, improving mean task reward per step.
+Every agent broadcasts a code to every other agent which is recieved in the subsequent simulation step.
+Agents do not recieve their own code.
+Making the software re-usable and flexible by making communication protocols interchangeable will allow for comparisons between the protocols and satisfy C3.
 
 \subsection{No Communication}
 \label{sec:3.4.1}
@@ -523,14 +483,14 @@ Instead of the simple rule Liu et al. implemented, we pass the policy output thr
 \section{Variational Autoencoders}
 \label{sec:3.5}
 
-The VQ-VAE, SQ-VAE and HQ-VAE are implemented to support C4, allowing rich codebook utilisation and strong semantic meaning of each token. 
+The VQ-VAE and SQ-VAE are implemented to support C4, allowing rich codebook utilisation and strong semantic meaning of each token. 
 
 \subsection{Autoencoder Architecture}
 \label{sec:3.5.1}
 
 One objective of this project was to investigate different Variational Autoencoders to develop this AI Mother Tongue Language.
 Vector-Quantised Variational Autoencoders (VQ-VAEs) and Stochastically-Quantised Variational Autoencoders (SQ-VAEs) are pure methods of autoencoders.
-Hierarchically-Quantised Variational Autoencoders (HQ-VAEs) are a wrapper around these pure methods.
+% Hierarchically-Quantised Variational Autoencoders (HQ-VAEs) are a wrapper around these pure methods.
 % Residually-Quantised Variational Autoencoders (RQ-VAEs) are a modifiction to these pure methods.
 To allow for experimentation, interchangeability was key.
 An agnostic \lstinline[language=Python]|Encoder| class was engineered for the shared neural network boilerplate, latent dimension mapping, and disk I/O.
@@ -710,44 +670,6 @@ The loss function relies solely on $L_\text{recon}$ as explained in \ref{sec:3.4
 % At the start of training, a high temperature is applied to encourage exploration of the entire codebook.
 % As training progresses, the temperature is reduced to make the communication increasling deterministic.
 
-\subsection{HQ-VAE}
-\label{sec:3.5.4}
-
-Liu et al. suggested implementing Hierarchically-Quansited Variational Autoencoder (HQ-VAE) \cite{HQVAE}.
-The idea behind this is to split the communication into a high-level strategy and a low-level strategy, where the low-level strategy is conditioned on the high-level strategy.
-By splitting the communication into macro-level and micro-level strategies, the model significantly reduces the computational burden associated with large, flat codebooks.
-
-Common features are first extracted through a shared encoder:
-
-\begin{equation}
-    h_{\text{shared}} = Enc_{\theta_E}(x)
-\end{equation}
-
-The top level, responsible for macro-level strategies, projects these shared features to a vector:
-\begin{equation}
-    z_{\text{top}} = MLP_{\text{top}}(h_{\text{shared}})
-\end{equation}
-
-The bottom level, responsible for micro-level strategies, projects these shared features conditioned on the top level to a vector:
-\begin{equation}
-    z_{\text{bottom}} = MLP_{\text{bottom}}([h_{\text{shared}}, z_{\text{top}}])
-\end{equation}
-
-These vectors are quantised using one of our aforementioned methods (VQ-VAE, SQ-VAE).
-
-\begin{equation}
-    z_{q, top} = \text{Quantiser}(z_{top})
-\end{equation}
-
-\begin{equation}
-    z_{q, bottom} = \text{Quantiser}(z_{bottom})
-\end{equation}
-
-Finally, the quantised vectors are concatenated to produce the final full communication vector $z_q$:
-
-\begin{equation}
-    z_q = [z_{q, top}, z_{q, bottom}]
-\end{equation}
 
 % A standard issue with the previously mentioned VAEs is increasing the expressive freedom of the language requires linearly growing the codebook size which becomes computationally intensive (computing pairwise difference between every embedding).
 % To solve this issue, a HQ-VAE is implemented.
@@ -784,58 +706,13 @@ A rich codebook utilisation is vital to sufficiently describe external observati
 A significant challenge with training autoencoders is codebook collapse, where only a small subset of the embeddings within a codebook are used.
 To mitigate this, the codebooks are not randomly initialised; instead, data-driven codebook initialisation is used to set the spatial priors of the codebook.
 
-\begin{algorithm}
-\caption{Data-driven Codebook Initialisation via K-Means}
-\label{alg:codebook-priors}
-\begin{algorithmic}[1]
-\Procedure{FitRQStream}{$X, Q, d$}
-    \State \textbf{Input:} Initial continuous latents/residuals $X$, Quantiser $Q$, latent dim $d$
-    \State $X \gets \text{Reshape}(X, [-1, d])$ \Comment{Flatten batch and time dimensions}
-    \State $L \gets Q.\text{rq\_levels}$
-    \State $K \gets \text{VocabSize}$
-    
-    \For{$l = 1$ \textbf{to} $L$}
-        \State $X_{\text{norm}} \gets \frac{X}{||X||_2 + \epsilon}$ \Comment{L2 Normalise residuals ($\epsilon = 10^{-5}$)}
-        
-        \State $C \gets \text{MiniBatchKMeans}(X_{\text{norm}}, \text{clusters}=K)$ \Comment{Find $K$ centroids}
-        
-        \If{Encoder is SQ-VAE}
-            \State $C \gets \frac{C}{||C||_2}$ \Comment{Normalise centroids onto unit sphere}
-        \EndIf
-        
-        \State $Q.\text{codebook}[l] \gets C$ \Comment{Set embedding weights}
-        
-        \State $A \gets \text{PredictClusters}(X_{\text{norm}}, C)$ \Comment{Get cluster assignments}
-        \State $X \gets X - C[A]$ \Comment{Compute residuals for the next RQ level}
-    \EndFor
-\EndProcedure
-
-\vspace{2mm}
-
-\Procedure{SetPriors}{$M, \mathcal{D}$}
-    \State \textbf{Input:} Model $M$, Dataloader $\mathcal{D}$
-    \State $\mathcal{Z}_{\text{top}} \gets [], \quad \mathcal{Z}_{\text{bot}} \gets [], \quad \mathcal{Z} \gets []$
-    
-    \State \Comment{\textbf{Step 1: Collect Continuous Latents}}
-    \For{batch $O \in \mathcal{D}$}
-        \State $z \gets M.\text{encoder}.\text{GetContinuous}(O)$
-        \State Append $z$ to $\mathcal{Z}$
-    \EndFor
-    
-    \State \Comment{\textbf{Step 2: Fit Residual Quantisation Streams}}
-    \State $X \gets \text{Concatenate}(\mathcal{Z})$
-    \State \Call{FitRQStream}{$X, M.Q, d$}
-    
-\EndProcedure
-\end{algorithmic}
-\end{algorithm}
-
-Algorithm \ref{alg:codebook-priors} shows how the priors are collected and set.
+Algorithm \ref{alg:codebook-priors} (see Appendix) shows how the priors are collected and set.
 A subset of the data collected from the expert agent is used to find the spatial priors by passing the data through the initialised, but untrained, encoder.
 Centroids are then found by using the \lstinline[language=Python]|MiniBatchKMeans| function from the Python library \lstinline[language=Python]|scikit-learn| for K clusters (where K is the vocabulary size).
 If the current VAE is of type vMF SQ-VAE, then we must also normalise the embeddings onto a unit sphere with \lstinline[language=Python]|torch.nn.functional.normalize(..., p=2.0)|.
 These centroids overwrite the randomly initialised embeddings in the codebook.
-For HQ-VAEs (more than one codebook), the clustering operates separately for each codebook.
+% For HQ-VAEs (more than one codebook), the clustering operates separately for each codebook.
+
 % Once the top-level codebook is complete, the residuals are calculated for the data and the next codebook is populated using the same method.
 % This continues until all codebook embeddings have been overwritten with these priors.
 
@@ -856,7 +733,7 @@ This is done in PyTorch via \lstinline[language=Python]|parameter.requires_grad 
 \label{sec:3.6.3}
 
 Training the RL phase takes a significant amount of time.
-To reduce the training time required, Liu et al. \cite{AIMotherTongue} suggest initially training both the actor and critic models with supervised learning.
+To reduce the training time required, Liu et al. \cite{AIMotherTongue} suggests training both the actor and critic models with supervised learning directly before the RL phase.
 Required observations, optimal actions and their associated advantages can be pre-collected from an expert agent.
 
 Using this data, supervised learning is applied to the actor and critic networks.
@@ -913,14 +790,14 @@ Due to the complexity of the environment, these auxiliary losses were adjusted t
 
 Two different inputs to the auxiliary heads exist.
 \begin{enumerate}
-    \item \textit{sender\_context} defined as the concatenation of the output of the actor's recurrent unit and the communication vector that the actor broadcast.
-    \item \textit{receiver\_context} defined as the concatenation of the output of the actor's recurrent unit and all other agents' communication vectors.
+    \item \textit{sender\_context} ($c^{\text{send}}_{i}$) defined as the concatenation of the output of the actor's recurrent unit and the communication vector that the actor broadcast.
+    \item \textit{receiver\_context} ($c^{\text{recv}}_{i}$) defined as the concatenation of the output of the actor's recurrent unit and all other agents' communication vectors.
 \end{enumerate}
 
 \begin{enumerate}
     \item \textbf{Predicted Return Loss}
     
-    Given \textbf{sender context}, an auxiliary head is trained to predict the true return $R_t$ collected from the GAE advantage estimation.
+    An auxiliary head is trained to predict the true return $R_t$ collected from the GAE advantage estimation.
     Loss is defined by:
     \begin{equation}
         \mathcal{L}_{\text{return}} = \frac{1}{N} \sum_{i=1}^{N} \left( \hat{R}(c^{\text{send}}_{i}) - R_{i} \right)^2,
@@ -943,6 +820,7 @@ Two different inputs to the auxiliary heads exist.
     \begin{itemize}
         \item $\hat{\tau}^{\text{send}}$ predicts the sender's own target from its context
         \item $\hat{\tau}^{\text{recv}}$ predicts another agent's target from the receiver context
+        \item $\tau_i$ is the target of agent $i$
         \item \[
             \eta_i =
             \begin{cases}
@@ -961,7 +839,7 @@ Two different inputs to the auxiliary heads exist.
 
 Thus, the total reflection loss is:
 \begin{equation}
-    \mathcal{L}_{\text{refl}} = \lambda \left( \mathcal{L}_{\text{return}} + \mathcal{L}_{\text{critic}} + \mathcal{L}_{\text{intent}} \right),
+    \mathcal{L}_{\text{refl}} = \lambda \left( \mathcal{L}_{\text{return}} + \mathcal{L}_{\text{intent}} \right),
 \end{equation}
 with a small coefficient $\lambda$ (e.g.\ $0.02$) so that reflection regularises, rather than dominates, the RL objective.
 

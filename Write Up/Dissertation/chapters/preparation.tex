@@ -123,7 +123,7 @@ Where:
 \item $\mathcal{S}$ is the set of all possible states of the environment.
 \item $\mathcal{A}$ is the action space. \{North, South, East, West, Interact\}.
 \item $\mathcal{P}$ is the transition probability function $P(s'|s,a)$, representing the probability that taking action $a$ in state $s$ will lead to state $s'$.
-\item $\mathcal{R}$ is the reward function. See \ref{sec:3.2.2}.
+\item $\mathcal{R}$ is the reward function. See \ref{sec:3.3.1}.
 \item $\Omega$ is the set of all possible local observations.
 \item $\mathcal{O}$ is the observation function $P(o|s,a)$, representing the agent seeing observation $o$ given state $s$ and previous action was $a$.
 \item $\gamma$ is the discount factor. Set at 0.99.
@@ -142,9 +142,9 @@ This centralised critic helps mitigate the non-stationary and credit assignment 
 
 MAPPO optimises two main components: each agent's Policy (Actor) ${\pi}_{{\theta}_{i}}$ and the Value Function (Critic) $V_{\phi}$.
 
-\subsubsection{Policy Objective (Actor)}
-\label{sec:3.3.6.1}
-The goal of the policy is to maximise the clipped surrogate objective, preventing drastic changes to the policy from single timesteps.
+\subsubsection{Actor: Policy Optimisation}
+\label{sec:2.1.2.2}
+The policy network is paramaterised by $\theta$ whose goal it is to maximise the clipped surrogate objective, preventing drastic changes to the policy from single timesteps.
 For every agent $i$, define the probability ratio $r_i(\theta)$ as:
 
 \begin{equation}
@@ -159,23 +159,35 @@ L(\theta) = \mathbb{E}_{i} \left[ \min \left( r_i(\theta) \hat{A}_i,\ \operatorn
 
 Where:
 \begin{itemize}
-\item $\hat{A}_i$ is the Advantage Estimation
-\item $\epsilon$ is a hyperparameter that limits the policy update
+\item $a_i$ is the action taken by agent $i$.
+\item $o_i$ is the local observation of agent $i$.
+\item $\pi_{\theta}(a_i | o_i)$ is the current policy's probability of taking action $a_i$ given observation $o_i$.
+\item $\pi_{\theta_{old}}(a_i | o_i)$ is the old policy's probability of taking the same action prior to the update.
+\item $\mathbb{E}_{i}$ denotes the empirical expectation over a batch of agent experiences.
+\item $\hat{A}_i$ is the Advantage Estimation for agent $i$ (detailed in Section \ref{sec:2.1.2.4}).
+\item $\epsilon$ is a hyperparameter that limits the policy update.
 \end{itemize}
 
-\subsubsection{Value Function (Critic)}
-\label{sec:3.3.6.2}
+\subsubsection{Critic: Value Function Learning}
+\label{sec:2.1.2.3}
 
 Unlike standard Proximal Policy Optimisation (PPO)\cite{PPO}, the Value Function is not per-agent, but per-world.
 It has access to global information.
-The goal of the critic is to minimise the Mean Squared Error between its own prediction and the discounted returns $R_t$.
+The critic network is paramaterised by $\phi$ whose goal it is to minimise the Mean Squared Error between its own prediction and the discounted returns $R_t$.
 
 \begin{equation}
 L(\phi) = \mathbb{E}_{t} \left[ (V_{\phi}(S_t) - R_t)^2 \right]
 \end{equation}
 
+Where:
+\begin{itemize}
+\item $\mathbb{E}_{t}$ denotes the expectation over timesteps $t$ within the sampled trajectories.
+\item $S_t$ is the global state of the environment at timestep $t$.
+\item $V_{\phi}(S_t)$ is the critic network's estimate of the value of the global state $S_t$.
+\end{itemize}
+
 \subsubsection{Generalised Advantage Estimation}
-\label{sec:2.1.2.1}
+\label{sec:2.1.2.4}
 MAPPO uses Generalised Advantage Estimation\cite{GAE} to balance bias and variance.
 To calculate, we first find the Temporal Difference (TD) Residual (representing the error in our current estimate of the state value):
 
@@ -189,17 +201,24 @@ We then take an exponentially weighted moving average of our estimated advantage
 \hat{A}_t = \sum_{l=0}^{\infty} (\gamma \lambda)^l \delta_{t+l}
 \end{equation}
 
+Where:
+\begin{itemize}
+\item $\delta_t$ is the TD residual at timestep $t$.
+\item $r_t$ is the immediate reward received at timestep $t$.
+\item $\lambda$ is the GAE trace-decay parameter ($0 \leq \lambda \leq 1$) that smooths the bias-variance trade-off.
+\item $l$ is the forward-looking step index.
+\end{itemize}
 
 \subsection{Communication Protocols}
 \label{sec:2.1.3}
 
 \subsubsection{No Communication}
-\label{sec:2.3.1}
+\label{sec:2.1.3.1}
 
 To understand the difference between optimal movement policies and the advantage of communication, a protocol is developed without communication.
 
 \subsubsection{On-Policy Fixed Discrete Communication}
-\label{sec:2.3.3}
+\label{sec:2.1.3.2}
 
 Another comparable baseline is required, one with communication.
 For this, each agent broadcasts a set of discrete values learned jointly with its policy at every timestep, and is then fed to all other agents at the next timestep.
@@ -207,7 +226,7 @@ The sender's symbols are trained solely using task reward (no auxiliary losses o
 This baseline captures the typical on-policy setting that suffers from the "Joint Exploration Problem", and so serves as a natural comparison for the AI Mother Tongue Architecture.
 
 \subsubsection{AI Mother Tongue Architecture}
-\label{sec:2.3.4}
+\label{sec:2.1.3.3}
 
 \begin{figure}[htbp]
     \centering
@@ -278,7 +297,6 @@ On initialisation of phase 2, the encoder and codebook are loaded and used for t
 \subsection{Emergent Communication in MARL}
 \label{sec:2.2.1}
 
-
 Early work in emergent communication studied how agents can learn to communicate with one another without a concern for interoperability and bandwidth \cite{InitialEmergent}.
 More recent research in multi-agent reinforcement learning studies agents learning to send discrete symbols, showing that discrete channels can match or outperform continuous channels, whilst also allowing for interoperability \cite{DiscreteComms}.
 A large challenge in learning discrete communication on-policy is the "Joint Exploration Problem" and the resulting "Communication Vacuum Problem", as stated by Eccles et al\cite{Biases}, where agents learn to ignore the communication channel.
@@ -293,9 +311,22 @@ The underlying discrete bottleneck uses VQ-VAE \cite{VQVAE}, but Liu et al. prop
 \subsection{MARL algorithms \& MAPPO}
 \label{sec:2.2.3}
 
+% The framework being implemented in the project is built on the standard centralised training, decentralised execution (CTDE) paradigm for cooperative MARL.
+% Multi-Agent Proximal Policy Optimisation (MAPPO) \cite{MAPPO} is chosen as empirical studies have shown surprisingly competitive results when compared with more complex off-policy and value-decomposition networks \cite{MAPPO}.
+% Alternatives such as QMIX or MADDPG offer different trade-offs but ultimately introduce extra architectural complexity, which may complicate the communication protocol evaluation.
+
 The framework being implemented in the project is built on the standard centralised training, decentralised execution (CTDE) paradigm for cooperative MARL.
-Multi-Agent Proximal Policy Optimisation (MAPPO) \cite{MAPPO} is chosen as empirical studies have shown surprisingly competitive results when compared with more complex off-policy and value-decomposition networks \cite{MAPPO}.
-Alternatives such as QMIX or MADDPG offer different trade-offs but ultimately introduce extra architectural complexity, which may complicate the communication protocol evaluation.
+Multi-Agent Proximal Policy Optimisation (MAPPO) \cite{MAPPO} was selected, and alternatives were actively rejected.
+
+Value-Decomposition Networks (VDN) \cite{VDN} such as QMIX \cite{QMIX} are unsuitable for the given game.
+QMIX relies on a monotonicity assumption (the global optimal action-value is monotonic for each individual agent action-values).
+For training communication, the utility of a code broadcast from agents have value contextually-dependent on the enviornment state which directly violates the monotonicity assumption.
+
+Off-policy actor-critic methods such as MADDPG \cite{MADDPG} are also unsuitable as codes broadcast semantically shift during training, leading to new policies being trained on stale data.
+
+MAPPO avoids these issues \cite{MAPPO}.
+MAPPO evaluates the codes current semantic meaning, eliminating training on stale codes.
+Furthermore, the clipped surrogate objective of the PPO algorithm is used preventing any aggressive gradient updates causing forgetting semantic meaning of codes.
 
 \section{Requirements Analysis}
 \label{sec:2.3}
@@ -361,9 +392,10 @@ Finally, C5 encourages testing, configuration, logging and checkpointing to crea
         \textbf{Should Have} & Real time visualisation of simulations running \\ \addlinespace
         \textbf{} & Pipeline to train autoencoders \\ \midrule
         \textbf{Could Have} & Advanced VAE varients: SQ-VAE, HQ-VAE \\ \addlinespace
-        \textbf{} & A separate environment task to test agents on \\ \midrule
+        \textbf{} & A separate environment task to test agents on \\ \addlinespace
         \textbf{} & Hyperparameter tuning for all ML training loops \\ \midrule
-        \textbf{Won't Have} & Obstacles in environment \\ \bottomrule
+        \textbf{Won't Have} & Non-Stationary Environment \\ \addlinespace
+        \textbf{} & Modelling of network latency and packet loss \\ \bottomrule
     \end{tabularx}
 \end{table}
 
@@ -398,7 +430,6 @@ This file handled installing packages from external sources and also building my
 
 For version control, I used GitHub \cite{github} to store my git repository, which included both my program and my dissertation.
 I also regularly updated the version of code on my laptop as an extra backup.
-
 
 \section{Starting Point}
 \label{sec:2.5}

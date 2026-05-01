@@ -1,0 +1,63 @@
+\label{sec:hq-vae}
+
+
+\section{Implementing HQ-VAE}
+\label{sec:hq-1}
+
+Liu et al. suggested implementing Hierarchically-Quansited Variational Autoencoder (HQ-VAE) \cite{HQVAE}.
+The idea behind this is to split the communication into a high-level strategy and a low-level strategy, where the low-level strategy is conditioned on the high-level strategy.
+By splitting the communication into macro-level and micro-level strategies, the model significantly reduces the computational burden associated with large, flat codebooks.
+
+Common features are first extracted through a shared encoder:
+
+\begin{equation}
+    h_{\text{shared}} = Enc_{\theta_E}(x)
+\end{equation}
+
+The top level, responsible for macro-level strategies, projects these shared features to a vector:
+\begin{equation}
+    z_{\text{top}} = MLP_{\text{top}}(h_{\text{shared}})
+\end{equation}
+
+The bottom level, responsible for micro-level strategies, projects these shared features conditioned on the top level to a vector:
+\begin{equation}
+    z_{\text{bottom}} = MLP_{\text{bottom}}([h_{\text{shared}}, z_{\text{top}}])
+\end{equation}
+
+These vectors are quantised using one of our aforementioned methods (VQ-VAE, SQ-VAE).
+
+\begin{equation}
+    z_{q, top} = \text{Quantiser}(z_{top})
+\end{equation}
+
+\begin{equation}
+    z_{q, bottom} = \text{Quantiser}(z_{bottom})
+\end{equation}
+
+Finally, the quantised vectors are concatenated to produce the final full communication vector $z_q$:
+
+\begin{equation}
+    z_q = [z_{q, top}, z_{q, bottom}]
+\end{equation}
+
+
+\section{HQ-VAE Hyperparameters}
+\label{sec:hq-2}
+
+The hyperparameters used for SQ-VAE and VQ-VAE are inappropriate for the AI Mother Tongue architecture with a discrete bottleneck using HQ-VAE.
+For this, each codebook is given a vocabulary size of 16 (giving an effective vocabulary size of 256), allowing different levels of detail in different codebooks.
+The code size also had to be increased from eight to sixteen.
+In HQ-VAE, the code size is split across the codebooks (in a 1:2 ratio), so a total code size of eight would allocate only two dimensions to the top-level latent. 
+With vMF SQ-VAE at the top level, a 2-dimensional unit sphere cannot support 16 codes, leading to a collapsed top-level codebook.
+Using the code size of sixteen gives a sufficient five dimensions for the top-level codebook.
+
+
+\section{HQ-VAE Analysis}
+\label{sec:hq-3}
+
+Replacing the single-level VAE bottleneck with an HQ-VAE did not significantly change task-level performance.
+HQ-VAE's goal was for the top-level codebook to capture macro-level strategies and the bottom-level codebook to capture micro-level strategies.
+To test this, I applied the same analyses as in \ref{sec:4.3} - \ref{sec:4.7} on each codebook and on the bottom-level codebook symbols conditioned on the top-level symbols.
+In all cases, no clear, distinguishable strategies emerged at either level.
+The lack of strategies in either codebook is likely due to the flat nature task (e.g. Find Station A).
+A hierarchical language may require a more hierarchical task.

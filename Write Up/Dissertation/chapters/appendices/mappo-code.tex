@@ -1,0 +1,46 @@
+\begin{algorithm}
+    \label{alg:mappo}
+    \caption{MAPPO Minibatch Update}
+    \begin{algorithmic}[1]
+    \Require Buffer minibatches, Clip hyperparameter $\epsilon$, Value coefficient $c_{vf}$, Entropy coefficient $c_{ent}$
+    \For{batch $\in \text{buffer}$}
+        \State \textbf{Extract:} Observations $O, O_{global}$, Actions $a$, Comms $c$, Advantage $A$, Returns $\hat{R}$
+        \State \textbf{Extract:} Old log probs $\log \pi_{\text{old}}(a), \log \pi_{\text{old}}(c)$, Initial LSTM states $h_0, c_0$
+        
+        \State \Comment{\textbf{Critic Evaluation}}
+        \State $V \gets V_{\psi}(O_{global})$ \Comment{Compute new state values}
+        \State $L_{\text{critic}} \gets \text{MSE}(V, \hat{R})$
+        
+        \State \Comment{\textbf{Communication Embedding \& Shifting}}
+        \State $C_{\text{cont}} \gets \text{EmbedCodebooks}(c)$ \Comment{Convert discrete comms to continuous embeddings}
+        \State $C_{\text{shifted}} \gets \text{ShiftRight}(C_{\text{cont}}, \text{steps}=1)$ 
+        
+        \State \Comment{\textbf{Actor \& Comm Protocol Forward Pass}}
+        \State $\pi_{\theta}(a), h' \gets \text{ActorRNN}(O, h_0, c_0, C_{\text{shifted}})$
+        \State $\pi_{\phi}(c), \mathcal{H}_c, L_{\text{proto}} \gets \text{CommProtocol}(h', c, C_{\text{cont}}, \hat{R}, V)$
+            
+        \State \Comment{\textbf{Action PPO Surrogate Loss}}
+        \State $r_a \gets \exp(\log \pi_{\theta}(a) - \log \pi_{\text{old}}(a))$
+        \State $L_{\text{action}} \gets -\mathbb{E}\left[ \min \left( r_a A, \text{clip}(r_a, 1-\epsilon, 1+\epsilon) A \right) \right]$
+        
+        \State \Comment{\textbf{Communication PPO Surrogate Loss}}
+        \State $r_c \gets \exp(\log \pi_{\phi}(c) - \log \pi_{\text{old}}(c))$
+        \State $L_{\text{comm}} \gets -\mathbb{E}\left[ \min \left( r_c A, \text{clip}(r_c, 1-\epsilon, 1+\epsilon) A \right) \right]$
+
+        \State \Comment{\textbf{Distributions \& Entropy}}
+        \State $\log \pi_{\theta}(a) \gets \text{LogProb}(\pi_{\theta}, a)$
+        \State $\mathcal{H}_a \gets \text{Entropy}(\pi_{\theta})$
+        \State $L_{\text{ent}} \gets - \mathbb{E}[\mathcal{H}_a + \mathcal{H}_c]$
+        
+        \State \Comment{\textbf{Total Loss Computation}}
+        \State $L_{\text{actor}} \gets L_{\text{action}} + L_{\text{comm}} + L_{\text{proto}}$
+        \State $L_{\text{total}} \gets L_{\text{actor}} + c_{vf} L_{\text{critic}} + c_{ent} L_{\text{ent}}$
+        
+        \State \Comment{\textbf{Optimisation Step}}
+        \State $\theta, \phi, \psi \gets \text{ZeroGradients}()$
+        \State Compute $\nabla_{\theta, \phi, \psi} L_{\text{total}}$
+        \State $\text{ClipGradNorm}(\theta, 0.5)$; $\text{ClipGradNorm}(\psi, 0.5)$
+        \State $\text{OptimiserStep}()$
+    \EndFor
+    \end{algorithmic}
+\end{algorithm}
