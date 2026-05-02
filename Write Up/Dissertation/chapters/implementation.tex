@@ -63,7 +63,7 @@ The architecture is divided into three main sections.
 The Rust simulation backend, the Python MARL controller and the frontend visualisation.
 The simulation controls the state of all the current environments, and advances each environment at every step.
 The MARL controller updates and uses the policies, manages storage over the rollout phase and handles communication between agents in the same environment.
-The visualisation frontend receives data through a websocket from the simulation for debugging and demonstration purposes.
+The visualisation frontend receives data through a WebSocket from the simulation for debugging and demonstration purposes.
 
 \subsection{Repository Overview}
 \label{sec:3.1.2}
@@ -193,8 +193,6 @@ To help debug the environment, a lightweight, real-time visualisation is built i
 Integrating the visualisation directly into the training loops would lead to strong performance degradation as each RL step would have to wait for a complete render of the current state.
 
 To decouple these systems, an independent frontend is developed.
-TypeScript \cite{typescript} is chosen for its strict typing to enforce the type of data being communicated through the websocket, ensuring consistency between the frontend and the simulation.
-P5.js \cite{p5js} is used to render the visualisation, chosen for its simplicity.
 On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library \cite{tokio} to manage the websocket without slowing down the main simulation, utilising the \lstinline[language=Rust]|warp| framework \cite{warp} to establish the connection and stream state data to the frontend.
 During runtime, current state data is streamed from this websocket.
 Strict types are defined in both the Rust simulation and frontend for the data being communicated through the websocket to ensure the system accurately reflects the current state.
@@ -284,7 +282,7 @@ The network outputs an estimate of the return for each agent in the given state.
 
 The PyTorch module \lstinline[language=Python]|PPO_Actor| controls each agent and acts only using local knowledge of the agent.
 This local knowledge is the agent's own state (position, inventory - what the agent currently has and needs), the closest entity if within a specific radius and the communication vectors broadcast by all other agents.
-This is processed through a deep MLP body, and then passed through a Long Short-Term Memory unit (LSTM).
+This is processed through a deep MLP body and then passed through a Long Short-Term Memory unit (LSTM).
 The LSTM allows individual agents to remember the locations of stations and meeting points with other agents.
 The network outputs action logits (probabilities of each action to be taken) and returns the output of the LSTM for the communication protocol to use later on.
 
@@ -402,7 +400,7 @@ Making the software re-usable and flexible by making communication protocols int
 \subsection{No Communication}
 \label{sec:3.4.1}
 
-The No Communication protocol simply does not add a communication head to the agent, nor does it allow agents to receive any communication from other agents.
+The No Communication protocol does not add a communication head to the agent, nor does it allow agents to receive any communication from other agents.
 
 \subsection{On-Policy Fixed Discrete Communication}
 \label{sec:3.4.2}
@@ -417,7 +415,7 @@ The No Communication protocol simply does not add a communication head to the ag
 
 Another comparable baseline is required, one with communication.
 For this, each agent broadcasts a set of discrete values learned jointly with its policy.
-To make the discrete value differentiable, the Straight-Through Estimator (STE) is used (explained in \ref{sec:2.3.3}).
+To make the discrete value differentiable, the Straight-Through Estimator (STE) is used (explained in \ref{sec:3.5.2}).
 This yields a simple, differentiable communication.
 
 \subsection{AI Mother Tongue}
