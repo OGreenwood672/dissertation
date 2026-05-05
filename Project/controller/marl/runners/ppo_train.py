@@ -35,7 +35,7 @@ def train(system, config: Config, device: torch.device):
     num_codebooks = 0
     if comm_type == CommunicationType.AIM:
         num_codebooks = config.comms.rq_levels * len(actor.comm_protocol.encoder.get_codebooks())
-    elif comm_type == CommunicationType.DISCRETE:
+    elif comm_type == CommunicationType.DISCRETE or comm_type == CommunicationType.REFLECTIVE:
         num_codebooks = config.comms.rq_levels
 
     buffer = RolloutBuffer(
@@ -264,7 +264,7 @@ def train(system, config: Config, device: torch.device):
                 # else:
                 #     continuous_comms = comms
 
-                if comm_type == CommunicationType.AIM:
+                if comm_type == CommunicationType.AIM or comm_type == CommunicationType.REFLECTIVE:
                     level_codewords = []
                     
                     for hq_level in range(num_codebooks):

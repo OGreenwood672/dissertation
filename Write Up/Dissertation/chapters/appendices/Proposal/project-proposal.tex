@@ -55,17 +55,17 @@ Q_{\mathrm{tot}}(\tau, a) \;=\; \sum_{i} Q_{i}(\tau_{i}, a_{i})
 \]
 where $Q_i$ is the action-value function for agent $i$, based only on its own action $a_i$ and local action-observation history $\tau_i$.
 
-The VDN framework is particularly suitable for my project’s cooperative multi-agent tasks:
+The VDN framework is particularly suitable for my project's cooperative multi-agent tasks:
 \begin{itemize}
-\item It naturally encourages cooperation by tying all agents’ learning to the same joint reward.
+\item It naturally encourages cooperation by tying all agents' learning to the same joint reward.
 \item It is lightweight and efficient compared to more complex mixing architectures (like QMIX), allowing me more time to focus on other parts of the project.
-\item The decomposition aids in the interpretability of learned policies, as each agent’s value estimates can be analysed independently.
+\item The decomposition aids in the interpretability of learned policies, as each agent's value estimates can be analysed independently.
 \end{itemize}
 
 Planned Implementation:
 \begin{itemize}
 \item Each agent will be equipped with its own Q-network, parameterised by a deep neural network, receiving as input both its local observations and any messages broadcast by other agents.
-\item The value decomposition will be enforced in the training loss, aligning each agent’s updates to the global objective.
+\item The value decomposition will be enforced in the training loss, aligning each agent's updates to the global objective.
 \item This setup will also allow for seamless integration and fair comparison of different communication protocols, as the underlying learning dynamics for coordination are held constant.
 \end{itemize}
 

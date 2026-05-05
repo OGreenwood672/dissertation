@@ -11,6 +11,7 @@ from controller.marl.comms.aim_comms import AimComms
 from controller.marl.comms.continuous_comms import ContinuousComms
 from controller.marl.comms.discrete_comms import DiscreteComms
 from controller.marl.comms.none_comms import NoneComms
+from controller.marl.comms.reflective_comms import ReflectiveComms
 from controller.marl.core.config import ActorHyperparameters, CommConfig, CommunicationType
 from .utils import init_layer
 
@@ -37,7 +38,8 @@ class PPO_Actor(nn.Module):
             CommunicationType.AIM: AimComms,
             CommunicationType.CONTINUOUS: ContinuousComms,
             CommunicationType.DISCRETE: DiscreteComms,
-            CommunicationType.NONE: NoneComms
+            CommunicationType.NONE: NoneComms,
+            CommunicationType.REFLECTIVE: ReflectiveComms,
         }
         self.comm_protocol = comm_protocol_class[comm_config.communication_type](
             comm_config,

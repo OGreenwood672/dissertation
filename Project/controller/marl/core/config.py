@@ -11,6 +11,7 @@ class CommunicationType(str, Enum):
     CONTINUOUS = "CONTINUOUS"
     AIM = "AIM"
     NONE = "NONE"
+    REFLECTIVE = "REFLECTIVE"
 
 class GenerativeLangType(str, Enum):
     SQ_VAE = "SQ-VAE"

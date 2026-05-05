@@ -4,7 +4,7 @@
 % Thoughtful personal reflection on the lessons learned.
 
 This dissertation investigated whether the AI Mother Tongue architecture can support robust emergent discrete communication in a complex multi-agent POMDP when combined with a high-throughput MAPPO training pipeline. 
-The results found that the architecture can be scaled to substantially more demanding tasks, and the language created produced messages that exhibited non-trivial semantic meaning.
+The results showed that the architecture can be scaled to substantially more demanding tasks, and the language created produced messages with non-trivial semantic meaning.
 
 \section{Work Completed}
 \label{sec:5.1}
@@ -14,30 +14,37 @@ The simulation modelled a discrete two-dimensional environment populated by agen
 A lightweight real-time visualisation was created to enable inspection of the rollout phase.
 
 Second, a MAPPO-based MARL training script under a centralised training, decentralised execution framework was implemented.
-It uses a shared actor, global critic, LSTM module, custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface that allows hot-swapping of protocols.
-To decrease the training time, a further script was introduced to pre-train the actor-critic networks using imitation learning.
+It uses a shared actor, a global critic, an LSTM module, a custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface that supports hot-swapping.
+To reduce training time, a separate script was introduced to pre-train the actor-critic networks using imitation learning.
 
 Third, I faithfully followed and extended the AI Mother Tongue architecture \cite{AIMotherTongue}.
-Pre-trained VQ-VAE and SQ-VAE (with exploratory HQ-VAE variant, detailed in Appendix \ref{sec:hq-vae}) were trained on optimal rollout phases and injected into the actor network and frozen before MARL training.
+Pre-trained VQ-VAE and SQ-VAE (with an exploratory HQ-VAE variant, detailed in Appendix \ref{sec:hq-vae}) were trained on optimal rollout phases, injected into the actor network, and frozen before MARL training.
 
 Fourth, a quantitative evaluation of communication protocols was performed.
-The analysis compared task reward and bandwidth efficiency for each of the communication protocols.
+The analysis compared task reward and bandwidth efficiency across the communication protocols.
 This directly answered the research question proposed at the start of this dissertation.
 
 Finally, the semantics of communication and memory were analysed.
-By collecting and visualising conditional distributions such as the probability of a partner's target given a code and the probability of a partner's next action given a code, the dissertation examined whether the message correlates with goals or next action.
+By collecting and visualising conditional distributions, such as the probability of a partner's target given a code and the probability of a partner's next action given a code, the dissertation examined whether the message correlates with goals or with the next action.
 This analysis showed the agent's communication carried interpretable meaning.
 
 Ultimately, the evaluation proved that the AI Mother Tongue architecture successfully enables robust, semantically meaningful discrete communication, outperforming both on-policy discrete and no-communication baselines by overcoming the Communication Vacuum Equilibrium.
+However, the AI Mother Tongue architecture overcomplicates the solution to the "Joint Exploration Problem".
+The reflection strategies teach agents to use the communication channel effectively.
+The frozen encoder encrypts the external observations, stunting the agents from learning the task reward.
+Consequently, this dissertation presents WhisperWise: a new, streamlined protocol that merges on-policy discrete communication with reflection strategies.
 
 \section{Lessons Learnt}
 \label{sec:5.2}
 
 % Developing and evaluating this emergent communication has been a massive undertaking; at over 9000 lines of Python code and over 3000 lines of Rust code, it is the largest project I have undertaken.
+
 % It has taught me a few lessons.
 I have learned the importance of logging and checkpointing; when running a program that takes over nine hours to complete, waiting until the end to find it overfitted epochs ago is catastrophic without these systems in place.
-In terms of MARL communication, I learned agents are lazy; the complexity of an emergent language is fundamentally bounded by the complexity of the environment that necessitates it.
+In terms of MARL communication, I learned that the complexity of an emergent language is fundamentally bounded by the environment that necessitates it.
+Agents will reliably find the most compressed, 'lazy' communication strategy that satisfies the reward function.
 % Maybe another lesson
+
 
 \section{Social and Ethical Considerations}
 \label{sec:5.3}
@@ -47,27 +54,31 @@ A significant concern is the "black box" nature of MARL communication, creating 
 The analysis tools produced take a step further towards AI transparency, reducing this trust deficit.
 
 In this project, data is generated from a built-in simulation, but for integration into real-world settings, real data must be used.
-For example, the expert agent would likely be human, which would invoke strict data protection laws (like GDPR \cite{gdpr}) to come into effect.
+For example, the expert agent would likely be human, triggering strict data protection laws (such as GDPR \cite{gdpr}) to come into effect.
+
 
 \section{Future Work}
 \label{sec:5.4}
 
-This dissertation gives rise to several promising future directions.
+This dissertation suggests several promising future directions.
 
-For the communication, each code from every agent is broadcast to every other agent.
-For simulations with more than two agents, this will inevitably lead to agents listening to codes not relevant to their policy.
+For communication, each agent's code is broadcast to all other agents.
+For simulations with more than two agents, this will inevitably lead to agents listening to code that is not relevant to their policy.
 An improvement would be applying an attention mechanism here to determine which codes are sent to which agents.
 This attention mechanism has another key potential use.
 When an agent observes the environment, they only see the closest visible entity.
-This could be improved using the attention mechanism to choose which visible entity is observed.
+This could be improved by using an attention mechanism to select which visible entity to observe.
+
 
 % A second direction for improvement is adding hyperparameter tuning.
 % Throughout this project, I found myself determining individual hyperparameters through empirical testing.
 % This process was time-consuming and likely suboptimal.
-% Hyperparameter tuning for autoencoder training, MAPPO training and model architectures would provide optimal results for each communication protocol and therefore provide better comparisons for evaluation.
+% Hyperparameter tuning for autoencoder training, MAPPO training, and model architectures would yield optimal results for each communication protocol and, therefore, enable better comparisons for evaluation.
 
-A second direction for improvement is an evaluation of whether the established communication protocols are able to scale to highly complex, hierarchical environments (such as 50x50 grids with agents passing ingredients to one another).
-This would theoretically push the HQ-VAE to establish the macro/micro strategies (see Appendix \ref{sec:hq-vae}).
+A second direction for improvement is to evaluate whether the established communication protocols can scale to highly complex, hierarchical environments (such as 50x50 grids with agents passing ingredients to one another).
+This would, in theory, push the HQ-VAE to establish macro- and micro-strategies (see Appendix \ref{sec:hq-vae}).
 
-In conclusion, this work shows that pre-trained language systems offer a highly viable methodology for emergent communication in MARL.
-This dissertation steps closer to developing artificial agents that can coordinate effectively, transparently and robustly.
+% In conclusion, this work shows that pre-trained language systems offer a highly viable methodology for emergent communication in MARL.
+In conclusion, this work shows that the AI Mother Tongue architecture overcomplicates the solution to the "Joint Exploration Problem".
+The reflection strategies teach agents to use the communication channel effectively, but the semantic bottleneck impedes their learning.
+This dissertation takes a step closer to developing artificial agents that can coordinate effectively, transparently, and robustly.

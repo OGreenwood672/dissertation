@@ -1,0 +1,60 @@
+\begin{table}[H]
+    \centering
+    \begin{tabular}{llc}
+    \toprule
+    \textbf{Category} & \textbf{Parameter} & \textbf{Value} \\
+    \midrule
+    Communication & Communication type & aim \\
+    Communication & Vocabulary size & 32 \\
+    Communication & Messages per step & 1 \\
+    Communication & Autoencoder type & sq-vae \\
+    Communication & Residual quantization levels & 1 \\
+    Communication & Message embedding size & 8 \\
+    Communication & Comm. checkpoint folder & 2026-04-23\_20-22-07 \\
+    \midrule
+    AIM training & AIM learning rate & $1\times 10^{-4}$ \\
+    AIM training & Observation runs & 1 \\
+    AIM training & AIM batch size & 256 \\
+    AIM training & Autoencoder epochs & 25 \\
+    AIM architecture & Hidden layer size & 512 \\
+    VQ-VAE & Commitment cost & 0.25 \\
+    SQ-VAE & KL weight & 0.015 \\
+    SQ-VAE & Min. temperature & 0.05 \\
+    SQ-VAE & Initial temperature & 10.0 \\
+    \midrule
+    Imitation training & Autoencoder epochs & 25 \\
+    Imitation training & Observation runs & 1 \\
+    \midrule
+    MAPPO & PPO epochs & 4 \\
+    MAPPO & Discount factor $\gamma$ & 0.99 \\
+    MAPPO & GAE $\lambda$ & 0.95 \\
+    MAPPO & Clipping coefficient & 0.2 \\
+    MAPPO & Value loss coefficient & 0.5 \\
+    MAPPO & Entropy coefficient & 0.01 \\
+    MAPPO & Actor learning rate & $2\times 10^{-4}$ \\
+    MAPPO & Critic learning rate & $1\times 10^{-4}$ \\
+    MAPPO architecture & LSTM hidden size & 256 \\
+    MAPPO architecture & Feature dimension & 256 \\
+    \midrule
+    Training loop & Training steps & 30000 \\
+    Training loop & Simulation steps & 30 \\
+    Training loop & Initial timestep & 0 \\
+    Training loop & Rollout phases & 1 \\
+    Training loop & PPO batch size & 512 \\
+    Training loop & Parallel worlds & 960 \\
+    Training loop & Seed & 9 \\
+    Training loop & Checkpoint interval & 1000 \\
+    \midrule
+    Simulation env. & Arena width & 5 \\
+    Simulation env. & Arena height & 5 \\
+    Simulation env. & Headless mode & true \\
+    Simulation env. & Websocket URL & ws://127.0.0.1:3000 \\
+    Simulation env. & Websocket path & ws \\
+    Simulation env. & Agent-agent visibility radius & 10 \\
+    Simulation env. & Agent-station visibility radius & 10 \\
+    Simulation env. & Initial agent layout & random \\
+    Simulation env. & Initial station layout & random \\
+    \bottomrule
+    \end{tabular}
+    \caption{Hyperparameters and simulation configuration.}
+\end{table}

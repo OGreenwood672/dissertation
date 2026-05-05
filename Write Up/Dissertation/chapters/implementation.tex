@@ -36,7 +36,6 @@
 
     \node (Frontend) [block, left=2.5cm of Env, fill=orange!5, minimum width=3cm] {\textbf{p5.js UI} \\ \textit{(Websocket)}};
 
-    % *** EDGES ***
     \draw [arrow] (Trainer.110) -- node[anchor=east, xshift=-2pt] {Step(Actions)} (Env.250);
     \draw [arrow] (Env.290) -- node[anchor=west, xshift=2pt] {Obs, Rewards} (Trainer.70);
 
@@ -63,7 +62,7 @@ The architecture is divided into three main sections.
 The Rust simulation backend, the Python MARL controller and the frontend visualisation.
 The simulation controls the state of all the current environments, and advances each environment at every step.
 The MARL controller updates and uses the policies, manages storage over the rollout phase and handles communication between agents in the same environment.
-The visualisation frontend receives data through a WebSocket from the simulation for debugging and demonstration purposes.
+The visualisation frontend receives data from the simulation via WebSocket for debugging and demonstration purposes.
 
 \subsection{Repository Overview}
 \label{sec:3.1.2}
@@ -85,6 +84,8 @@ The visualisation frontend receives data through a WebSocket from the simulation
 }
 \vspace{1em}
 
+The project is released open-source under the GPL-3.0 license to encourage open-source reproducibility and further research.
+
 % Could explain each in more detail after
 
 \subsection{Implementation Approach}
@@ -95,18 +96,19 @@ The visualisation frontend receives data through a WebSocket from the simulation
 
 For the Rust-based environment, unit testing was rigorously applied.
 Using the \lstinline[language=Rust]|cargo| tool \lstinline[language=Rust]|llvm-cov|, a $97\%$ coverage of functions was achieved by the test suite
-Further to unit testing, a lightweight real-time visualisation is engineered to enable immediate feedback during execution, making system behaviour easier to inspect as the environment runs.
+In addition to unit testing, a lightweight real-time visualisation is engineered to provide immediate feedback during execution, making system behaviour easier to inspect as the environment runs.
 
-In the Python controller, the core folder containing the infrastructure was similarly unit tested.
+In the Python controller, the core folder containing the infrastructure was also unit tested.
 Using the \lstinline[language=Python]|pytest| library, $86\%$ coverage of lines of code was achieved by the test suite.
 For the rest of the controller, unit tests were deemed inappropriate.
+% TODO: Why deem inappropriate
 % TODO: Shape tests
 
 
 \subsubsection{Documentation}
 \label{sec:3.1.3.2}
 
-To provide impact outside of the tripos, a README.md was produced to explain how to use the program.
+To have an impact beyond the tripos, a README.md was produced to explain how to use the program.
 The README.md explains how to edit configuration files, add new communication protocols and evaluate the results.
 
 \section{Environment}
@@ -118,12 +120,12 @@ The environment is designed specifically to satisfy C1 by providing a configurab
 \label{sec:3.2.1}
 
 The core environment involved $N$ agents whose job is to collect assigned ingredients from fixed stations or other moving agents.
-On completion of ingredient collection, the agent combines their ingredients to form a single output, which they are required to drop off at a fixed station.
+Upon completing ingredient collection, the agent combines their ingredients to form a single output, which they must drop off at a fixed station.
 
 The environment is built as a two-dimensional grid of cells.
 At each timestep, agents can move from one cell to a neighbouring cell or interact with another entity in the same cell. 
 
-In line with creating a dynamic codebase for future testing of communication protocols, the environment was designed to be easily changeable through a configuration file.
+To support dynamic codebase development for future testing of communication protocols, the environment was designed to be easily configurable via a configuration file.
 The configuration file allows customisation of:
 \begin{itemize}
     \item Agents and their input and output ingredients
@@ -133,10 +135,10 @@ The configuration file allows customisation of:
     \item Environment Size
 \end{itemize}
 
-To ensure cooperation is required, agents are unable to see the entities from which they must collect ingredients.
+To ensure cooperation, agents are unable to see the entities from which they must collect ingredients.
 
 Reinforcement learning requires millions of datapoints \cite{PPO} to produce a sufficiently usable policy.
-In order to collect this data efficiently, a vectorised environment with efficient movement of data between the RL script and the Rust simulation is designed.
+To collect this data efficiently, a vectorised environment with efficient data movement between the RL script and the Rust simulation is designed.
 
 \subsection{Cross-Language Interoperability}
 \label{sec:3.2.2}
@@ -148,11 +150,11 @@ This FFI is compiled using setuptools-rust, a plugin for the setuptools library 
 This toolchain is defined within the \lstinline[language=bash]|pyproject.toml| configuration enabling all building into a single installation command.
 
 For interacting with the simulation from Python, a \lstinline[language=Python]|SimWrapper| class is developed following the Adapter Design Pattern \cite{refactoringguru_adapter}.
-This wrapper isolates the high-level reinforcement learning algorithm from the low-level foreign function interface mechanics.
+This wrapper isolates the high-level reinforcement learning algorithm from the low-level mechanics of the foreign function interface.
 PyTorch works in high-dimensional matrices and batched state representations; it is considerably computationally faster to pass flat arrays to the Rust simulation to exploit CPU cache locality and parallel throughput.
 To take a simulation step, the \lstinline[language=Python]|SimWrapper| class reshapes the data and passes it to the Rust simulation.
 On return from the Rust simulation, PyO3 provides an option to return a numpy\cite{numpy} array.
-This is effectively a pointer to a contiguous section of memory, allowing reshaping back to PyTorch's expected tensor shape in O(1) time (zero copying required).
+This is effectively a pointer to a contiguous section of memory, allowing reshaping back to PyTorch's expected tensor shape in O(1) time (with zero copying).
 
 \subsection{World Vectorisation}
 \label{sec:3.2.3}
@@ -168,7 +170,7 @@ This computation includes:
     \item Collecting rewards for feedback on the policy
     \item Collecting each agent's observations and each world's global observations for input to the actor and critic networks
 \end{itemize}
-The number of worlds in parallel is decided through analysis (see SPS analysis \ref{sec:4.2.1}).
+The number of parallel worlds is determined through analysis (see SPS analysis \ref{sec:4.2.1}).
 However, machine computation differs, so the number of worlds in parallel can be modified in the configuration files.
 This vectorisation directly aids C1 by enabling hundreds of worlds to be simulated in parallel.
 
@@ -177,12 +179,12 @@ This vectorisation directly aids C1 by enabling hundreds of worlds to be simulat
 
 To further address C1, an efficient spatial hashing method is used to optimise the per-step computation.
 In the environment, the closest entity (agent or station) to each agent is part of each agent's observations.
-A naive implementation would check the Euclidean distance between every entity and every agent.
+A naive implementation would compute the Euclidean distance between each entity and each agent.
 This scales with $O(N^2)$, where $N$ is the number of entities.
 To resolve this, a \lstinline[language=Rust]|GridMap| struct is constructed using spatial hashing.
-Every world is represented as a \lstinline[language=Rust]|Vec<Vec<GridCell>>|, where agents register their presence upon movement, and stations register on initialisation.
+Every world is represented as a \lstinline[language=Rust]|Vec<Vec<GridCell>>|, where agents register their presence upon movement, and stations register upon initialisation.
 Using this data structure, we can convert our $O(N^2)$ time complexity to $O(1)$.
-On top of this functionality, we can also easily calculate an exploration reward.
+In addition to this functionality, we can easily calculate an exploration reward.
 Each \lstinline[language=Rust]|GridCell| contains an \lstinline[language=Rust]|is_explored| flag.
 When agents step on cells with this flag set to \lstinline[language=Rust]|false|, negate this flag and collect a small positive reward (see section \ref{sec:3.3.1} for further details).
 
@@ -195,7 +197,7 @@ Integrating the visualisation directly into the training loops would lead to str
 To decouple these systems, an independent frontend is developed.
 On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library \cite{tokio} to manage the websocket without slowing down the main simulation, utilising the \lstinline[language=Rust]|warp| framework \cite{warp} to establish the connection and stream state data to the frontend.
 During runtime, current state data is streamed from this websocket.
-Strict types are defined in both the Rust simulation and frontend for the data being communicated through the websocket to ensure the system accurately reflects the current state.
+Strict types are defined in both the Rust simulation and the frontend for the data communicated over the WebSocket to ensure the system accurately reflects the current state.
 
 To synchronise the configuration between the visualisation and the simulation backend, a Python utility extracts required parameters from the configuration files and places them into a frontend-friendly format.
 This synchronisation is integrated into the Vite \cite{vite} build script to ensure perfect synchronisation.
@@ -208,7 +210,7 @@ The MARL infrastructure implements C2 using Multi-Agent Proximal Policy Optimisa
 
 \subsection{Reward Function}
 \label{sec:3.3.1}
-
+% TODO: Explain choice of dense reward
 Liu et al.\cite{AIMotherTongue} suggest that for these more complex games, a dense reward system should be implemented, allowing agents to gain useful feedback on every step.
 
 Each agent $i$ at timestep $t$ receives a reward of $r_t^i$:
@@ -276,18 +278,17 @@ Where:
 Similar to Liu et al.\cite{AIMotherTongue}, an actor-critic network is set up following the Centralised Training Decentralised Execution (CTDE) paradigm.
 The PyTorch module \lstinline[language=Python]|PPO_Critic| operates solely during the training phase and receives global knowledge of the current state of the world.
 The global knowledge is the complete, unmasked environmental state.
-This is processed through a deep Multi-Layer Perceptron (MLP) body.
+This is processed by a deep Multi-Layer Perceptron (MLP).
 To maintain network stability, \lstinline[language=Python]|nn.LayerNorm| and ReLU activation functions are applied sequentially.
-The network outputs an estimate of the return for each agent in the given state.
+The network outputs an estimate of each agent's return for the given state.
 
 The PyTorch module \lstinline[language=Python]|PPO_Actor| controls each agent and acts only using local knowledge of the agent.
 This local knowledge is the agent's own state (position, inventory - what the agent currently has and needs), the closest entity if within a specific radius and the communication vectors broadcast by all other agents.
-This is processed through a deep MLP body and then passed through a Long Short-Term Memory unit (LSTM).
+This is processed by a deep MLP and then passed through a Long Short-Term Memory (LSTM) unit.
 The LSTM allows individual agents to remember the locations of stations and meeting points with other agents.
-The network outputs action logits (probabilities of each action to be taken) and returns the output of the LSTM for the communication protocol to use later on.
+The network outputs action logits (probabilities of each action) and returns the LSTM output for the communication protocol to use later.
 
-To prevent weights vanishing or exploding during early training, orthogonal initialisation was opted for rather than the default uniform initialisation PyTorch uses.
-
+To prevent weights from vanishing or exploding during early training, orthogonal initialisation was used rather than the default uniform initialisation PyTorch uses.
 
 \subsection{Memory Management}
 \label{sec:3.3.3}
@@ -295,7 +296,7 @@ To prevent weights vanishing or exploding during early training, orthogonal init
 During the rollout phase, the data collected, including inputs to the policy (communication values, observations) and the feedback from the simulation (rewards), must be saved for the update phase.
 In the vectorised environment with multiple agents over hundreds of timesteps, simply appending to a Python list is insufficient due to constant copying overhead when the list doubles in size \cite{python_lists} and memory fragmentation \cite{python_memory_fragmentation} (see section \ref{sec:4.2.2} for ablation study).
 To prevent this overhead, a custom \lstinline[language=Python]|RolloutBuffer| class is implemented.
-On instantiation, the buffer allocates contiguous memory for the data collected over the rollout phase in the form of a \lstinline[language=Python]|torch.tensor| on the target hardware device.
+On instantiation, the buffer allocates contiguous memory for the data collected during the rollout phase as a \lstinline[language=Python]|torch.tensor| on the target hardware device.
 Memory allocated is for
 \begin{itemize}
     \item Local agent observations
@@ -309,7 +310,7 @@ Memory allocated is for
     \item Advantages and returns derived from Generalised Advantage Estimation (GAE).
 \end{itemize}
 
-After every environment step, data is directly inserted into the pre-allocated tensors via index-slicing.
+After each environment step, data is directly inserted into the pre-allocated tensors via index slicing.
 This insertion is a $O(1)$ zero-copy operation.
 This method minimises the data transfer across the CPU-GPU boundary, which is an expensive operation.
 
@@ -343,9 +344,9 @@ To avoid unnecessary data movement, this process is executed directly on the sto
 \end{algorithm}
 
 As detailed in Algorithm 1, GAE starts at the final step.
-It calculates the one-step Temporal Difference Error ($\delta$) - representing the immediate step reward plus the discounted expected value of the subsequent state minus the baseline value estimate of the current state.
+It calculates the one-step Temporal Difference Error ($\delta$), which represents the immediate step reward plus the discounted expected value of the subsequent state minus the baseline value estimate of the current state.
 The GAE is then recursively accumulated using the decay parameter ($\lambda$) and the environmental discount factor ($\gamma$).
-By adding the current $\delta$ to the exponentially discounted future advantages, GAE successfully balances the bias-variance tradeoff inherent in deep reinforcement learning.
+By adding the current $\delta$ to the exponentially discounted future rewards, GAE effectively balances the bias-variance trade-off inherent in deep reinforcement learning.
 The target returns for training the Critic are formulated by summing the advantage with the current state value.
 This algorithm has a time complexity of $O(T)$.
 
@@ -354,14 +355,14 @@ This algorithm has a time complexity of $O(T)$.
 
 % TODO: Make diagram of flow
 
-A critical part of this project is the comparative analysis of different methods of communication.
+A critical part of this project is the comparative analysis of different communication methods.
 This includes no communication, dynamically learned discrete symbols and AI Mother Tongue methods.
 
 To avoid repetition of code blocks and consistency over each of these methods, an abstract base class was engineered (\lstinline[language=Python]|Comms|) using the Python library \lstinline[language=Python]|abc| to require each subclass to implement the necessary methods.
 % TODO: Improve class names
-Each protocol was implemented as a PyTorch module and inherited from the aforementioned base class and \lstinline[language=Python]|torch.nn.Module|.
+Each protocol was implemented as a PyTorch module that inherited from the aforementioned base class and \lstinline[language=Python]|torch.nn |.Module|.
 On initialisation, the \lstinline[language=Python]|actor| module dynamically instantiates the required protocol based on the configuration.
-This allowed experimental hot-swapping of protocols to be achieved seamlessly without altering the MAPPO algorithm.
+This enabled seamless experimental hot-swapping of protocols without altering the MAPPO algorithm.
 
 \subsection{MAPPO Algorithm}
 \label{sec:3.3.6}
@@ -370,20 +371,20 @@ Algorithm \ref{alg:mappo} (see Appendix) depicts the update loop for MAPPO.
 To ensure stability in the updates, advantage normalisation is applied to the GAE advantages \cite{gae_normalisation}.
 
 For every epoch, the data collected by the rollout phase is split into random minibatches.
-First, the critic is evaluated by feeding in the global observation against returns from GAE using MSE loss.
+First, the critic is evaluated by feeding the global observation into the GAE returns using an MSE loss.
 
-The communication codes broadcast from all other agents (the agent does not receive their own code) in the preceding time step are collected and fed into the actor network along with the relevant local observations and LSTM hidden state.
+The communication codes broadcast by all other agents (the agent does not receive its own code) in the preceding time step are collected and fed into the actor network along with the relevant local observations and the LSTM hidden state.
 To prevent chaotic updating, the standard PPO clipped surrogate objective is used.
 Notably, the clipping of the communication loss and the action loss are computed separately.
 This strict isolation ensures that a highly confident, but ultimately incorrect, communication update does not destructively skew the gradients of a well-performing spatial movement policy.
 
-Each of these surrogate losses is aggregated into a single composite loss as well as an entropy loss for encouraging continued exploration.
+Each of these surrogate losses is aggregated into a single composite loss, along with an entropy loss to encourage continued exploration.
 However, before applying the final gradients to the networks, the complete actor and critic parameters are clamped to a maximum $L_2$ norm of 0.5.
 
-Due to imitation learning (detailed in section \ref{sec:3.6.3}), a blanket learning rate is not suitable for MAPPO.
-Because the actor and critic networks have already been partially optimised, aggressive learning rates risk forgetting these pre-trained policies.
-To account for this, a conservative learning rate is applied to the actor's networks that were trained during imitation learning to prevent chaotic updates from losing this information.
-The critic network is exempt from this conservative learning rate; otherwise, the network would be unable to rapidly adapt to the agents' shifting policies and provide accurate value function estimates.
+Due to imitation learning (as detailed in section \ref{sec:3.6.3}), a single learning rate is not suitable for MAPPO.
+Because the actor and critic networks have already been partially optimised, aggressive learning rates risk causing them to forget the pre-trained policies.
+To account for this, a conservative learning rate is applied to the actor's networks trained during imitation learning to prevent chaotic updates from erasing this information.
+The critic network is exempt from this conservative learning rate; otherwise, it would be unable to rapidly adapt to the agents' shifting policies and to provide accurate value function estimates.
 This variable learning rate is applied using \lstinline[language=Python]|PyTorch|'s optimiser's parameter groups (\lstinline[language=Python]|param_groups|).
 This careful orchestration of advantage normalisation, isolated loss clipping, gradient clamping and variable learning rates ensures monotonic policy improvement across the training landscape.
 
@@ -392,10 +393,10 @@ This careful orchestration of advantage normalisation, isolated loss clipping, g
 \label{sec:3.4}
 
 Communication allows the agent to mitigate the POMDP effect, improving the mean task reward per step.
-Every agent broadcasts a code to every other agent, which is received in the subsequent simulation step.
+Every agent broadcasts a code to all other agents, which is received in the next simulation step.
 Agents do not receive their own code.
 
-Making the software re-usable and flexible by making communication protocols interchangeable will allow for comparisons between the protocols and satisfy C3.
+Making the software reusable and flexible by making communication protocols interchangeable will allow comparisons between protocols and satisfy C3.
 
 \subsection{No Communication}
 \label{sec:3.4.1}
@@ -478,10 +479,16 @@ This yields a simple, differentiable communication.
 
 AI Mother Tongue communication protocol extends Liu et al.'s proposed architecture for this more complex environment.
 Figure \ref{fig:ai-mother-tongue-ext} shows my extension to phase 2 from figure \ref{fig:ai-mother-tongue}.
-The observations from the agents are split.
+The agents' observations are split.
 The external observations (those which represent the agent's view of the environment) are split from the rest and fed through the frozen encoder and quantiser.
 Another key difference is the action head.
 Instead of the simple rule Liu et al. implemented, we pass the policy output through an MLP to output a probability distribution over the action space.
+
+\subsection{WhisperWise: On-Policy Discrete Communication with Reflection Strategies}
+\label{sec:3.4.4}
+
+To isolate the effect of the reflection strategies independent from the frozen VAE encoder, a novel ablation architecture is engineered.
+This protocol adds the reflection strategies detailed in section \ref{sec:3.7} to the on-policy discrete communication protocol as described in \ref{sec:3.4.2}
 
 \section{Variational Autoencoders}
 \label{sec:3.5}
@@ -549,7 +556,7 @@ In PyTorch, this is done using \lstinline[language=Python]|torch.cdist| followed
 
 \item \textbf{Straight-Through Estimator (STE)}
 
-An issue with VQ-VAEs is that the argmin operator is non-differentiable.
+A problem with VQ-VAEs is that the argmin operator is nondifferentiable.
 If we were to backpropagate classically, gradients would stop at the quantisation step.
 To solve this, VQ-VAE uses the Straight-Through Estimator, where we copy the gradients from the decoder input $z_q$ directly to the encoder output $z_e$.
 
@@ -604,9 +611,9 @@ To fix this issue, Takida et al. \cite{SQVAE} propose Stochastically-Quantised V
 
 % Self-annealing is applied during training $\sigma^2$.
 
-Instead of using the argmin operator, we calculate a categorical probability distribution over the codebook by assigning a probability to each code based on how close it is to the encoder output.
+Instead of using the argmin operator, we compute a categorical probability distribution over the codebook by assigning each code a probability proportional to its distance from the encoder output.
 Early during training, the probability distribution is wide, which helps explore the entire codebook.
-Later on in training, the probability distribution naturally shrinks, allowing the model to make hard choices.
+Later on during training, the probability distribution shrinks, forcing the model to make hard choices.
 
 A temperature annealing scheduler is implemented to shrink the probability distribution over training.
 To control this sharpening behaviour, a temperature annealing scheduler is applied to the categorical distribution.
@@ -615,8 +622,8 @@ To control this sharpening behaviour, a temperature annealing scheduler is appli
     \tau = \max(\tau_{\min}, \tau_{\text{old}} \cdot \text{annealing\_rate})
 \end{equation}
 
-However, this method still uses Euclidean distance, but in tasks such as NLP and audio, the semantic meaning of a feature is often entirely captured by the direction of the vector, not the magnitude.
-To improve this method for our use case, an extension of this model is used, the von Mises-Fisher Stochastically-Quantised Variational Autoencoder (vMF SQ-VAE).
+However, this method still uses Euclidean distance, whereas in tasks such as NLP and audio, the semantic meaning of a feature is often entirely captured by the vector's direction, not its magnitude.
+To improve this method for our use case, we use an extension of this model: the von Mises-Fisher Stochastically-Quantised Variational Autoencoder (vMF SQ-VAE).
 
 To make this differentiable, we use the Gumbel-Softmax trick.
 In the forward pass, we force the output to be a strict one-hot vector.
@@ -692,11 +699,10 @@ The loss function relies solely on $L_\text{recon}$ as explained in \ref{sec:3.4
 \label{sec:3.6.1}
 
 Data for offline pre-training is collected from an expert agent.
-In the game, creating an optimal agent is intractable as we must decide the optimal route to travel to multiple stations.
+In the game, creating an optimal agent is intractable because we must decide the optimal route to multiple stations.
 This expert agent views the unmasked, global observation state.
 The expert agent then employs a greedy heuristic, taking steps directly to the nearest required station until interaction is possible.
-By deploying this greedy expert agent, a dataset can be collected with high-quality spatial movements.
-
+By deploying this greedy expert agent, a high-quality dataset of spatial movements can be collected.
 
 \subsection{Training VAEs}
 \label{sec:3.6.2}
@@ -705,12 +711,12 @@ The AI Mother Tongue framework requires these autoencoders to be trained prior t
 
 \textbf{Data-driven codebook initialisation}
 
-A rich codebook utilisation is vital to sufficiently describe external observations.
-A significant challenge with training autoencoders is codebook collapse, where only a small subset of the embeddings within a codebook are used.
-To mitigate this, the codebooks are not randomly initialised; instead, data-driven codebook initialisation is used to set the spatial priors of the codebook.
+A rich codebook is vital for adequately describing external observations.
+A significant challenge in training autoencoders is codebook collapse, in which only a small subset of the embeddings in a codebook are used.
+To mitigate this, the codebooks are not randomly initialised; instead, data-driven codebook initialisation is used to set the codebook's spatial priors.
 
 Algorithm \ref{alg:codebook-priors} (see Appendix) shows how the priors are collected and set.
-A subset of the data collected from the expert agent is used to find the spatial priors by passing the data through the initialised, but untrained, encoder.
+A subset of the data collected from the expert agent is used to estimate the spatial priors by passing it through the initialised, but untrained, encoder.
 Centroids are then found by using the \lstinline[language=Python]|MiniBatchKMeans| function from the Python library \lstinline[language=Python]|scikit-learn| for K clusters (where K is the vocabulary size).
 If the current VAE is of type vMF SQ-VAE, then we must also normalise the embeddings onto a unit sphere with \lstinline[language=Python]|torch.nn.functional.normalize(..., p=2.0)|.
 These centroids overwrite the randomly initialised embeddings in the codebook.
@@ -740,7 +746,7 @@ To reduce the training time required, Liu et al. \cite{AIMotherTongue} suggest t
 Required observations, optimal actions and their associated advantages can be pre-collected from an expert agent.
 
 Using this data, supervised learning is applied to the actor and critic networks.
-To simulate communication, we send the location of the agent's own nearest current target in its communication slot, encoded via a learned codebook lookup from spatial binning.
+To simulate communication, we send the agent's current nearest target location in its communication slot, encoded via a learned codebook lookup from spatial binning.
 
 The world is broken into K discrete areas.
 K was chosen such that the world is discretised into no more than K spatial bins, matching the vocabulary size, to balance two effects: avoiding unrealistically precise target locations that the communication channel cannot represent, whilst still providing sufficiently precise spatial information.
@@ -784,7 +790,7 @@ On completion, these models are saved to disk and loaded when the reinforcement 
 \label{sec:3.7}
 
 A large emphasis by Liu et al. \cite{AIMotherTongue} is the importance of reflection strategies.
-They introduce additional loss terms during the RL phase, aimed at fostering more complex learning and communication beyond simple reward maximisation.
+They introduce additional loss terms during the RL phase to foster more complex learning and communication beyond simple reward maximisation.
 These reflection losses are defined over \emph{sender} and \emph{receiver} contexts constructed from observations and communication symbols.
 Due to the complexity of the environment, these auxiliary losses were adjusted to be more task-specific.
 
@@ -894,7 +900,7 @@ This loss is returned and added to the composite MAPPO objective function for ba
 \label{sec:3.8}
 
 MARL systems take thousands of rollout phases to train.
-Leaving the system until the end of training to evaluate would render debugging practically impossible.
+Leaving the system for evaluation until the end of training would render debugging practically impossible.
 To ensure strict scientific rigour, custom observability and checkpointing frameworks were implemented supporting C5.
 
 \subsection{Real-time System Monitoring}
@@ -906,10 +912,10 @@ To prevent computational bottlenecks, three lightweight classes were engineered:
     This object collects any statistics across the program.
     Instances can then be passed to the following classes for saving and displaying statistics.
     \item \lstinline[language=Python]|Logging|
-    This constantly flushes the statistics collected in \lstinline[language=Python]|MeticTracker| instances to disk to keep run data even in the case of crashes.
+    This constantly flushes the statistics collected by \lstinline[language=Python]|MeticTracker| instances to disk, keeping run data even in the case of crashes.
     \item \lstinline[language=Python]|Visualiser|
     Designed specifically for the RL phase, this class uses the Python library \lstinline[language=Python]|rich| to display relevant statistics for that run.
-    The visualisation displays hyperparameters from the configuration files, the current state of the RL loop (rollout or update phase) and shows the past $X$ training steps of \lstinline[language=Python]|MetricTracker| statistics in the form of a basic graph.
+    The visualisation displays hyperparameters from the configuration files, the current state of the RL loop (rollout or update phase), and the past $X$ training steps of \lstinline[language=Python]|MetricTracker| statistics as a basic graph.
 \end{itemize}
 
 \lstinline[language=Python]|MetricTracker| and \lstinline[language=Python]|Logging| are usable in the RL loop, imitation learning and VAE training.
@@ -919,19 +925,19 @@ To prevent computational bottlenecks, three lightweight classes were engineered:
 \label{sec:3.8.2}
 
 A modular configuration system was engineered to manage the large number of hyperparameters, with separate configuration files for actor and critic hyperparameters, imitation learning, VAE training, reinforcement learning, environment settings, communication protocols, and MAPPO.
-The configuration files also allow for setting seeds for easy reproducibility.
+The configuration files also allow you to set seeds for easy reproducibility.
 
 To prevent silent errors, the Python library \lstinline[language=Python]|pydantic| was used.
-The configuration dataclass inherited from \lstinline[language=Python]|pydantic.BaseModel| which defined the expected schema for each of the aforementioned files.
+The configuration dataclass is inherited from \lstinline[language=Python]|pydantic |.BaseModel| which defined the expected schema for each of the aforementioned files.
 This data class is then passed throughout the program.
 
 \subsection{Checkpointing}
 \label{sec:3.8.3}
 
-Simply storing the logs accumulated over the run is insufficient for resuming training in case of hardware failure.
+Simply storing the logs accumulated during the run is insufficient for resuming training in the event of hardware failure.
 For this functionality, a \lstinline[language=Python]|CheckpointManager| class is developed.
-On instantiation, a config file is saved to a new folder for future reference. 
-Then every $X$ training steps (e.g. $X=100$, but configurable in the configuration files), the actor, critic models and their respective optimisers are saved.
+On instantiation, a config file is saved to a new folder for future reference.
+Then, every $X$ training steps (e.g., $X=100$, configurable in the configuration files), the actor and critic models, along with their respective optimisers, are saved.
 These saved models and optimisers can be loaded on startup to reproduce any results.
 
 \section{Summary}
@@ -942,7 +948,7 @@ The project provides a framework for communication in MARL, which includes a con
 This allows other researchers to plug in new alternative protocols and VAE bottlenecks and compare with others in a consistent manner.
 
 The project also extends the AI Mother Tongue architecture \cite{AIMotherTongue} to a more complex cooperative environment and experimented with VAE variants.
-By using the custom framework with logging tools and checkpointing, training and semantic message meaning can be analysed in detail, as shown in Chapter \ref{sec:4}.
+By using the custom framework with logging tools and checkpointing, training and the semantic meaning of messages can be analysed in detail, as shown in Chapter \ref{sec:4}.
 
 % For the comparitive learning protocol, the language is being trained online.
 % There is no reconstuction loss or any extra auxiliary loss being fed into the lightweight quantiser module.

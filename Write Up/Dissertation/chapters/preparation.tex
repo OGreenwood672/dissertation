@@ -20,11 +20,11 @@ For each world generated, stations are randomly placed across the map and are im
 This randomisation prevents agents from overfitting a single layout.
 Each station has an assigned ingredient. The station can either be of type 'pick up' or 'drop off'.
 A 'pick up' station only allows the agents to take ingredients from it.
-A 'drop off' station only allows the agents to give the station the assigned ingredient.
+A 'drop off' station only allows agents to drop off the assigned ingredient.
 
 \textbf{Agents}
 
-For a similar reason, on initialisation of every world, agents are randomly placed across the map.
+For a similar reason, agents are randomly placed across the map at world initialisation.
 
 Each agent is assigned an ordered pair of ingredient sets ($I_\text{in}$, $I_\text{out}$).
 The agent must first collect all ingredients in $I_\text{in}$.
@@ -33,7 +33,7 @@ This defines a single recipe, but agents may complete multiple recipes in their 
 
 Ingredients can be collected and dropped off at both other agents and stations.
 
-One important feature of this game is that the agents have a limited range of sight and can only view the nearest entity that is not their own pick-up station at any given timestep.
+One important feature of this game is that the agents have a limited field of view and can only see the nearest entity that is not their own pick-up station at any given timestep.
 This converts this game from a Markov Decision Process to a Partially Observable Markov Decision Process.
 The agents must work together to discover the required stations and use them to complete recipes.
 
@@ -82,7 +82,7 @@ These five actions form the action space $\mathcal{A}$ in the POMDP definition (
 
     \begin{scope}[shift={(8.5, 4.8)}]
         \draw[thick, rounded corners, fill=gray!5] (0,-4) rectangle (6.0, 0.5);
-        \node[anchor=west, font=\sffamily\bfseries] at (0.2, 0) {Legend};
+        \node[anchor=west, font=\sffamily\bfseries] at (0.2, 0) {Key};
         
         \node[agent, scale=0.8] at (0.6, -0.8) {};
         \node[anchor=west, font=\sffamily] at (1.0, -0.8) {Agent};
@@ -106,18 +106,18 @@ These five actions form the action space $\mathcal{A}$ in the POMDP definition (
 Figure \ref{fig:example_world} shows an example of a typical world where there are two agents and two stations.
 Here, each agent's own pick-up station is visible only to the other if within the limited field of view.
 If no entity is within the agent's range of view, then the agent views a 'no-entity' token.
-Without communication, both agents would have to independently search the map until they discover the station.
+Without communication, both agents would have to search the map independently until they discovered the station.
 With communication, the agents can tell one another the location of the required pick-up station.
 This shows how the environment creates asymmetric information and how communication can solve it.
 
 \section{MARL background}
 \label{sec:2.2}
 
-Reinforcement Learning (RL) is different to classical supervised and unsupervised learning as we do not have all the data before training.
-We must build environments for agents to take actions and receive feedback from these actions.
+Reinforcement Learning (RL) differs from classical supervised and unsupervised learning because we do not have all the data before training.
+We must build environments that allow agents to take actions and receive feedback from those actions.
 The agents must learn to maximise the total reward collected over time.
 
-Classic RL is modelled through Markov Decision Processes (MDPs), but to investigate communication, we must limit the information every agent has, so they must communicate missing information with one another.
+Classic RL is modelled as a Markov Decision Process (MDP), but to investigate communication, we must limit each agent's information, so they must communicate missing information to one another.
 Therefore, we will model this RL as a Partially Observable Markov Decision Process (POMDP).
 
 A POMDP is formally defined as $\langle \mathcal{S}, \mathcal{A}, \mathcal{P}, \mathcal{R}, \Omega, \mathcal{O}, \gamma \rangle$.
@@ -134,11 +134,11 @@ Where:
 
 For the environment described in section \ref{sec:2.1}, $\mathcal{S}$ consists of the world layout including the entities' locations, the agents' inventories, the station type and the station's resources.
 $\Omega$ contains each agent's nearest entity if within the range of view, communication codes all other agents emitted in the previous timestep, and their own state (i.e. location and inventory).
-Therefore, the system is a cooperative Dec-POMDP where multiple agents act with the same state, receive individual local observations and share a common reward signal.
+Therefore, the system is a cooperative Dec-POMDP in which multiple agents act on the same state, receive individual local observations, and share a common reward signal.
 
-This research's focus is emergent communication in MARL; however, MARL is often subject to a variety of challenges which must first be overcome before the communication can be analysed.
-One such problem is the non-stationary problem, which is when multiple agents learn simultaneously, creating an unpredictably changing environment from an individual agent's perspective.
-Another challenge is the credit assignment problem, which is when multiple agents work cooperatively for a single goal, making it difficult to determine how much each individual helped.
+This research's focus is emergent communication in MARL; however, MARL is often subject to various challenges that must first be overcome before the communication can be analysed.
+One such problem is non-stationarity, which arises when multiple agents learn simultaneously, creating an environment that changes unpredictably from an individual agent's perspective.
+Another challenge is the credit assignment problem, which arises when multiple agents work cooperatively toward a single goal, making it difficult to determine each agent's contribution.
 To mitigate these problems, an appropriate, well-tested algorithm is chosen.
 
 % The framework being implemented in the project is built on the standard centralised training, decentralised execution (CTDE) paradigm for cooperative MARL.
@@ -146,16 +146,16 @@ Multi-Agent Proximal Policy Optimisation (MAPPO) \cite{MAPPO} was selected, and 
 
 Value-Decomposition Networks (VDN) \cite{VDN}, such as QMIX \cite{QMIX}, are unsuitable for the given game.
 QMIX relies on a monotonicity assumption (the global optimal action-value is monotonic for each individual agent's action-values).
-For training communication, the utility of a code broadcast from agents has a value contextually dependent on the environment state, which directly violates the monotonicity assumption.
+For training communication, the utility of a code broadcast by agents depends on the environment state, which directly violates the monotonicity assumption.
 
-Off-policy actor-critic methods such as Multi-Agent Deep Deterministic Policy Gradient (MADDPG) \cite{MADDPG} are also unsuitable as codes broadcast semantically shift during training, leading to new policies being trained on stale data.
+Off-policy actor-critic methods such as Multi-Agent Deep Deterministic Policy Gradient (MADDPG) \cite{MADDPG} are also unsuitable, as code broadcast semantically shifts during training, leading to new policies being trained on stale data.
 
 MAPPO avoids these issues \cite{MAPPO}.
 MAPPO is an extension of Proximal Policy Optimisation (PPO) \cite{PPO} to cooperative multi-agent settings, itself derived from Trust Region Policy Optimisation (TRPO)\cite{TRPO}.
 MAPPO shares a policy across all agents and uses a centralised value function with access to the global state during training, whilst each agent acts in a decentralised manner at execution time.
 This centralised training, decentralised execution paradigm is well-suited for emergent communication.
-The centralised critic during training helps mitigate the non-stationary and credit assignment problems and separate these from the communication problems by learning from the joint state and joint rewards, whilst PPO-style clipped updates provide stable policy optimisation.
-All agents sharing a single policy but acting independently at execution time ensures that any performance gains must arise from useful information from the communication channel rather than from hidden centralised information.
+The centralised critic during training helps mitigate non-stationarity and credit assignment problems, separating them from communication problems by learning from joint states and rewards, whilst PPO-style clipped updates provide stable policy optimisation.
+All agents sharing a single policy but acting independently at execution time ensure that any performance gains arise from useful information in the communication channel rather than from hidden, centralised information.
 
 MAPPO optimises two main components: each agent's Policy (Actor) ${\pi}_{{\theta}_{i}}$ and the Value Function (Critic) $V_{\phi}$.
 
@@ -231,13 +231,13 @@ Where:
 \section{Emergent Communication in MARL}
 \label{sec:2.3}
 
-Early work in emergent communication studied how agents can learn to communicate with one another without a concern for interoperability and bandwidth, usually in two-agent coordination tasks \cite{InitialEmergent}.
+Early work in emergent communication studied how agents can learn to communicate with one another without concern for interoperability or bandwidth, typically in two-agent coordination tasks \cite{InitialEmergent}.
 This established that a communication channel can emerge purely from task reward, but they often used continuous communication.
 
-Foundational protocols such as Differentiable Inter-Agent Learning (DIAL) \cite{dial-rial} allowed gradients to flow continuously between agents during training.
+Foundational protocols such as Differentiable Inter-Agent Learning (DIAL) \cite{dial-rial} enabled continuous gradient flow between agents during training.
 This relied on passing high-dimensional, floating-point vectors, which in reality is unreasonable due to limited bandwidth.
-Later work like Targeted Multi-Agent Communication (TarMAC) \cite{tarmac} attempted to solve this bandwidth issue by employing attention mechanisms to learn which agent to communicate with.
-However, TarMAC still relied on passing high-dimensional, floating-point vectors, which are still not realistic or interpretable.
+Later work, such as Targeted Multi-Agent Communication (TarMAC) \cite{tarmac}, attempted to address this bandwidth issue by employing attention mechanisms to learn which agent to communicate with.
+However, TarMAC still relied on passing high-dimensional, floating-point vectors, which remain neither realistic nor interpretable.
 
 More recent research in multi-agent reinforcement learning studies agents learning to send discrete symbols, showing that discrete channels can match or outperform continuous channels, whilst also allowing for interoperability \cite{DiscreteComms}.
 With this interoperability, the trust deficit in safety-critical applications can be reduced and even allow human-in-the-loop settings.
@@ -247,12 +247,11 @@ At the start of training, the agent's communication policy outputs random values
 Therefore, the section of the agent's network which listens to this noise rapidly updates its weights to silence it.
 However, once the weights become zero, the gradients stop flowing through the communication channel, trapping the agents in the Communication Vacuum Equilibrium.
 
-Several works attempt to solve this Communication Vacuum Equilibrium by adding architectural biases or auxiliary objectives (e.g. adding rewards for mutual information between messages and observations).
+Several works attempt to address this Communication Vacuum Equilibrium by introducing architectural biases or auxiliary objectives (e.g., adding rewards for mutual information between messages and observations).
 Whilst these approaches improve communication usage, they reduce generality.
-Liu et al. propose the AI Mother Tongue \cite{AIMotherTongue} architecture, where the language is learned offline, separate from the online reinforcement learning.
-Then the agents are taught this language using auxiliary losses instead of relying on these architectural biases or auxiliary objectives.
+Liu et al. propose the AI Mother Tongue \cite{AIMotherTongue} architecture, in which language is learned offline, separate from online reinforcement learning.
+Then the agents are trained in this language using auxiliary losses rather than relying on architectural biases or auxiliary objectives.
 This project adopts this architecture and expands both the evaluation and task to determine if robust communication can emerge.
-
 % \subsection{Communication Protocols}
 % \label{sec:2.1.3}
 
@@ -336,11 +335,11 @@ The underlying discrete bottleneck uses Vector-Quantised Variational Autoencoder
 \end{figure}
 
 Figure \ref{fig:ai-mother-tongue} shows the architecture of the AI Mother Tongue protocol proposed by Liu et al.\cite{AIMotherTongue}
-Phase 1 is trained offline using collected observations, and the encoder and codebook (all possible quantised values) produced are saved.
-Liu et al. explicitly state values that indicate a healthy encoder and codebook (between 0.08 and 0.15 for reconstruction loss and commitment loss below 1.0).
-This dissertation will evaluate the health of the trained codebooks with reference to this in section \ref{sec:4.3}.
+Phase 1 is trained offline using collected observations, and the encoder and codebook (i.e., all possible quantised values) are saved.
+Liu et al. explicitly state values indicating a healthy encoder and codebook (reconstruction loss between 0.08 and 0.15, and commitment loss below 1.0).
+This dissertation will evaluate the health of the trained codebooks in section \ref{sec:4.3}.
 
-On initialisation of phase 2, the encoder and codebook are loaded, frozen and used for the actor network training.
+At the initialisation of phase 2, the encoder and codebook are loaded, frozen, and used for the actor network's training.
 The architecture has three outputs:
 \begin{itemize}
     \item \textbf{Codebook}
@@ -355,16 +354,17 @@ The architecture has three outputs:
         \end{cases}
     \end{equation}
     \item \textbf{Auxiliary Head}
-    These heads predict the value or likely effect of the codes emitted, helping the agents learn which codes are useful and how other agents may respond.
+    These heads predict the value or likely effect of the emitted codes, helping agents learn which codes are useful and how other agents may respond.
     The auxiliary heads provide additional learning signals that are backpropagated into the actor network to guide and improve policy optimisation.
 \end{itemize}
 
 This dissertation adopts the AI Mother Tongue architecture but extends it to a more complex MAPPO setting.
-Instead of a simple linear action head used by Liu et al., it is replaced by a Multi-Layer Perceptron (MLP).
+Instead of a simple linear action head used by Liu et al., a Multi-Layer Perceptron (MLP) is used.
 The actor network will also contain a Long Short-Term Memory (LSTM) module.
 In addition to VQ-VAE, this project evaluates alternative discrete bottlenecks such as SQ-VAE and HQ-VAE (see Appendix \ref{sec:hq-vae}).
 
-
+Liu et at. propose that the "Joint Exploration Problem" is solved by both the semantic bottleneck and the reflection strategies; however, evaluates the effect of neither of them individually.
+This dissertation hypothesises that the complex semantic bottleneck may, in fact, be impeding the agents' learning, and that applying the reflection strategies to a standard on-policy discrete communication protocol may yield a more efficient novel solution.
 % \section{MARL Algorithms}
 % \label{sec:2.3}
 
@@ -455,7 +455,10 @@ A functioning multi-agent reinforcement learning implementation with a shared ac
 At least two protocols (no communication and discrete communication) and the implementation of the AI Mother Tongue architecture, suitable for this setup, which are all interchangeable within the same training pipeline.
 
 \textbf{C4 - Evaluation of Emergent Communication}
-A quantitative and qualitative evaluation of the communication protocols, including learned performance, codebook utilisation and semantic/pragmatic analysis.
+% A quantitative and qualitative evaluation of the communication protocols, including learned performance, codebook utilisation and semantic/pragmatic analysis.
+A quantitative evaluation of the communication protocols, including achieving a Gini coefficient of at least 0.7, proving a low-entropy active vocabulary and demonstrating a Zipfian distribution in codebook utilisation.
+Furthermore, the communication must exhibit context-aware signalling, verified with conditional probability distributions (e.g., $P(\text{Target}|\text{Code})$).
+
 
 \textbf{C5 - Software Engineering and Reproducibility}
 The framework should be reusable for other researchers.
@@ -464,6 +467,7 @@ This includes high testing coverage, logging, and checkpointing.
 These criteria directly follow from the central research question from section \ref{sec:1}.
 C1 and C2 ensure the question is asked in a non-toy setting.
 Without the high-throughput MARL environment and the stable MARL training, the AI Mother Tongue architecture \cite{AIMotherTongue} would not be evaluated under realistic conditions.
+C1 and C2 also establish a robust, highly scalable foundation for future MARL research.
 C3 ensures a comparative evaluation of the AI Mother Tongue architecture against realistic baselines.
 C4 allows for a fair, in-depth evaluation of the protocol.
 Finally, C5 encourages testing, configuration, logging and checkpointing to create a reusable toolkit for other researchers to further this work.
@@ -481,7 +485,7 @@ Finally, C5 encourages testing, configuration, logging and checkpointing to crea
         \textbf{Priority} & \textbf{Feature} \\ \midrule
         \textbf{Must Have} & Vectorised Rust environment with PyO3 bindings \\ \addlinespace
         \textbf{} & Functioning MAPPO-based multi-agent reinforcement learning system \\ \addlinespace
-        \textbf{} & At least two communication protocols including the AI Mother Tongue architecture \\ \midrule
+        \textbf{} & At least two communication protocols, including the AI Mother Tongue architecture \\ \midrule
         \textbf{Should Have} & Real time visualisation of simulations running \\ \addlinespace
         \textbf{} & Pipeline to train autoencoders \\ \midrule
         \textbf{Could Have} & Advanced VAE varients: SQ-VAE, HQ-VAE \\ \addlinespace
@@ -499,9 +503,9 @@ Finally, C5 encourages testing, configuration, logging and checkpointing to crea
 \subsection{Software Development Model}
 \label{sec:2.6.1}
 
-Development of the project used iterative sprints focusing on incremental value following the Agile methodology \cite{agile_guide}.
+The project's development used iterative sprints focused on incremental value, following the Agile methodology \cite{agile_guide}.
 The requirements for emergent communication in MARL were inherently exploratory.
-This is due to evolving algorithms reacting to evaluations such as codebook utilisation and training success.
+This is due to algorithms evolving in response to evaluations such as codebook utilisation and training success.
 The Agile methodology proceeded with the following phases:
 \begin{center}
 \textsc{Requirements} \(\rightarrow\) \textsc{Planning} \(\rightarrow\) \textsc{Implementation} \(\rightarrow\) \textsc{Testing/Evaluation} \(\rightarrow\) \textsc{Repeat}
@@ -511,30 +515,30 @@ The Agile methodology proceeded with the following phases:
 \label{sec:2.6.2}
 
 % After reviewing similar projects, I settled on separating my environment and my code from my controller.
-Python was chosen as the programming language for the controller, primarily due to its excellent library support for machine learning and data analysis.
+Python was chosen as the programming language for the controller primarily because of its strong machine learning and data analysis libraries.
 (including but not limited to NumPy \cite{numpy}, Pandas \cite{pandas}, Matplotlib \cite{matplotlib}, and Jupyter Notebooks \cite{jupyter}).
-PyTorch \cite{pytorch} was chosen to develop the models due to its high performance and imperative execution model, which facilitates rapid iterative prototyping.
+PyTorch \cite{pytorch} was chosen to develop the models due to its high performance and imperative execution, which facilitates rapid iterative prototyping.
 
-However, Python is not a performance language and, as of development, has a GIL \cite{python_gil_wiki} meaning executing simulations of the environment must be effectively done serially, bottlenecking the performance heavily.
-Rust was used to develop the environment for its high, C-like performance and memory safety, allowing for rapid development.
-To enable the vectorisation of the environment, rayon \cite{rayon_rs} was chosen as it provides safe, data-parallel multi-threading, enabling the simulation to concurrently step through all current worlds effectively.
+However, Python is not a performance-oriented language and, as of this development, has a GIL \cite{python_gil_wiki}, meaning that simulations of the environment must be executed serially, severely bottlenecking performance.
+Rust was developed for its high performance and memory safety, enabling rapid development.
+To enable vectorisation of the environment, rayon \cite{rayon_rs} was chosen, as it provides safe, data-parallel multi-threading, enabling the simulation to concurrently step through all current worlds.
 
 To build the real-time, lightweight visualisation frontend decoupled from the high-performance simulation, TypeScript \cite{typescript} and p5.js \cite{p5js} were chosen.
-TypeScript \cite{typescript} is chosen for its strict typing to enforce the type of data being communicated through the websocket, ensuring consistency between the frontend and the simulation.
+TypeScript \cite{typescript} is chosen for its strict typing to enforce the data types communicated through the websocket, ensuring consistency between the frontend and the simulation.
 P5.js \cite{p5js} is used to render the visualisation, chosen for its simplicity.
 For the bridge between the decoupled systems, tokio \cite{tokio} was chosen to spawn an asynchronous background thread, allowing the main environment to execute completely independently.
 The warp \cite{warp} web server framework was selected to manage the WebSocket connection, ensuring reliable, low-latency streaming of state data from the simulation to the frontend.
 
-To streamline the package management and environment integration to the controller, I used a pyproject.toml file.
-This file handled installing packages from external sources and also building the Rust environment program to allow the Python controller to access the environment.
+To streamline package management and controller environment integration, I used a pyproject.toml file.
+This file handled installing packages from external sources and building the Rust environment program to allow the Python controller to access it.
 
 For version control, GitHub \cite{github} was used to store the git repository, which included both the program and the dissertation.
-Regular updates were made to the version of code on my laptop as an extra backup.
+Regular updates were made to the code on my laptop as an additional backup.
 
 \section{Starting Point}
 \label{sec:2.7}
 
-Prior to this project, I had extensive experience in Python and a foundational understanding the fundamentals of neural networks from Cambridge courses and self-instructed exercises such as creating a neural network from scratch to solve XOR and using genetic algorithms on the game Snake.
-My recent industry experience introduced me to the Rust programming language and to using the Py03 library to work with both Rust and Python.
+Prior to this project, I had extensive experience in Python and a foundational understanding of neural networks from Cambridge courses and self-instructed exercises, such as creating a neural network from scratch to solve the XOR problem and using genetic algorithms to play the game Snake.
+My recent industry experience introduced me to the Rust programming language and to the Py03 library for working with both Rust and Python.
 However, I had no prior experience with the PyTorch ecosystem, Variational Autoencoders, or deep Reinforcement Learning paradigms (such as PPO or MAPPO).
 Consequently, a significant initial phase of this project was dedicated to learning these.

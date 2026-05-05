@@ -13,21 +13,21 @@ For the following evaluations, a specific cooperative simulation setup is create
 There exist two agents.
 Each agent has two ingredients to collect from unique stations.
 They also each have a station to drop off their product.
-Each agent cannot observe their own pick-up stations, but can observe their teammates with an infinite range of view.
+Each agent cannot observe their own pick-up stations, but can observe their teammates at an infinite range.
 This setup ensures cooperation is required and, therefore, communication must emerge for optimal task reward.
 
 The world is defined as a 5x5 grid.
 This is chosen to be small enough to minimise the spatial navigation problem, allowing the evaluation to focus on the emergent language.
 For the 5x5 grid, agents with no communication must take on expectation $\sim$ 35 actions to find both stations (see Appendix \ref{sec:num-actions}).
-Therefore, to elevate the difference in mean task reward per step for communication and no communication protocols, the number of actions agents are allowed to take in each world is limited to 30.
+Therefore, to reduce the difference in mean task reward per step between the communication and no-communication protocols, the number of actions agents are allowed to take in each world is limited to 30.
 
 \textbf{MAPPO Hyperparameters}
 \label{sec:4.1.2}
 
-The use of standardised hyperparameters is chosen rather than performing aggressive grid searches to demonstrate the robustness of the AI Mother Tongue architecture.
+The use of standardised hyperparameters is preferred over aggressive grid searches to demonstrate the robustness of the AI Mother Tongue architecture.
 
 A batch size of 512, 57,600 datapoints per update phase (see section \ref{sec:4.2.1}) and four optimisation epochs are selected to optimise stability and sample efficiency.
-The batch size of 512, a common power of two choice in machine learning, reduces gradient variance for LSTM-based actor-critic networks whilst maximising GPU usage.
+The batch size of 512, a common power-of-two choice in machine learning, reduces gradient variance for LSTM-based actor-critic networks whilst maximising GPU utilisation.
 The low four epochs prevent overfitting to stale data during update phases, aligning with PPO recommendation of 3-10 epochs \cite{ppo_bestpractices}.
 
 \textbf{Communication Hyperparameters}
@@ -40,22 +40,22 @@ Each code in the codebook is of size eight to allow sufficient spatial encoding 
 \section{System Performance}
 \label{sec:4.2}
 
-Reinforcement Learning with multiple agents requires millions of datapoints for updating the policies and an equal number to evaluate the language and policy.
+Reinforcement Learning with multiple agents requires millions of datapoints for policy updates and an equal number for evaluating the language and policy.
 This section quantitatively measures the performance gains through the custom systems developed.
-Specifically, it analyses the steps per second of the Rust simulation developed and the memory efficiency of the \lstinline[language=Python]|RolloutBuffer|.
+Specifically, it analyses the steps-per-second of the Rust simulation developed and the memory efficiency of the \lstinline[language=Python]|RolloutBuffer|.
 Benchmarks were evaluated on NVIDIA RTX 5060 Ti and AMD Ryzen 7 3700X.
 
 \subsection{Vectorised Environment Throughput}
 \label{sec:4.2.1}
 
-A major issue with Python running multiple threads concurrently is the GIL.
+A major issue with Python's concurrent threading is the GIL.
 While Python's built-in library \lstinline[language=Python]|multiprocessing| can, in theory, bypass this limitation, it introduces considerable overhead.
 For this RL project, all threads require synchronisation at every simulation timestep.
 
 To justify developing the simulation in Rust rather than Python, whilst evaluating C1, a simple mock simulation was developed in Python.
 This mock simulation was compared to the vectorised Rust backend.
-Environment steps per second (SPS) was calculated to analyse the throughput of each of the simulations.
-Number of worlds parallised was scaled ($W \in \{2^0, 2^1, ..., 2^{12}\}$) to measure concurrency efficiency.
+Environment steps per second (SPS) were calculated to analyse the throughput of each simulation.
+Number of worlds parallised was scaled ($W \in {2^0, 2^1, …, 2^{12}}$) to measure concurrency efficiency.
 
 \begin{figure}[htbp]
     \centering
@@ -71,7 +71,7 @@ In contrast, Rust is able to utilise \lstinline[language=Rust]|Rayon|'s thread-p
 Throughput scales with the number of worlds parallelised, reaching $239,007$ SPS.
 By using Rust's native Rayon threading, the sequential fraction of the program is minimised per Amdahl's Law \cite{amdahl}, allowing near-perfect scaling that saturates the CPU cores.
 
-For the evaluation, $960$ worlds parallelised over a single rollout phase were chosen.
+For the evaluation, $960$ worlds were parallelised across a single rollout phase.
 This maximised the parallisation whilst also collecting an apt amount of datapoints for the update phase ($960 * 30 * 2 = 57,600$).
 
 \subsection{Rollout Buffer Efficiency}
@@ -100,14 +100,14 @@ Whilst there is a $\sim 5\%$ improvement in allocation time when using Python's 
 \section{Offline Pre-training}
 \label{sec:4.3}
 
-Before we are able to integrate the language into reinforcement learning, its health must be evaluated.
-A poorly initialised frozen encoder could limit the agents' language considerably, preventing them from reaching their maximum cooperation potential.
+Before we can integrate the language into reinforcement learning, its health must be evaluated.
+A poorly initialised frozen encoder could severely limit the agents' language, preventing them from reaching their full cooperation potential.
 These results contribute to C4.
 
 \subsection{Discretisation Stability: VQ-VAE vs. SQ-VAE}
 \label{sec:4.3.1}
 
-For this evaluation, reconstruction loss and commitment loss are tracked throughout a training process of 50 epochs using 26880 datapoints.
+For this evaluation, reconstruction loss and commitment loss are tracked over a 50-epoch training process using 26880 datapoints.
 Liu et al. defined a healthy encoder for the AI Mother Tongue system.
 Reconstruction loss should fall between 0.08 and 0.15.
 Commitment Loss must remain below 1.0.
@@ -120,8 +120,8 @@ Commitment Loss must remain below 1.0.
 \end{figure}
 
 As shown in \ref{fig:vae_training_eval}, both methods of training got below the maximum reconstruction loss of 0.15.
-However, training using SQ-VAE lead to a final reconstruction of below 0.08.
-Liu et al.'s recommended loss for a healthy codebook is based on low reconstruction, often being a symptom of 'mode collapse'.
+However, training using the SQ-VAE led to a final reconstruction below 0.08.
+Liu et al.'s recommended loss for a healthy codebook is based on low reconstruction error, which is often a symptom of 'mode collapse'.
 This is where the network memorises a small set of generalisable states.
 
 To determine if this 'mode collapse' has occurred, the codebook utilisation was analysed.
@@ -138,7 +138,7 @@ To determine if this 'mode collapse' has occurred, the codebook utilisation was 
 \end{table}
 
 The table \ref{tab:codebook_util} clearly shows that using an SQ-VAE, though having a low reconstruction loss, in fact has a better codebook utilisation than using a VQ-VAE.
-Therefore, this low loss indicates high effectiveness in the model rather than 'mode collapse'.
+Therefore, this low loss indicates high model effectiveness rather than 'mode collapse'.
 
 By the end of the training, the VQ-VAE, the commitment loss has converged to $\sim 0.25$.
 This is well below Liu et al.'s requirement.
@@ -175,8 +175,8 @@ Two initialisation strategies are compared:
 a standard uniform random initialisation,
 and a data-driven K-Means prior.
 
-For the VQ-VAE, the random uniform prior gave superior reconstruction loss and codebook utilisation compared to the K-Means prior.
-However, the SQ-VAE exhibited the opposite behaviour; the reconstruction loss and codebook utilisation were superior when using K-Means prior instead of the random uniform prior.
+For the VQ-VAE, the uniform random prior yielded superior reconstruction loss and codebook utilisation compared to the K-Means prior.
+However, the SQ-VAE exhibited the opposite behaviour: the reconstruction loss and codebook utilisation were superior when using the K-Means prior rather than the random uniform prior.
 
 \begin{figure}[H]
     \centering
@@ -214,8 +214,8 @@ However, the SQ-VAE exhibited the opposite behaviour; the reconstruction loss an
 To visualise, Principal Component Analysis (PCA) was applied to reduce the dimensionality of the learned codebook embeddings, see figure \ref{fig:pca-sq-vq-vae}.
 This visualisation explains the findings.
 For VQ-VAE (Figures \ref{fig:pca-vq-vae} and \ref{fig:pca-vq-vae-no-prior}), the random uniform initialisation scattered the codes across the latent space.
-This allowed the untrained encoder to naturally intersect with them, resulting in gradients successfully flowing through each of the embeddings.
-Conversely, the K-Means prior forced the embeddings into a small area where the untrained encoder would only interact with a select few edge embeddings, leaving a high concentration of unused codes.
+This allowed the untrained encoder to naturally interact with them, resulting in gradients flowing through each embedding.
+Conversely, the K-Means prior forced the embeddings into a small region, where the untrained encoder would interact only with a select few edge embeddings, leaving a high concentration of unused codes.
 
 For (vMF) SQ-VAE (Figures \ref{fig:pca-sq-vae} and \ref{fig:pca-sq-vae-no-prior}), when using $L_2$-normalised Spherical K-Means prior, the embeddings were each set in the correct region and the model used its stochastic annealing purely for local fine-tuning.
 Whereas, when using the random initialisation, embeddings frequently spawned at extreme angular distances from the true data distribution, and the model's annealing process pushed the embeddings into a suboptimal local minima.
@@ -223,10 +223,10 @@ Whereas, when using the random initialisation, embeddings frequently spawned at 
 \section{Online MARL Task Performance}
 \label{sec:4.4}
 
-This section directly evaluates C3 and C4 by comparing the mean task reward per step under a variety of communication protocols developed.
+% This section directly evaluates C3 and C4 by comparing the mean task reward per step across a variety of communication protocols.
 
-\subsection{Baseline Comparisons}
-\label{sec:4.4.1}
+% \subsection{Baseline Comparisons}
+% \label{sec:4.4.1}
 
 To ascertain the effectiveness of the AI Mother Tongue architecture, it is compared against two other protocols.
 
@@ -237,36 +237,26 @@ To ascertain the effectiveness of the AI Mother Tongue architecture, it is compa
     \label{fig:reward-mean-comparison}
 \end{figure}
 
-As shown in Figure \ref{fig:reward-mean-comparison}, the AI Mother Tongue architecture was able to outperform both other protocols.
-The No Communication protocol showed the requirement for communication in the simulation; this protocol converged on a reward mean per step of 0.09.
-The Discrete Comms protocol showed a struggle to communicate any useful information from one agent to another and had a similar training convergence to the No Communication protocol, suggesting it experienced the "Joint Exploration Problem".
+% As shown in Figure \ref{fig:reward-mean-comparison}, the AI Mother Tongue architecture outperformed both other protocols.
+% The No Communication protocol showed the need for communication in the simulation; it converged on a reward mean per step of 0.09.
+% The Discrete Comms protocol struggled to communicate any useful information from one agent to another and showed a similar training convergence to the No Communication protocol, suggesting it experienced the "Joint Exploration Problem".
 
-The AI Mother Tongue protocol demonstrates two distinct phases in its training.
-The first phase underperforms all the other protocols, as it struggles to balance optimising its auxiliary losses and the standard training losses.
-The second phase converges to 0.13 reward mean per step as it learns to use the information stored in order to optimise the auxiliary heads to optimise the standard training losses.
+% The AI Mother Tongue protocol comprises two distinct phases during training.
+% The first phase underperforms the other protocols, as it struggles to balance optimising auxiliary losses with standard training losses.
+% The second phase converges to a reward mean of 0.13 per step as it learns to use the stored information to optimise the auxiliary heads and reduce the standard training losses.
 
-No protocol is able to reach the 0.24 reward mean per step recorded by the expert agent.
-This is due to a limitation the agents have.
-The agents can only view the nearest entity (that isn't their own pick-up station), whereas the expert agent has a pure, global view of the environment.
+Figure \ref{fig:reward-mean-comparison} shows the mean task reward per step.
+To rigorously evaluate the performance differences, a one-way Analysis of Variance (ANOVA) is conducted on the final 20 training steps of each protocol's run.
+The ANOVA revealed a statistically significant effect of the communication protocol, $F(2, 177) = 3678.29, p < 0.001$.
+Pairwise comparisons using Turkey's HSD test (with Family-Wise Error Rate set to 0.05) confirmed that the AI Mother Tongue architecture significantly outperformed both the On-Policy Discrete Communication protocol ($\text{mean\_diff}=-0.0213,p_\text{adj}<0.001$) and the No Communication protocol ($\text{mean\_diff}=-0.0329,p_\text{adj}<0.001$).
+
+The expert agent receives a reward mean per step of 0.24, but no protocol can reach it; however, it is vital to contextualise this.
+The agents can only view the nearest entity (that is not their own pick-up station), whereas the expert agent has a global view of the environment.
 This means other entities often hide other, more important entities, preventing agents from matching this expert agent's score.
-Therefore, the 0.13 reward demonstrates that the agents successfully utilised the AI Mother Tongue protocol to overcome the POMDP.
+% Therefore, the 0.13 reward demonstrates that the agents utilised the AI Mother Tongue protocol to overcome the POMDP.
 
-Training MARL policies often requires 10x or 100x the number of steps than 30,000 steps.
-However, for this evaluation, 30,000 steps is sufficient as the core research focus - the spontaneous semantic compression emerged within the first 12,000 steps (see section \ref{sec:4.5.1}). 
-
-\subsection{Reflection Strategies - Are They Needed?}
-\label{sec:4.4.2}
-
-\begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.95\textwidth]{reflection_comparison.png}
-    \caption{Comparison of with and without reflection strategies using Reward Mean per Step for $30,000$ training steps. Each experiment was trained across three runs, and a 95\% confidence interval is shown.}
-    \label{fig:reward-mean-comparison-reflection}
-\end{figure}
-
-As shown in Figure \ref{fig:reward-mean-comparison-reflection}, Liu et al's reflection strategies are vital for the learning process.
-They provide an intermediary step.
-The communication network learns to optimise auxiliary losses, and only once this is done does the actor learn to optimise the standard training losses using the communication network's output.
+Training MARL policies often requires 10x or 100x as many steps as 30,000 steps.
+However, for this evaluation, 30,000 steps is sufficient as the core research focus - the spontaneous semantic compression emerged within the first 12,000 steps (see section \ref{sec:4.5.1}).
 
 
 \section{Information-Theoretic \& Linguistic Properties}
@@ -277,8 +267,8 @@ Sections \ref{sec:4.5} - \ref{sec:4.7} provide the deeper evaluation required by
 \subsection{Spontaneous Semantic Compression}
 \label{sec:4.5.1}
 
-Throughout training, the communication perplexity of the agent's vocabulary is tracked.
-Communication perplexity represents how uncertain the agent is about the next token, measured as $e^{-\text{entropy of vocabulary}}$.
+Throughout training, the agent's vocabulary perplexity is tracked.
+Communication perplexity measures the agent's uncertainty about the next token, defined as $e^{-\text{entropy of vocabulary}}$.
 
 \begin{figure}[htbp]
     \centering
@@ -287,7 +277,7 @@ Communication perplexity represents how uncertain the agent is about the next to
     \label{fig:comm-perplexity-over-training}
 \end{figure}
 
-At the start of training, the agents are exploring all possible outputs, leading to a uniform random sampling across the majority of the codebook.
+At the start of training, the agents explore all possible outputs, leading to uniform random sampling across most of the codebook.
 As the RL begins to solve the asymmetric information task (between step 3,000 and 10,000), communication perplexity collapses and stabilises at $\sim 3.0$.
 This collapse represents spontaneous semantic compression.
 Instead of using the full theoretical capacity of the codebook, a small subset of codes is assigned useful semantic meaning.
@@ -316,8 +306,8 @@ When visualising this empirical distribution with a rank-frequency plot, it demo
 
 However, a notable deviation from Zipf's Law does occur at the tail-end of the distribution where the frequency rapidly decreases.
 Although a sudden drop to zero is not a feature of a classic Zipfian distribution, it is a feature of the truncated Zipfian distribution \cite{TruncatedZipfianDist}.
-This occurs because in most languages analysed, an infinite number of words can be created; however, in this system, there only exists a finite set of codes.
-The emergence of this phenomenon suggests the agents were successful at assigning high-frequency tokens to common semantic meaning and low-frequency tokens to unnecessary tokens.
+This occurs because, in most languages analysed, an infinite number of words can be created; however, in this system, there exists only a finite set of codes.
+The emergence of this phenomenon suggests that the agents were successful at assigning high-frequency tokens to common semantic meanings and low-frequency tokens to unnecessary ones.
 
 \section{Cognitive Mapping and Spatial Memory}
 \label{sec:4.6}
@@ -326,7 +316,7 @@ The emergence of this phenomenon suggests the agents were successful at assignin
 \label{sec:4.6.1}
 
 To understand what the agent concretely knows, six strict linear probes were developed following Guillaume et al.'s methodology \cite{Probing}.
-Memory is tested for allocentric memory (information is stored using a global coordinate system) and egocentric memory (information is stored relative to the self).
+Memory is tested for allocentric (information stored using a global coordinate system) and egocentric (information stored relative to the self) memory.
 Each probe takes as input the final layer of the Long-Short Term Memory (LSTM) module, and predicts one of the following using MSE loss:
 \begin{itemize}
     \item The agent's own next target's coordinates (tests for allocentric memory)
@@ -337,7 +327,7 @@ Each probe takes as input the final layer of the Long-Short Term Memory (LSTM) m
     \item A unit vector in the direction of the agent's partner's next target (tests for egocentric directional memory)
 \end{itemize}
 
-Initially, in a simulation run, agents have no way of knowing the location of their targets.
+Initially, in a simulation run, agents have no way of knowing their targets' locations.
 To account for this, the models are trained only on the last half of the timesteps to ensure the LSTM contains the necessary information for training.
 
 \begin{figure}[htbp]
@@ -350,7 +340,7 @@ To account for this, the models are trained only on the last half of the timeste
 The relative distance and unit direction models are shown to never improve over the course of a simulation, suggesting the LSTM does not follow egocentric memory.
 However, the absolute location model shows that the LSTM uses allocentric memory.
 
-Even though the absolute location model does show the LSTM storing some information, the model converges on an MSE of 1.6.
+Even though the absolute location model shows the LSTM storing some information, it converges to an MSE of 1.6.
 This error represents an uncertainty radius of 1.6 cells, showing how the memory acts as a 'regional beacon' for the agent's targets.
 
 An important conclusion from figure \ref{fig:lstm-probing} is that the agent's need for communication decreases as the simulation runs, and they store target locations in the LSTM module.
@@ -372,10 +362,10 @@ Therefore, to analyse the semantic meaning of messages, only the first six simul
 \end{figure}
 
 Figure \ref{fig:probability-target-given-code} shows the likelihood of the location of the target given the code broadcast from the partner.
-It demonstrates that certain codes represent certain regions.
+It demonstrates that certain codes correspond to specific regions.
 The most prominent is code 6, which suggests the target is in the bottom, right quadrant.
-This figure also further consolidates the loss of use of communication during a simulation run.
-At the initial simulation step, target locations are clear; however, as the simulation progresses to even step 4, the uncertainty of the location of targets given certain codes increases.
+This figure further consolidates the loss of communication during a simulation run.
+At the initial simulation step, target locations are clear; however, as the simulation progresses to even step 4, the uncertainty in target locations given certain codes increases.
 
 \subsection{Causal Influence on Policy: $P(\text{Action}_{partner}^{t+1} | \text{Code}_{self}^t)$}
 \label{sec:4.7.2}
@@ -390,31 +380,31 @@ To see if the agent had a direct impact on the action of its partner, a confusio
 \end{figure}
 
 As shown in Figure \ref{fig:partner-action-given-code}, calculating the conditional probability of the receiver's next action given the emitted code reveals a relatively uniform distribution across the action space.
-These findings further confirm the findings from the LSTM Probing (see section \ref{sec:4.6.1}), the codes purely communicate allocentric information.
-As each agent navigates to its target independently based on its own knowledge of the environment, the action taken follows a uniform distribution.
+These findings further confirm those from the LSTM Probing (see section \ref{sec:4.6.1}): the codes purely communicate allocentric information.
+As each agent independently navigates to its target based on its own knowledge of the environment, the actions taken follow a uniform distribution.
 
-\subsection{Action and Communication Entanglement: $P(\text{Action}_{self}^{t} | \text{Code}_{self}^t)$}
-\label{sec:4.7.3}
+% \subsection{Action and Communication Entanglement: $P(\text{Action}_{self}^{t} | \text{Code}_{self}^t)$}
+% \label{sec:4.7.3}
 
-To understand the relationship between the agent's code and its own action, a confusion matrix is made:
+% To understand the relationship between the agent's code and its own action, a confusion matrix is made:
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=1\textwidth]{own-action-given-code.png}
-    \caption{Probability of agent's action given emitted code within first four simulation steps}
-    \label{fig:own-action-given-code}
-\end{figure}
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=1\textwidth]{own-action-given-code.png}
+%     \caption{Probability of agent's action given emitted code within first four simulation steps}
+%     \label{fig:own-action-given-code}
+% \end{figure}
 
-The figure \ref{fig:own-action-given-code}, which calculates the conditional probability of the next action given a code, is unlike \ref{fig:partner-action-given-code}.
-Specific codes lead to strong probabilities of certain movement actions.
-This is a symptom of state-action entanglement.
-The action head and communication head for the actor are simple, and as they are both derived from the LSTM module, they are strongly correlated.
-This leads to the code being output by the actor, inadvertently encoding its next action choice.
+% The figure \ref{fig:own-action-given-code}, which calculates the conditional probability of the next action given a code, is unlike \ref{fig:partner-action-given-code}.
+% Specific codes lead to strong probabilities of certain movement actions.
+% This is a symptom of state-action entanglement.
+% The action head and communication head for the actor are simple, and as they are both derived from the LSTM module, they are strongly correlated.
+% This leads to the code being output by the actor, inadvertently encoding its next action choice.
 
 \subsection{Context-Aware Signalling (Inventory-Dependent Language)}
-\label{sec:4.7.4}
+\label{sec:4.7.3}
 
-To understand if the agents are using a pragmatic language, the conditional probability of token usage given the ingredients it has is calculated.
+To determine whether the agents are using a pragmatic language, the conditional probability of a token's use given its ingredients is calculated.
 
 \begin{figure}[H]
     \centering
@@ -425,36 +415,103 @@ To understand if the agents are using a pragmatic language, the conditional prob
 
 As shown in figure \ref{fig:token-given-inventory}, the active vocabulary undergoes large changes depending on the specific items currently held in the agent's inventory.
 When the agent has an empty inventory, the vocabulary is highly concentrated on a specific subset of codes.
-However, on progression, the vocabulary immediately suppresses these largely used codes.
+However, as the progression continues, the vocabulary immediately supersedes these widely used codes.
 Once the inventory contains the product, the vocabulary uses a concise set of codes likely used to coordinate the drop-off location.
-These results suggest the agents have a Theory of Mind as intended from the auxiliary losses.
+These results suggest that the agents have a Theory of Mind, as indicated by the auxiliary losses.
 % VAE loss of BCE + 1.75 * MSE
 
+\section{AI Mother Tongue Ablation Studies}
+\label{sec:4.8}
+
+To determine the individual effects of the frozen encoder and the reflection strategies, two ablation studies were performed.
+
+\begin{figure}[h]
+    \centering
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=0.95\textwidth]{reflection_comparison.png}
+        \caption{Reflection vs. no reflection}
+        \label{fig:reward-mean-comparison-reflection}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=0.95\textwidth]{discrete_reflection.png}
+        \caption{WhisperWise vs AI Mother Tongue}
+        \label{fig:reward-mean-comparison-reflection-discrete}
+    \end{subfigure}
+
+    \caption{Reward mean per step over 30,000 training steps. Each experiment was trained across three runs, with a 95\% confidence interval shown. The left panel compares reflection against no reflection; the right panel compares the AI Mother Tongue architecture with the WhisperWise communication protocol.}
+    \label{fig:reflection_comparison}
+\end{figure}
+
+Figure \ref{fig:reflection_comparison} shows how each component of the AI Mother Tongue individually affects the mean task reward per step.
+To further this figure, a one-way Analysis of Variance (ANOVA) is conducted on the final 20 training steps of each protocol's run.
+The ANOVA revealed a statistically significant effect of the communication protocol, $F(2, 177) = 30343.77, p < 0.001$.
+Pairwise comparisons using Turkey's HSD test, with Family-Wise Error Rate (FWER) set to 0.05, confirmed that the AI Mother Tongue architecture significantly outperformed the AI Mother Tongue without auxiliary losses ($\text{mean\_diff}=-0.0561,p_\text{adj}<0.001$).
+
+Pairwise comparisons using Turkey's HSD test, with the same FWER, demonstrated that the novel WhisperWise protocol significantly outperformed the AI Mother Tongue architecture ($\text{mean\_diff}=+0.0413,p_\text{adj}<0.001$).
+This statistical analysis shows that the reflection strategies, not the semantic bottleneck, are the primary driver of successful emergent communication.
+
+% As shown in Figure \ref{fig:reward-mean-comparison-reflection}, Liu et al's reflection strategies are vital for the learning process.
+% They provide an intermediary step.
+% The communication network learns to optimise auxiliary losses, and only once this is done does the actor learn to optimise the standard training losses using the communication network's output.
+
+% Figure \ref{fig:reward-mean-comparison-reflection-discrete} shows the effect of applying the reflection strategies to the on-policy discrete communication protocol (WhisperWise).
+% These results suggest a flaw in the AI Mother Tongue architecture.
+% The "Joint Exploration Problem" is solved not by the semantic bottleneck implemented by the AI Mother Tongue architecture, but by the reflection strategies.
+% WhisperWise yielded a reward mean per step of $\sim 0.17$ (a 30\% increase over the AI Mother Tongue architecture).
+
+\section{Linguistic Analysis of WhisperWise}
+\label{sec:4.9}
+
+Section \ref{sec:4.8} demonstrated the impact of applying the reflection strategies on the on-policy discrete communication protocol.
+Applying the identical linguistic and spatial probes established in Sections \ref{sec:4.5} - \ref{sec:4.7} to this optimal model reveals a highly efficient language (see Appendix \ref{sec:discrete-res}).
+
+The language had an entropy of 4.54 and a Gini coefficient of 0.95 (compared with 2.98 and 0.78 for the AI Mother Tongue architecture), indicating a much steeper, more efficient semantic compression.
+
+The most significant difference was semantic grounding.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{partner-target-given-code-better.png}
+    \caption{Likelihood of location of target given the top four codes broadcast from partner at simulation steps zero and four. Yellow is high likelihood, blue is low likelihood.}
+    \label{fig:probability-target-given-code-better}
+\end{figure}
+
+Figure \ref{fig:probability-target-given-code-better} shows that these agents communicate both regional beacons (e.g. code 2) and highly specific locations (e.g. code 26 and code 29).
+This allows agents to navigate to their targets more accurately in fewer steps.
+
+This analysis shows that the AI Mother Tongue architecture's semantic bottleneck hinders observations.
+The true solution Liu et al. discovered is the reflection strategies.
 
 \section{Evaluation of Success Criteria}
-\label{sec:4.8}
+\label{sec:4.10}
 
 \paragraph{C1 - High-Throughput Environment}
 C1 required a configurable, vectorised Rust environment with Python bindings, achieving at least 50K environment steps per second and supporting real-time visualisations.
 Section \ref{sec:3.4} detailed how this was implemented.
-The final system was able to reach over 200K environment steps per second on my hardware, as shown in section \ref{sec:4.2.1}.
+The final system reached over 200K environment steps per second on my hardware, as shown in section \ref{sec:4.2.1}.
 C1 was fully achieved.
 
 \paragraph{C2 - MARL Framework}
 C2 required a functioning multi-agent reinforcement learning implementation with a shared actor and a centralised critic capable of learning the complex environment.
 Section \ref{sec:3.3} detailed how this was implemented using MAPPO.
-The final system with no communication was able to reach $\sim 40\%$ of the mean task reward of the expert agent, as shown in section \ref{sec:4.4.1}.
+The final system with no communication reached $\sim 40\%$ of the expert agent's mean task reward, as shown in section \ref{sec:4.4}.
 C2 was fully achieved.
 
 \paragraph{C3 - Interchangeable Communication Protocols}
 C3 required at least two protocols (no communication and discrete communication) and the implementation of the AI Mother Tongue architecture suitable for this setup, which are all interchangeable within the same training pipeline.
 The communication strategy pattern (as detailed in section \ref{sec:3.3.5}) demonstrated that protocols can be interchanged easily.
-The MARL baseline comparison in section \ref{sec:4.4.1} could not be implemented without the hot-swapping of protocols.
+The MARL baseline comparison in section \ref{sec:4.4} could not be implemented without the hot-swapping of protocols.
 C3 was fully achieved.
 
 \paragraph{C4 - Evalutaion of Emergent Communication}
-C4 required a quantitative and qualitative evaluation of the communication protocols, including learned performance, codebook utilisation and semantic/pragmatic analysis.
-The evaluation sections (\ref{sec:4.3}, \ref{sec:4.5} - \ref{sec:4.7}) detail in-depth evaluation of communication perplexity, reconstruction losses, LSTM probing and conditional distributions.
+C4 required a quantitative evaluation of the communication protocols, including achieving a Gini coefficient of at least 0.7, demonstrating a low-entropy active vocabulary, and showing a Zipfian distribution in codebook utilisation.
+C4 also states that the communication must exhibit context-aware signalling, verified by conditional probability distributions (e.g., $P(\text{Target}|\text{Code})$).
+The evaluation sections (\ref{sec:4.3}, \ref{sec:4.5} - \ref{sec:4.7}) detail in-depth evaluations of communication perplexity, reconstruction losses, LSTM probing, and conditional distributions, in line with C4.
+A low entropy score of 2.98 and a high Gini coefficient of 0.78 were achieved.
 C4 was fully achieved.
 
 \paragraph{C5 - Software Engineering and Reproducibility}

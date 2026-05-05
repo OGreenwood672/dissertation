@@ -1,19 +1,19 @@
 \label{sec:1}
 
 Since Google DeepMind released AlphaGo in 2016 \cite{GoogleGo}, there has been a steady increase in interest in the field of reinforcement learning \cite{Overview}.
-This has led to breakthroughs in areas of finance, trading, robotics and even video games.
-A clear next step for reinforcement learning is multi-agent reinforcement learning, where multiple agents are placed into the same environment and have to learn to interact with one another efficiently.
+This has led to breakthroughs in finance, trading, robotics, and even video games.
+A clear next step for reinforcement learning is multi-agent reinforcement learning, in which multiple agents are placed in the same environment and must learn to interact efficiently with one another.
 This area of research has the potential to improve surgery robots, traffic optimisations and search-and-rescue operations.
 
-However, there exists a range of challenges which make multi-agent reinforcement learning more difficult in practice, such as: non-stationary problem, credit assignment issues, and the one I will focus on in this project, communication problems \cite{SurveyofMARL}.
-Unlike single-agent reinforcement learning, multi-agent reinforcement learning can use communication to improve the agent's knowledge of their environment and/or teach them the optimal next step.
+However, several challenges make multi-agent reinforcement learning more difficult in practice, such as non-stationarity, credit assignment issues, and the one I will focus on in this project: communication problems \cite{SurveyofMARL}.
+Unlike single-agent reinforcement learning, multi-agent reinforcement learning can leverage communication to improve agents' knowledge of their environment and/or guide them toward the optimal next step.
 In Partially Observable Markov Decision Processes (POMDP), communication is required for agents to solve the problem \cite{POMDP-COM}.
 
 Traditionally, communication is facilitated through every agent broadcasting raw continuous values to every other agent.
 While this is perfect for backpropagation, it scales poorly due to limited bandwidth between agents and is difficult for humans to interpret.
 
 Replacing these continuous communication vectors with discrete tokens is highly desirable for both bandwidth and interoperability.
-However, learning a discrete language on-policy suffers from the "Joint Exploration Problem" \cite{Biases} where agents get stuck in a local optimum because they learn to completely ignore the communication channel as it is initially solely noise.
+However, learning a discrete language on-policy suffers from the "Joint Exploration Problem" \cite{Biases}, where agents get stuck in a local optimum because they learn to completely ignore the communication channel, which is initially solely noise.
 This local optimum is named the "Communication Vacuum Equilibrium" \cite{Biases}.
 
 This dissertation focuses on the paper "AI Mother Tongue: Self-Emergent Communication in MARL via Endogenous Symbol Systems"\cite{AIMotherTongue}.
@@ -25,15 +25,15 @@ Liu et al. then showed that this autoencoder can be frozen during training, and 
 This methodology allows communication protocols to evolve naturally without implementing hard biases \cite{Biases}.
 
 Whilst the AI Mother Tongue \cite{AIMotherTongue} paper suggests an interesting novel idea, it only evaluates this on relatively simple cooperative tasks.
-To ascertain whether this architecture is effective and robust enough for practical use, it requires rigorous evaluation within a more complex environment where agents possess asymmetric information and must cooperate to discover hidden stations.
-This dissertation provides this rigorous evaluation and extends the ideas discussed in the paper.
+To ascertain whether this architecture is effective and robust enough for practical use, it needs rigorous evaluation within a more complex environment where agents possess asymmetric information and must cooperate to discover hidden stations.
+This dissertation provides an extensive evaluation and extends the ideas discussed in the paper.
 
-\textbf{Research Question:} To what extent does the AI Mother Tongue architecture enable robust emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput MAPPO with VAE extensions (SQ-VAE, HQ-VAE), relative to no-communication and fixed discrete communication baselines?
+\textbf{Research Question:} To what extent does the AI Mother Tongue architecture allow robust emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput MAPPO with VAE extensions (SQ-VAE, HQ-VAE), relative to no-communication and fixed discrete communication baselines?
 
 \section{Project Overview \& Contributions}
 \label{sec:1.1}
 
-To answer the research question proposed, this project implements a general framework for emergent communication in multi-agent systems using a configurable assembly-line style environment.
+To answer the proposed research question, this project implements a general framework for emergent communication in multi-agent systems using a configurable assembly-line-style environment.
 It is designed to be a reusable toolkit for training and analysing communication protocols in POMDPs.
 Users can interact with the framework through a single script with modes for language pretraining, imitation learning and reinforcement learning.
 
@@ -42,7 +42,7 @@ The main contributions in this project are:
 \textbf{A configurable high-throughput MARL environment} - a vectorised, Rust-based simulation was implemented that simulates a discrete two-dimensional environment, supporting hundreds of parallel worlds and a real-time, lightweight visualisation.
 
 \textbf{A MAPPO algorithm with hot-swappable communication protocols} - a MAPPO-based MARL training script under a centralised training, decentralised execution framework was engineered.
-It used a shared actor, global critic, LSTM module, custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface to allow hot-swapping of protocols.
+It used a shared actor, a global critic, an LSTM module, a custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface to allow hot-swapping of protocols.
 
 \textbf{The AI Mother Tongue architecture} - a communication protocol that follows and extends the AI Mother Tongue architecture \cite{AIMotherTongue} was built.
 Pretrained VQ-VAE or variants (SQ-VAE or HQ-VAE) were injected into the actor network and frozen before MARL training.
@@ -50,4 +50,3 @@ Pretrained VQ-VAE or variants (SQ-VAE or HQ-VAE) were injected into the actor ne
 \textbf{Quantitative evaluation of communication protocols} - communication protocols, including AI Mother Tongue, Discrete Communication and No Communication, were evaluated using metrics such as task reward.
 
 \textbf{Semantic analysis of communication and memory} - conditional distributions such as $P(\text{Target}_{\text{partner}}^{t} | \text{Code}_{self}^t)$, $P(\text{Action}_{\text{partner}}^{t+1} | Code_{self}^t)$ were collected, visualised and qualitatively analysed.
-

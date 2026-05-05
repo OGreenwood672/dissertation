@@ -11,6 +11,8 @@ requires-python = ">=3.10"
 authors = [
     { name = "Oliver Greenwood", email = "mail@ogwood.dev" },
 ]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 dependencies = [
     "PyYaml",
     "torch",
@@ -22,7 +24,8 @@ dependencies = [
     "ipykernel",
     "rich",
     "tqdm",
-    "scikit-learn"
+    "scikit-learn",
+    "statsmodels"
 ]
 
 [project.optional-dependencies]

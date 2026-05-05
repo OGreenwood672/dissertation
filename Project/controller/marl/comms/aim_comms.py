@@ -65,7 +65,14 @@ class AimComms(Comms, nn.Module):
         accumulated_dims = 0
         for hq_level in range(len(self.aim_codebooks)):
             in_features = actor_config.lstm_hidden_size + (accumulated_dims * config.num_comms)
-            comm_heads.append(nn.Linear(in_features, config.num_comms * config.vocab_size))
+            comm_heads.append(
+                # nn.Sequential(
+                #     nn.Linear(in_features, 64),
+                #     nn.ReLU(),
+                #     nn.Linear(64, config.num_comms * config.vocab_size),
+                # )
+                nn.Linear(in_features, config.num_comms * config.vocab_size),
+            )
             accumulated_dims += self.aim_codebooks[hq_level].shape[-1]
             
         self.comm_heads = nn.ModuleList(comm_heads)
