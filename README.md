@@ -14,39 +14,24 @@ Before starting, start the virtual environment and build the simulation environm
 
 `pip install -e .`
 
-A set of eight configuration files are provided for customisability:
+A set of eight configuration files are provided for customisability, and are as follows:
 
-- actor.yaml
+Model Architecture
+actor.yaml and critic.yaml define the neural network architectures used by the agents. These control layer structure, hidden sizes, and any recurrent components.
 
-  Allows customising of the actor architecture.
+Training Parameters
+training.yaml specifies global training settings such as the number of epochs, dataset size, and checkpoint frequency.
+mappo.yaml contains MAPPO specific hyperparameters including learning rates, clipping values, and optimisation details.
 
-- aim_training.yaml
+Communication
+comms.yaml determines the active communication protocol and its hyperparameters.
+For AIM-based protocols, aim_training.yaml controls the pretraining process of the communication model.
 
-  Allows editing of VAE training parameters.
+Environment
+simulation.yaml defines the environment, including agent visibility, station behaviour, and other simulation-specific rules.
 
-- comms.yaml
-
-  Determines the current communication protocol their hyperparameters.
-
-- critic.yaml
-
-  Allows customising of the critic architecture.
-
-- imitation.yaml
-
-  Allows editing of imitation learning training parameters.
-
-- mappo.yaml
-
-  Allows editing of MAPPO training parameters.
-
-- simulation.yaml
-
-  Allows editing of simulation parameters. This includes visibility of agents and agent and station behaviours.
-
-- training.yaml
-
-  Machine Learning parameters such as number of epochs, number of training states, how often to save, etc....
+Imitation Learning
+imitation.yaml configures the pretraining process using an expert policy, allowing the actor and critic to initialise from a strong baseline before MARL training.
 
 The AI Mother Tongue communication protocol (aim) requires pretraining a language.
 To train the language run:

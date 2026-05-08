@@ -133,10 +133,24 @@ impl World {
         (0..self.agents.len()).map(|agent_index| {
             let target = self.get_desired_target(agent_index);
             if let Some(target) = target {
-                let distance_vector: Location = target - self.agents[agent_index].location;
-                if distance_vector.magnitude() == 0.0 {
-                    Action::Interact
-                } else if distance_vector.x.abs() > distance_vector.y.abs() {
+                let distance_vector = target - self.agents[agent_index].location;
+                let distance_magnitude = distance_vector.x.abs() + distance_vector.y.abs();
+
+                if distance_magnitude == 0 {
+                    return Action::Interact;
+                }
+                if distance_magnitude == 1 || (distance_vector.x.abs() == 1 && distance_vector.y.abs() == 1) {
+                    let target_agent = self.agents.iter().find(|a| 
+                        a.id != self.agents[agent_index].id && a.location == target
+                    );
+                    
+                    if let Some(other_agent) = target_agent {
+                        if self.agents[agent_index].id < other_agent.id {
+                            return Action::Interact; 
+                        }
+                    }
+                }
+                if distance_vector.x.abs() > distance_vector.y.abs() {
                     if distance_vector.x > 0 {
                         Action::MoveRight
                     } else {
@@ -341,17 +355,33 @@ impl World {
             agent.location.distance_squared(*station.get_location())
         }).map(|station| *station.get_location());
 
+        // let agent_needed: Option<Location> = self.agents.iter().filter(|other_agent| {
+        //     if let Some(other_agent_output) = other_agent.get_curr_output() {
+        //         agent_index != other_agent.id as usize &&
+        //         (
+        //             agent.is_needed(other_agent_output, StationType::PickUp)
+        //             // ||
+        //             // other_agent.is_needed(agent.get_curr_output())
+        //         )
+        //     } else {
+        //         false
+        //     }
+        // }).min_by_key(|other_agent| {
+        //     agent.location.distance_squared(other_agent.location)
+        // }).map(|other_agent| other_agent.location);
+
         let agent_needed: Option<Location> = self.agents.iter().filter(|other_agent| {
-            if let Some(other_agent_output) = other_agent.get_curr_output() {
-                agent_index != other_agent.id as usize &&
-                (
-                    agent.is_needed(other_agent_output, StationType::PickUp)
-                    // ||
-                    // other_agent.is_needed(agent.get_curr_output())
-                )
+            if agent.id == other_agent.id { return false; }
+            
+            let i_need_them = agent.is_needed(other_agent.get_output(), StationType::PickUp);
+
+            let they_need_me = if let Some(my_output) = agent.get_curr_output() {
+                other_agent.is_needed(my_output, StationType::PickUp)
             } else {
                 false
-            }
+            };
+                
+            i_need_them || they_need_me
         }).min_by_key(|other_agent| {
             agent.location.distance_squared(other_agent.location)
         }).map(|other_agent| other_agent.location);
@@ -359,7 +389,7 @@ impl World {
         // Return closest target coords
         match (station_needed, agent_needed) {
             (Some(station_needed), Some(agent_needed)) => {
-                if agent.location.distance_squared(station_needed) < agent.location.distance_squared(agent_needed) {
+                if agent.location.distance_squared(station_needed) <= agent.location.distance_squared(agent_needed) {
                     Some(station_needed)
                 } else {
                     Some(agent_needed)

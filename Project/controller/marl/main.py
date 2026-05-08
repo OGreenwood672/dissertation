@@ -91,13 +91,18 @@ def setup(config: Config, device: torch.device, load_agent_architecture: bool = 
                 print("No viable checkpoint found, starting fresh")
 
         elif imitate:
+            # try:
             actor_state, critic_state, actor_optimiser_state, critic_optimiser_state, start_step = cm.load_base_models()
-
             actor.load_state_dict(actor_state)
             critic.load_state_dict(critic_state)
 
             print(f"Loaded base models!")
 
+            # except:
+            #     print("No Appropriate Imitation Base Model found, starting from scratch")
+            #     pass
+
+                
 
 
     return {

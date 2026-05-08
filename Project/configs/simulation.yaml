@@ -1,12 +1,13 @@
-arena_width: 5
-arena_height: 5
+# arena_width: 5
+# arena_height: 5
 
-headless: true
-websocket_url: ws://127.0.0.1:3000
-websocket_path: ws
-agent_agent_visibility: 10 #1
-agent_station_visibility: 10 #3
-initial_agent_layout: random
+# headless: true
+# websocket_url: ws://127.0.0.1:3000
+# websocket_path: ws
+# agent_agent_visibility: 10 #1
+# agent_station_visibility: 10 #3
+# initial_agent_layout: random
+
 # agents:
 #   - id: 1
 #     inputs: [bun, patty]
@@ -14,9 +15,6 @@ initial_agent_layout: random
 #   - id: 2
 #     inputs: [lettuce, tomato]
 #     output: salad
-#   - id: 3
-#     inputs: [plainburger, salad]
-#     output: burger
 
 # station_layout: random
 # stations:
@@ -34,33 +32,52 @@ initial_agent_layout: random
 #     resource: tomato
 #   - id: 5
 #     type: dropoff
-#     resource: burger
+#     resource: salad
+#   - id: 6
+#     type: dropoff
+#     resource: plainburger
+arena_width: 15
+arena_height: 15
+
+headless: true
+websocket_url: ws://127.0.0.1:3000
+websocket_path: ws
+agent_agent_visibility: 5
+agent_station_visibility: 2
+initial_agent_layout: random
 
 agents:
   - id: 1
+    inputs: [lettuce]
+    output: choppedlettuce
+  - id: 2
+    inputs: [tomato]
+    output: slicedtomato
+  - id: 3
+    inputs: [choppedlettuce, slicedtomato]
+    output: salad
+  - id: 4
     inputs: [bun, patty]
     output: plainburger
-  - id: 2
-    inputs: [lettuce, tomato]
-    output: salad
+  - id: 5
+    inputs: [plainburger, salad]
+    output: burger
 
 station_layout: random
 stations:
+  # Raw Material Pickups
   - id: 1
     type: pickup
-    resource: bun
+    resource: lettuce
   - id: 2
     type: pickup
-    resource: patty
+    resource: tomato
   - id: 3
     type: pickup
-    resource: lettuce
+    resource: bun
   - id: 4
     type: pickup
-    resource: tomato
+    resource: patty
   - id: 5
     type: dropoff
-    resource: salad
-  - id: 6
-    type: dropoff
-    resource: plainburger
+    resource: burger

@@ -1,2 +1,2 @@
-epochs: 25
+epochs: 50
 obs_runs: 1 # 3
