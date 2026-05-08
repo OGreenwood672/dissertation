@@ -1,0 +1,74 @@
+\label{sec:README}
+\section{Emergent Communication in Multi-Agent Reinforcement Learning with Assembly Line Environments}
+
+Built for a Cambridge Computer Science undergraduate dissertation project.
+
+This open-source program provides a framework for evaluation of emergent protocols in Multi-Agent Systems.
+
+\section{Getting Started}
+
+Before starting, initialise the virtual environment and build the simulation environment:
+
+\begin{verbatim}
+python -m venv .venv
+.venv\Scripts\activate
+pip install -e .
+\end{verbatim}
+
+A set of eight configuration files are provided for customisability:
+
+\subsection*{Model Architecture}
+\texttt{actor.yaml} and \texttt{critic.yaml} define the neural network architectures used by the agents. These control layer structure, hidden sizes, and any recurrent components.
+
+\subsection*{Training Parameters}
+\texttt{training.yaml} specifies global training settings such as the number of epochs, dataset size, and checkpoint frequency.
+
+\texttt{mappo.yaml} contains MAPPO-specific hyperparameters including learning rates, clipping values, and optimisation details.
+
+\subsection*{Communication}
+\texttt{comms.yaml} determines the active communication protocol and its hyperparameters.
+
+For AIM-based protocols, \texttt{aim\_training.yaml} controls the pretraining process of the communication model.
+
+\subsection*{Environment}
+\texttt{simulation.yaml} defines the environment, including agent visibility, station behaviour, and other simulation-specific rules.
+
+\subsection*{Imitation Learning}
+\texttt{imitation.yaml} configures the pretraining process using an expert policy, allowing the actor and critic to initialise from a strong baseline before MARL training.
+
+
+\section{Running the program}
+
+The AI Mother Tongue communication protocol (AIM) requires pretraining a language. To train the language, run:
+
+\begin{verbatim}
+python -m controller.marl.main --mode train-language
+\end{verbatim}
+
+Once the configuration files have been customised, training starts via:
+
+\begin{verbatim}
+python -m controller.marl.main --mode train
+\end{verbatim}
+
+MARL often requires thousands or even millions of training steps to converge to an optimal policy. To accelerate this, imitation learning from an expert agent is used to pretrain the actor and critic. To use this, run:
+
+\begin{verbatim}
+python -m controller.marl.main --mode imitate
+\end{verbatim}
+
+\section{Customising Protocols}
+
+New communication protocols can be added to the folder \texttt{controller/marl/comms/}. The \texttt{comms.py} file contains an abstract class that new protocols should inherit from.
+
+\section{Analysis}
+
+A large set of evaluation tools are provided to analyse communication between agents. This includes:
+
+\begin{itemize}
+    \item Discrete codebook usage
+    \item Discrete codebook PCA
+    \item Comparing training from multiple runs
+    \item Memory probing
+    \item Conditional probability of target or action given code
+\end{itemize}

@@ -5,7 +5,7 @@
     \Require Buffer minibatches, Clip hyperparameter $\epsilon$, Value coefficient $c_{vf}$, Entropy coefficient $c_{ent}$
     \For{batch $\in \text{buffer}$}
         \State \textbf{Extract:} Observations $O, O_{global}$, Actions $a$, Comms $c$, Advantage $A$, Returns $\hat{R}$
-        \State \textbf{Extract:} Old log probs $\log \pi_{\text{old}}(a), \log \pi_{\text{old}}(c)$, Initial LSTM states $h_0, c_0$
+        \State \textbf{Extract:} Old log probs $\log \pi_{\theta_{\text{old}}}(a), \log \pi_{\phi_{\text{old}}}(c)$, Initial LSTM states $h_0, c_0$
         
         \State \Comment{\textbf{Critic Evaluation}}
         \State $V \gets V_{\psi}(O_{global})$ \Comment{Compute new state values}
@@ -20,11 +20,11 @@
         \State $\pi_{\phi}(c), \mathcal{H}_c, L_{\text{proto}} \gets \text{CommProtocol}(h', c, C_{\text{cont}}, \hat{R}, V)$
             
         \State \Comment{\textbf{Action PPO Surrogate Loss}}
-        \State $r_a \gets \exp(\log \pi_{\theta}(a) - \log \pi_{\text{old}}(a))$
+        \State $r_a \gets \exp(\log \pi_{\theta}(a) - \log \pi_{\theta_{\text{old}}}(a))$
         \State $L_{\text{action}} \gets -\mathbb{E}\left[ \min \left( r_a A, \text{clip}(r_a, 1-\epsilon, 1+\epsilon) A \right) \right]$
         
         \State \Comment{\textbf{Communication PPO Surrogate Loss}}
-        \State $r_c \gets \exp(\log \pi_{\phi}(c) - \log \pi_{\text{old}}(c))$
+        \State $r_c \gets \exp(\log \pi_{\phi}(c) - \log \pi_{\phi_{\text{old}}}(c))$
         \State $L_{\text{comm}} \gets -\mathbb{E}\left[ \min \left( r_c A, \text{clip}(r_c, 1-\epsilon, 1+\epsilon) A \right) \right]$
 
         \State \Comment{\textbf{Distributions \& Entropy}}

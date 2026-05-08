@@ -16,7 +16,7 @@
 % Title page 
 \pagestyle{empty} 
 
-\rightline{\LARGE \textbf{Oliver Greenwood, 7932Z}}
+\rightline{\LARGE \textbf{7932Z}}
 
 \vspace*{10mm}
 \begin{center}
@@ -49,9 +49,11 @@
 % Declaration of originality
 \section*{Declaration}
 
-I, the candidate for Part II of the Computer Science Tripos with Blind Grading Number 7932Z, hereby declare that this report and the work described in it are my own work, unaided except as may be specified below, and that the report does not contain material that has already been used to any substantial extent for a comparable purpose. In preparation of this report, I adhered to the Department of Computer Science and Technology AI Policy. [The project required the approved use of [insert name of technology] and such use is acknowledged in the text at the relevant sections.] [I am content for my report to be made available to the students and staff of the University.]
- 
-\emph{Signed:} Oliver Greenwood\\
+I, the candidate for Part II of the Computer Science Tripos with Blind Grading Number 7932Z, hereby declare that this report and the work described in it are my own work, unaided except as may be specified below, and that the report does not contain material that has already been used to any substantial extent for a comparable purpose.
+In preparation of this report, I adhered to the Department of Computer Science and Technology AI Policy.
+I am content for my report to be made available to the students and staff of the University.
+
+\emph{Signed:} 7932Z\\
 \emph{Date:} \today
 
 % Proforma
@@ -63,8 +65,8 @@ I, the candidate for Part II of the Computer Science Tripos with Blind Grading N
                             \\ & \bf in Multi-Agent Reinforcement Learning
                             \\ & \bf for Complex Tasks \\
 	  Examination:        & \bf Computer Science Tripos -- Part II, 2026 \\
-	  Word Count:         & 11905\footnotemark[1]                        \\
-	  Code Line Count:    & 13222\footnotemark[2]                         \\
+	  Word Count:         & 12,000\footnotemark[1]                        \\
+	  Code Line Count:    & 13,709\footnotemark[2]                         \\
 	  Project Originator: & Oliver Greenwood         \\
 	  Project Supervisor: & Ian Lewis                 \\
   \end{tabular}
@@ -81,10 +83,10 @@ The project sets out to design a general multi-agent reinforcement learning fram
 \section*{Work Completed}
 
 A configurable vectorised, high-throughput MARL environment modelling an assembly-line style environment was implemented, together with a lightweight real-time visualiser.
-A MAPPO-based MARL training script was developed under a centralised training, decentralised execution paradigm in Python with PyTorch.
+A MAPPO-based MARL program was developed under a centralised training, decentralised execution paradigm in Python with PyTorch.
 This included a shared actor with LSTM memory, a centralised critic, a custom rollout buffer and support for interchanging communication protocols.
-Three communication protocols were engineered: no communication, on-policy discrete communication, and AI Mother Tongue using pretrained VQ-VAE, and experimented with others (SQ-VAE, HQ-VAE).
-A quantitative evaluation of system throughput and learning performance, and a qualitative analysis of the learned communication, was performed.
+Four communication protocols were engineered: no communication, on-policy discrete communication, WhisperWise (on-policy discrete communication with reflection strategies) and AI Mother Tongue using pretrained VQ-VAE, and experimented with others (SQ-VAE, HQ-VAE).
+A quantitative evaluation of system throughput, learning performance and the emergent communication.
 
 \section*{Special Difficulties}
 
@@ -177,11 +179,11 @@ None.
 
 \newpage
 
-\chapter{Residually-Quantised Variational Autoencoder (RQ-VAE)}
+% \chapter{Residually-Quantised Variational Autoencoder (RQ-VAE)}
 
-\input{chapters/appendices/rq-vae.tex}
+% \input{chapters/appendices/rq-vae.tex}
 
-\newpage
+% \newpage
 
 \chapter{Expected Number of Actions without Communication}
 
@@ -189,7 +191,7 @@ None.
 
 \newpage
 
-\chapter{On-Policy Discrete Communication with Reflection Strategies Results}
+\chapter{WhisperWise Language Analysis on the Complex Task}
 
 \input{chapters/appendices/discrete-results.tex}
 
@@ -198,6 +200,12 @@ None.
 \chapter{Example Configuration Files}
 
 \input{chapters/appendices/configs.tex}
+
+\newpage
+
+\chapter{README}
+
+\input{chapters/appendices/README.tex}
 
 \newpage
 
