@@ -24,12 +24,12 @@ def get_save_folder(datetime_str: str, config: Config):
     return folder
 
 
-def save(folder, actor, critic, actor_optimizer, critic_optimizer, config: Config):
+def save(folder, actor, critic, actor_optimiser, critic_optimiser, config: Config):
     state = {
         "actor": actor.state_dict(),
         "critic": critic.state_dict(),
-        "actor_optimizer": actor_optimizer.state_dict(),
-        "critic_optimizer": critic_optimizer.state_dict(),
+        "actor_optimiser": actor_optimiser.state_dict(),
+        "critic_optimiser": critic_optimiser.state_dict(),
         "step": config.aim_training.obs_runs
     }
 
@@ -51,8 +51,8 @@ def imitation_learning(system, config: Config, device: torch.device):
     sim = system['sim']
     actor = system['actor']
     critic = system['critic']
-    actor_optimizer = system['actor_opt']
-    critic_optimizer = system['critic_opt']
+    actor_optimiser = system['actor_opt']
+    critic_optimiser = system['critic_opt']
 
     cm = system['checkpoint_manager']
 
@@ -122,8 +122,8 @@ def imitation_learning(system, config: Config, device: torch.device):
             actor_hidden_states = actor.init_hidden(batch_size=B)
             world_comms = torch.zeros((B, T, N, NC * C), device=device)
 
-            actor_optimizer.zero_grad()
-            critic_optimizer.zero_grad()
+            actor_optimiser.zero_grad()
+            critic_optimiser.zero_grad()
 
             # for t in range(T):
 
@@ -189,8 +189,8 @@ def imitation_learning(system, config: Config, device: torch.device):
 
             tracker.update("train_accuracy", correct_predictions / total_predictions)
 
-            actor_optimizer.step()
-            critic_optimizer.step()
+            actor_optimiser.step()
+            critic_optimiser.step()
                     
         with torch.no_grad():
             for batch_obs, batch_global_obs, batch_actions, batch_targets, batch_critic_values, batch_return_values in validation_loader:
@@ -200,8 +200,8 @@ def imitation_learning(system, config: Config, device: torch.device):
                 actor_hidden_states = actor.init_hidden(batch_size=B)
                 world_comms = torch.zeros((B, T, N, NC * C), device=device)
 
-                actor_optimizer.zero_grad()
-                critic_optimizer.zero_grad()
+                actor_optimiser.zero_grad()
+                critic_optimiser.zero_grad()
 
                 # for t in range(T):
                     
@@ -281,8 +281,8 @@ def imitation_learning(system, config: Config, device: torch.device):
             actor_hidden_states = actor.init_hidden(batch_size=B)
             world_comms = torch.zeros((B, N, NC * C), device=device)
 
-            actor_optimizer.zero_grad()
-            critic_optimizer.zero_grad()
+            actor_optimiser.zero_grad()
+            critic_optimiser.zero_grad()
 
             for t in range(T):
                 
@@ -320,4 +320,4 @@ def imitation_learning(system, config: Config, device: torch.device):
         print(f"Final Test Set Loss: {avg_test_loss:.4f} | Test Set Accuracy: {avg_test_accuracy:.4f}")
 
     # Save Base
-    save(save_folder, actor, critic, actor_optimizer, critic_optimizer, config)
+    save(save_folder, actor, critic, actor_optimiser, critic_optimiser, config)

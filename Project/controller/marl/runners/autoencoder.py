@@ -163,7 +163,7 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
 
     set_priors(aim, prior_loader, device='cuda')
 
-    optimizer = torch.optim.Adam(aim.parameters(), lr=config.aim_training.aim_learning_rate)
+    optimiser = torch.optim.Adam(aim.parameters(), lr=config.aim_training.aim_learning_rate)
 
     num_codebooks = 0
     if config.comms.communication_type == CommunicationType.AIM:
@@ -186,14 +186,14 @@ def train_language(system, config: Config, device: torch.device, use_optimal: bo
 
             batch_obs = batch_obs.to(device)
 
-            optimizer.zero_grad()
+            optimiser.zero_grad()
             loss = aim(batch_obs, tracker, secondary_tracker)
 
             loss.backward()
 
             torch.nn.utils.clip_grad_norm_(aim.parameters(), max_norm=1.0)
 
-            optimizer.step()
+            optimiser.step()
 
         secondary_tracker_keys = list(secondary_tracker.metrics.keys())
         for key in secondary_tracker_keys:

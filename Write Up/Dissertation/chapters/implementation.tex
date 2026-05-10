@@ -67,7 +67,7 @@ The visualisation frontend receives data from the simulation via WebSocket for d
 
 \vspace{1em}
 \dirtree{%
-.1 / \dotfill (13,709 LOC) .
+.1 / \dotfill (13,567 LOC) .
 .2 configs/ \dotfill Global configuration files (135 LOC) .
 .2 controller/ \dotfill Python/PyTorch MARL logic and autoencoders (4,451 LOC) .
 .3 marl/comms/ \dotfill Communication protocols .
@@ -77,7 +77,7 @@ The visualisation frontend receives data from the simulation via WebSocket for d
 .2 environment-rs/ \dotfill High-performance vectorised environment (3,199 LOC) .
 .3 src/ \dotfill Core logic (World, Agent, GridMap, Sim) .
 .2 frontend/ \dotfill Real-time visualisation UI (268 LOC) .
-.2 notebooks/ \dotfill Jupyter notebooks for evaluation (4,852 LOC) .
+.2 notebooks/ \dotfill Jupyter notebooks for evaluation (4,710 LOC) .
 .2 tests/ \dotfill Unit tests for controller/ (780 LOC) .
 }
 \vspace{1em}
@@ -897,7 +897,7 @@ To prevent computational bottlenecks, three lightweight classes were engineered:
     This object collects any statistics across the program.
     Instances can then be passed to the following classes for saving and displaying statistics.
     \item \lstinline[language=Python]|Logging|
-    This constantly flushes the statistics collected by \lstinline[language=Python]|MeticTracker| instances to disk, keeping run data even in the case of crashes.
+    This constantly flushes the statistics collected by \lstinline[language=Python]|MetricTracker| instances to disk, keeping run data even in the case of crashes.
     \item \lstinline[language=Python]|Visualiser|
     Designed specifically for the RL phase, this class uses the Python library \lstinline[language=Python]|rich| to display relevant statistics for that run.
     The visualisation displays hyperparameters from the configuration files, the current state of the RL loop (rollout or update phase), and the past $X$ training steps of \lstinline[language=Python]|MetricTracker| statistics as a basic graph.

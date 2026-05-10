@@ -78,10 +78,10 @@ class CheckpointManager:
 
         actor = checkpoint["actor"]
         critic = checkpoint["critic"]
-        actor_optimizer = checkpoint["actor_optimizer"]
-        critic_optimizer = checkpoint["critic_optimizer"]
+        actor_optimiser = checkpoint["actor_optimiser"]
+        critic_optimiser = checkpoint["critic_optimiser"]
 
-        return actor, critic, actor_optimizer, critic_optimizer, checkpoint_step
+        return actor, critic, actor_optimiser, critic_optimiser, checkpoint_step
 
     def load_base_models(self):
         base_models_path = RESULTS_DIR / str(self.comm_type.value) / "base"
@@ -99,18 +99,18 @@ class CheckpointManager:
 
         actor = checkpoint["actor"]
         critic = checkpoint["critic"]
-        actor_optimizer = checkpoint["actor_optimizer"]
-        critic_optimizer = checkpoint["critic_optimizer"]
+        actor_optimiser = checkpoint["actor_optimiser"]
+        critic_optimiser = checkpoint["critic_optimiser"]
 
-        return actor, critic, actor_optimizer, critic_optimizer, 0
+        return actor, critic, actor_optimiser, critic_optimiser, 0
         
 
-    def save_checkpoint(self, actor, critic, actor_optimizer, critic_optimizer, step):
+    def save_checkpoint(self, actor, critic, actor_optimiser, critic_optimiser, step):
         state = {
             "actor": actor.state_dict(),
             "critic": critic.state_dict(),
-            "actor_optimizer": actor_optimizer.state_dict(),
-            "critic_optimizer": critic_optimizer.state_dict(),
+            "actor_optimiser": actor_optimiser.state_dict(),
+            "critic_optimiser": critic_optimiser.state_dict(),
             "step": step
         }
 

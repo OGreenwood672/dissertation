@@ -15,8 +15,8 @@ def train(system, config: Config, device: torch.device):
     sim = system['sim']
     actor = system['actor']
     critic = system['critic']
-    actor_optimizer = system['actor_opt']
-    critic_optimizer = system['critic_opt']
+    actor_optimiser = system['actor_opt']
+    critic_optimiser = system['critic_opt']
 
     cm = system['checkpoint_manager']
 
@@ -62,16 +62,16 @@ def train(system, config: Config, device: torch.device):
 
     if comm_type == CommunicationType.AIM:
         
-        actor_optimizer.param_groups[0]['params'] = list(lstm_params) + list(action_params)
-        actor_optimizer.param_groups[0]['lr'] = 2e-4
+        actor_optimiser.param_groups[0]['params'] = list(lstm_params) + list(action_params)
+        actor_optimiser.param_groups[0]['lr'] = 2e-4
 
         new_comm_group = {'params': list(comm_params), 'lr': 1e-4}
 
-        for key in actor_optimizer.param_groups[0]:
+        for key in actor_optimiser.param_groups[0]:
             if key not in ['params', 'lr']:
-                new_comm_group[key] = actor_optimizer.param_groups[0][key]
+                new_comm_group[key] = actor_optimiser.param_groups[0][key]
 
-        actor_optimizer.param_groups.append(new_comm_group)
+        actor_optimiser.param_groups.append(new_comm_group)
 
     # actor = torch.jit.script(actor)
     for current_training_timestep in range(system["start_step"], config.training.training_timesteps):
@@ -338,8 +338,8 @@ def train(system, config: Config, device: torch.device):
                 metric_tracker.update("entropy_loss", entropy_loss.item())
 
                 # Update
-                actor_optimizer.zero_grad()
-                critic_optimizer.zero_grad()
+                actor_optimiser.zero_grad()
+                critic_optimiser.zero_grad()
                 
                 total_loss.backward()
 
@@ -350,11 +350,11 @@ def train(system, config: Config, device: torch.device):
                 torch.nn.utils.clip_grad_norm_(actor.parameters(), 0.5)
                 torch.nn.utils.clip_grad_norm_(critic.parameters(), 0.5)
                 
-                actor_optimizer.step()
-                critic_optimizer.step()
+                actor_optimiser.step()
+                critic_optimiser.step()
 
         if current_training_timestep % config.training.periodic_save_interval == 0:
-            cm.save_checkpoint(actor, critic, actor_optimizer, critic_optimizer, current_training_timestep)
+            cm.save_checkpoint(actor, critic, actor_optimiser, critic_optimiser, current_training_timestep)
         
         metric_tracker.update("reward_mean", np.mean(reward_means))
         metric_tracker.update("reward_std", np.std(reward_means))

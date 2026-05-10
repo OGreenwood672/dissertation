@@ -103,8 +103,8 @@ def test_load_checkpoint_models_latest(monkeypatch, tmp_path):
         lambda path: {
             "actor": "actor_state",
             "critic": "critic_state",
-            "actor_optimizer": "actor_opt",
-            "critic_optimizer": "critic_opt",
+            "actor_optimiser": "actor_opt",
+            "critic_optimiser": "critic_opt",
         },
     )
 
