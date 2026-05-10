@@ -274,7 +274,7 @@ This project adopts this architecture and expands both the evaluation and task t
 \section{AI Mother Tongue Architecture}
 \label{sec:2.4}
 
-The AI Mother Tongue \cite{AIMotherTongue} architecture addresses the "Joint Exploration Problem" by decoupling the emergence of discrete symbols from the reinforcement learning training and adding auxiliary losses as described in figure \ref{fig:ai-mother-tongue}.
+The AI Mother Tongue \cite{AIMotherTongue} architecture addresses the "Joint Exploration Problem" by separating the emergence of discrete symbols from the reinforcement learning training and adding auxiliary losses as described in figure \ref{fig:ai-mother-tongue}.
 Liu et al. report promising phenomena such as sudden semantic compression and interpretable symbol usage, but their evaluation is restricted to a simple cooperative task.
 The underlying discrete bottleneck uses Vector-Quantised Variational Autoencoders (VQ-VAE) \cite{VQVAE}.
 Still, Liu et al. propose more expressive codebook learning methods, such as Stochastically-Quantised Variational Autoencoders (SQ-VAE) \cite{SQVAE}, and ways to advance the language, such as using Hierarchically-Quantised Variational Autoencoders (HQ-VAE) \cite{HQVAE}.
@@ -522,14 +522,14 @@ The Agile methodology proceeded with the following phases:
 % After reviewing similar projects, I settled on separating my environment and my code from my controller.
 Python was chosen as the programming language for the controller primarily because of its strong machine learning and data analysis libraries.
 (including but not limited to NumPy \cite{numpy}, Pandas \cite{pandas}, Matplotlib \cite{matplotlib}, and Jupyter Notebooks \cite{jupyter}).
-PyTorch \cite{pytorch} was chosen to develop the models due to its high performance and imperative execution, which facilitates rapid iterative prototyping.
+PyTorch \cite{pytorch} was chosen to develop the models due to its high performance and imperative execution, which allows rapid iterative prototyping.
 
 However, Python is not a performance-oriented language and, as of this development, has a GIL (Global Interpreter Lock) \cite{python_gil_wiki}, meaning that simulations of the environment must be executed serially, severely bottlenecking performance.
 Rust was developed for its high performance and memory safety, enabling rapid development.
 To enable vectorisation of the environment, rayon \cite{rayon_rs} was chosen, as it provides safe, data-parallel multi-threading, enabling the simulation to step through all current worlds concurrently.
 
 To build the real-time, lightweight visualisation frontend decoupled from the high-performance simulation, TypeScript \cite{typescript} and p5.js \cite{p5js} were chosen.
-TypeScript \cite{typescript} is chosen for its strict typing to enforce the data types communicated through the websocket, ensuring consistency between the frontend and the simulation.
+TypeScript \cite{typescript} is chosen for its strict typing to enforce the data types communicated through the WebSocket, ensuring consistency between the frontend and the simulation.
 P5.js \cite{p5js} is used to render the visualisation, chosen for its simplicity.
 For the bridge between the decoupled systems, tokio \cite{tokio} was chosen to spawn an asynchronous background thread, allowing the main environment to execute completely independently.
 The warp \cite{warp} web server framework was selected to manage the WebSocket connection, ensuring reliable, low-latency streaming of state data from the simulation to the frontend.

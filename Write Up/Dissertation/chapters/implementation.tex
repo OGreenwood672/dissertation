@@ -182,8 +182,8 @@ To help debug the environment, a lightweight, real-time visualisation is built i
 Integrating the visualisation directly into the training loops would lead to strong performance degradation as each RL step would have to wait for a complete render of the current state.
 
 To decouple these systems, an independent frontend is developed.
-On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library \cite{tokio} to manage the websocket without slowing down the main simulation, utilising the \lstinline[language=Rust]|warp| framework \cite{warp} to establish the connection and stream state data to the frontend.
-During runtime, current state data is streamed from this websocket.
+On initialisation, the Rust backend spawns a background thread using the \lstinline[language=Rust]|tokio| library \cite{tokio} to manage the WebSocket without slowing down the main simulation, utilising the \lstinline[language=Rust]|warp| framework \cite{warp} to establish the connection and stream state data to the frontend.
+During runtime, current state data is streamed from this WebSocket.
 Strict types are defined in both the Rust simulation and the frontend for the data communicated over the WebSocket, ensuring the system accurately reflects the current state.
 
 To synchronise the configuration between the visualisation and the simulation backend, a Python utility extracts required parameters from the configuration files and places them into a frontend-friendly format.
