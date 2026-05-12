@@ -17,18 +17,18 @@ However, learning a discrete language on-policy suffers from the "Joint Explorat
 This local optimum is named the "Communication Vacuum Equilibrium" \cite{Biases}.
 
 This dissertation focuses on the paper "AI Mother Tongue: Self-Emergent Communication in MARL via Endogenous Symbol Systems" \cite{AIMotherTongue}.
-In this paper, Liu et al. propose abandoning learning this discrete language during the reinforcement learning phase of training.
+In this paper, Liu \cite{AIMotherTongue} proposes abandoning learning this discrete language during the reinforcement learning phase of training.
 Instead, they propose using a pre-trained discrete language model acting as a semantic bottleneck.
 
 By using a Vector-Quantised Variational Autoencoder (VQ-VAE), continuous observations can be mapped to a finite set of discrete symbols.
-Liu et al. then showed that this autoencoder can be frozen during training, and the agents can be taught semantic meaning through reflection strategies - custom loss functions that force agents to understand contextual meaning and intent of these symbols.
+Liu \cite{AIMotherTongue} then showed that this autoencoder can be frozen during training, and the agents can be taught semantic meaning through reflection strategies - custom loss functions that force agents to understand contextual meaning and intent of these symbols.
 This methodology allows communication protocols to evolve naturally without implementing hard biases \cite{Biases}.
 
 Whilst the AI Mother Tongue \cite{AIMotherTongue} paper suggests an interesting novel idea, it only evaluates this on relatively simple cooperative tasks.
 To ascertain whether this architecture is effective and robust enough for practical use, it needs rigorous evaluation within a more complex environment where agents possess asymmetric information and must cooperate to discover hidden stations.
 This dissertation provides an extensive evaluation and extends the ideas discussed in the paper.
 
-\textbf{Research Question:} To what extent does the AI Mother Tongue architecture allow robust emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput Multi-Agent Proximal Policy Optimisation (MAPPO) with VAE extensions (SQ-VAE, HQ-VAE), relative to no-communication and fixed discrete communication baselines?
+\textbf{Research Question:} To what extent does the AI Mother Tongue architecture enable emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput Multi-Agent Proximal Policy Optimisation (MAPPO), relative to no-communication and fixed discrete communication baselines?
 
 \section{Project Overview \& Contributions}
 \label{sec:1.1}
@@ -39,13 +39,13 @@ Users can interact with the framework through a single script with modes for lan
 
 The main contributions in this project are:
 
-\textbf{A configurable high-throughput MARL environment} - a vectorised, Rust-based simulation was implemented that simulates a discrete two-dimensional environment, supporting hundreds of parallel worlds and a real-time, lightweight visualisation.
+\textbf{A configurable high-throughput multi-agent reinforcement learning (MARL) environment} - a vectorised, Rust-based simulation was implemented that simulates a discrete two-dimensional environment, supporting hundreds of parallel worlds and a real-time, lightweight visualisation.
 
 \textbf{A MAPPO algorithm with hot-swappable communication protocols} - a MAPPO-based MARL training script under a centralised training, decentralised execution framework was engineered.
-It used a shared actor, a global critic, an LSTM module, a custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface to allow hot-swapping of protocols.
+It used a shared actor, a global critic, an Long Short-Term Memory (LSTM) module, a custom rollout buffer for efficient storage and Generalised Advantage Estimation (GAE) calculations, and a communication protocol interface to allow hot-swapping of protocols.
 
 \textbf{The AI Mother Tongue architecture} - a communication protocol that follows and extends the AI Mother Tongue architecture \cite{AIMotherTongue} was built.
-Pretrained VQ-VAE or variants (SQ-VAE or HQ-VAE) were injected into the actor network and frozen before MARL training.
+Pretrained VQ-VAE or stochastic (SQ-VAE) and hierarchal (HQ-VAE) variants were injected into the actor network and frozen before MARL training.
 
 \textbf{The WhisperWise Protocol} - a communication protocol that uses reflection strategies to teach agents how to use the communication channels, overcoming the "Joint Exploration Problem" \cite{Biases}.
 

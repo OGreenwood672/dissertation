@@ -78,8 +78,8 @@ class CheckpointManager:
 
         actor = checkpoint["actor"]
         critic = checkpoint["critic"]
-        actor_optimiser = checkpoint["actor_optimiser"]
-        critic_optimiser = checkpoint["critic_optimiser"]
+        actor_optimiser = checkpoint["actor_optimizer"]
+        critic_optimiser = checkpoint["critic_optimizer"]
 
         return actor, critic, actor_optimiser, critic_optimiser, checkpoint_step
 

@@ -223,7 +223,7 @@ plt.ylabel("Inventory State")
 
 plt.grid(False)
 
-fig.colorbar(im3)
+# fig.colorbar(im3)
 plt.tight_layout()
 
 # plt.savefig(FIGURES_DIR / "token-given-inventory.png", dpi=600)

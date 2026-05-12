@@ -30,14 +30,12 @@ Finally, the semantics of communication and memory were analysed.
 By collecting and visualising conditional distributions, such as the probability of a partner's target given a code and the probability of a partner's next action given a code, the dissertation examined whether the message correlates with goals or with the next action.
 This analysis showed the agent's communication carried interpretable meaning.
 
-Ultimately, the evaluation proved that the AI Mother Tongue architecture successfully enables robust, semantically meaningful discrete communication, outperforming both on-policy discrete and no-communication baselines by overcoming the Communication Vacuum Equilibrium in simple tasks.
-However, the AI Mother Tongue architecture overcomplicates the solution to the "Joint Exploration Problem".
-The reflection strategies teach agents to use the communication channel effectively.
-The frozen encoder encrypts the external observations, stunting the agents from learning the task reward.
+Ultimately, the evaluation suggests that the AI Mother Tongue architecture successfully enables semantically meaningful discrete communication, outperforming both on-policy discrete and no-communication baselines by overcoming the Communication Vacuum Equilibrium in simple tasks.
+However, the evidence indicates the AI Mother Tongue architecture overcomplicates the solution to the "Joint Exploration Problem".
 Consequently, this dissertation presents WhisperWise: a new, streamlined protocol that merges on-policy discrete communication with reflection strategies.
-For basic tasks, WhisperWise significantly outperforms the AI Mother Tongue architecture (mean difference of +0.0413, $p_{adj} < 0.001$; see Section \ref{sec:4.8}) and achieves a steeper, more efficient semantic compression.
-WhisperWise can also robustly scale to complex 15x15 environments where AI Mother Tongue completely fails.
-This proves that reflection strategies, not the semantic bottlenecks, are the primary component of successful emergent communication.
+For basic tasks, WhisperWise significantly outperforms the AI Mother Tongue architecture (reward mean per step improvement of $\sim 40\%$; see Section \ref{sec:4.8}) and achieves a steeper, more efficient semantic compression.
+WhisperWise performed better in the tested scaling task where AI Mother Tongue limited success.
+These results suggest that reflection strategies may account for more of the performance gain than the semantic bottleneck.
 
 \section{Lessons Learned}
 \label{sec:5.2}
@@ -52,7 +50,8 @@ Agents will reliably find the most compressed, 'lazy' communication strategy tha
 \label{sec:5.3}
 
 Integrating these trained models into real-world settings carries social and ethical implications.
-A significant concern is the "black box" nature of MARL communication, creating a trust deficit in applications.
+A significant concern is the 'black box' nature of MARL communication, creating a trust deficit in applications.
+Specifically, relying on non-human-readable protocols in safety-critical domains risks serious failures if the system encounters unseen states.
 The analysis tools produced take a step further towards AI transparency, reducing this trust deficit.
 
 In this project, data is generated from a built-in simulation, but for integration into real-world settings, real data must be used.
@@ -66,12 +65,12 @@ This dissertation suggests several promising future directions.
 
 For communication, each agent's code is broadcast to all other agents.
 For simulations with more than two agents, this will inevitably lead to agents listening to code that is not relevant to their policy.
-An improvement would be to apply an attention mechanism here to determine which codes are sent to which agents, similar to TarMAC \cite{tarmac}.
+An improvement would be applying an attention mechanisms to determine which codes are sent to which agents, similar to TarMAC \cite{tarmac}.
 This attention mechanism has another key potential use.
 When an agent observes the environment, they only see the closest visible entity.
 This could be improved by using an attention mechanism to select which visible entity to observe.
 
-A second direction for improvement is to evaluate whether the established communication protocols can scale to highly complex, hierarchical environments (such as 50x50 grids with agents passing ingredients to one another).
+Another direction for improvement is to evaluate whether the established communication protocols can scale to highly complex, hierarchical environments (such as 50x50 grids with agents passing ingredients to one another).
 This would, in theory, push the HQ-VAE to establish macro- and micro-strategies (Appendix \ref{sec:hq-vae}).
 
 Finally, a third direction is to integrate WhisperWise into a real-world application.

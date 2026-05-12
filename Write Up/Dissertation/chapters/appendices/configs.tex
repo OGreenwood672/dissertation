@@ -1,10 +1,16 @@
 \label{sec:CONFIG}
-\begin{table}[H]
-    \centering
-    \begin{tabular}{llc}
+\begin{longtable}{llc}
+    \caption{Hyperparameters and simulation configuration.} \\
     \toprule
     \textbf{Category} & \textbf{Parameter} & \textbf{Value} \\
     \midrule
+    \endfirsthead
+
+    \toprule
+    \textbf{Category} & \textbf{Parameter} & \textbf{Value} \\
+    \midrule
+    \endhead
+
     Communication & Communication type & aim \\
     Communication & Vocabulary size & 32 \\
     Communication & Messages per step & 1 \\
@@ -56,6 +62,5 @@
     Simulation env. & Initial agent layout & random \\
     Simulation env. & Initial station layout & random \\
     \bottomrule
-    \end{tabular}
-    \caption{Hyperparameters and simulation configuration.}
-\end{table}
+
+\end{longtable}

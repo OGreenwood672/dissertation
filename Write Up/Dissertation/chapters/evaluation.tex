@@ -24,7 +24,7 @@ Therefore, to reduce the difference in mean task reward per step between the com
 \textbf{MAPPO Hyperparameters}
 \label{sec:4.1.2}
 
-The use of standardised hyperparameters is preferred over aggressive grid searches to demonstrate the robustness of the AI Mother Tongue architecture.
+The use of standardised hyperparameters is preferred over aggressive grid searches to demonstrate the robustness of the emergent communication.
 
 A batch size of 512, 57,600 datapoints per update phase (Section \ref{sec:4.2.1}) and four optimisation epochs are selected to optimise stability and sample efficiency.
 The batch size of 512, a common power-of-two choice in machine learning, reduces gradient variance for LSTM-based actor-critic networks whilst maximising GPU utilisation.
@@ -38,7 +38,7 @@ These communication hyperparameters apply to all communication protocols.
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{elbow-curve.png}
-    \caption{Illustrates the elbow curve used to determine vocabulary size}
+    \caption{Illustrates the elbow curve used to determine vocabulary size.}
     \label{fig:elbow}
 \end{figure}
 
@@ -69,7 +69,7 @@ Number of worlds parallised was scaled ($W \in {2^0, 2^1, ..., 2^{12}}$) to meas
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{sim-comparison.png}
-    \caption{Concurrent Environment Throughput Performance. Comparison of Python multiprocessing and Rust with Rayon across an exponentially increasing number of parallel worlds}
+    \caption{Concurrent Environment Throughput Performance. Comparison of Python multiprocessing and Rust with Rayon across an exponentially increasing number of parallel worlds.}
     \label{fig:sim-time-comparison}
 \end{figure}
 
@@ -78,7 +78,7 @@ Despite being able to use multiple CPU cores, the serialisation and the Inter-Pr
 
 In contrast, Rust can utilise \lstinline[language=Rust]|Rayon|'s thread-pool to manage the parallel world steps efficiently.
 Throughput scales with the number of worlds parallelised, reaching $239,007$ SPS.
-By using Rust's native Rayon threading, the sequential fraction of the program is minimised per Amdahl's Law \cite{amdahl}, allowing near-perfect scaling that saturates the CPU cores.
+By using Rust's native \lstinline[language=Rust]|Rayon| threading, the sequential fraction of the program is minimised per Amdahl's Law \cite{amdahl}, allowing near-perfect scaling that saturates the CPU cores.
 
 For the evaluation, $960$ worlds were parallelised across a single rollout phase.
 This maximised the parallisation whilst also collecting an apt amount of datapoints for the update phase ($960 \times 30 \times 2 = 57,600$).
@@ -97,7 +97,7 @@ To evaluate the \lstinline[language=Python]|RolloutBuffer|, the memory allocatio
     \textbf{Dynamic Python Lists} & $6.47 \pm 0.18$ & $1213.45$ \\ \hline
     \textbf{Pre-allocated RolloutBuffer} & $6.79 \pm 0.23$ & $598.23$ \\ \hline
     \end{tabular}
-    \caption{Memory Management Overhead per Epoch: $T=20,000$, $W=32$}
+    \caption{Memory Management Overhead per Epoch: $T=20,000$, $W=32$.}
     \label{tab:rolloutbuffer-eval}
 \end{table}
 
@@ -116,20 +116,20 @@ These results contribute to C4.
 \label{sec:4.3.1}
 
 For this evaluation, reconstruction loss and commitment loss are tracked over a 50-epoch training process using 26880 datapoints.
-Liu et al. defined a healthy encoder for the AI Mother Tongue system.
+Liu defined a healthy encoder for the AI Mother Tongue system \cite{AIMotherTongue}.
 Reconstruction loss should fall between 0.08 and 0.15.
 Commitment Loss must remain below 1.0.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{recon_loss_eval.png}
-    \caption{Reconstruction Loss over 50 epochs comparing VQ-VAE and SQ-VAE}
+    \caption{Reconstruction Loss over 50 epochs comparing VQ-VAE and SQ-VAE.}
     \label{fig:vae_training_eval}
 \end{figure}
 
 As shown in Figure \ref{fig:vae_training_eval}, both methods of training got below the maximum reconstruction loss of 0.15.
 However, training with the SQ-VAE resulted in a final reconstruction below 0.08.
-Liu et al.'s recommended loss for a healthy codebook is based on low reconstruction error, which is often a symptom of 'mode collapse'.
+Liu's recommended loss for a healthy codebook is based on low reconstruction error, which is often a symptom of 'mode collapse'.
 This is where the network memorises a small set of generalisable states.
 
 To determine if this 'mode collapse' has occurred, the codebook utilisation was analysed.
@@ -141,7 +141,7 @@ To determine if this 'mode collapse' has occurred, the codebook utilisation was 
     \textbf{} & \textbf{VQ-VAE} & \textbf{SQ-VAE} \\ \hline
     \textbf{Codebook Utilisation} & $66.67\% \pm 4.8\%$ & $94.8\% \pm 6.5\%$ \\ \hline
     \end{tabular}
-    \caption{Codebook utilisation comparison between training with VQ-VAE and SQ-VAE}
+    \caption{Codebook utilisation comparison between training with VQ-VAE and SQ-VAE.}
     \label{tab:codebook_util}
 \end{table}
 
@@ -149,7 +149,7 @@ The table \ref{tab:codebook_util} clearly shows that using an SQ-VAE, though hav
 Therefore, this low loss indicates high model effectiveness rather than 'mode collapse'.
 
 By the end of training, the VQ-VAE's commitment loss had converged to $\sim 0.25$.
-This is well below Liu et al.'s requirement.
+This is well below Liu's requirement.
 
 \subsection{Codebook Initialisation}
 \label{sec:4.3.2}
@@ -192,30 +192,30 @@ However, the SQ-VAE exhibited the opposite behaviour: the reconstruction loss an
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=\linewidth]{pca-vq-vae.png}
-        \caption{VQ-VAE with prior}
+        \caption{VQ-VAE with prior.}
         \label{fig:pca-vq-vae}
     \end{subfigure}
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=\linewidth]{pca-vq-vae-no-prior.png}
-        \caption{VQ-VAE without prior}
+        \caption{VQ-VAE without prior.}
         \label{fig:pca-vq-vae-no-prior}
     \end{subfigure}
 
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=\linewidth]{pca-sq-vae.png}
-        \caption{SQ-VAE with prior}
+        \caption{SQ-VAE with prior.}
         \label{fig:pca-sq-vae}
     \end{subfigure}
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=\linewidth]{pca-sq-vae-no-prior.png}
-        \caption{SQ-VAE without prior}
+        \caption{SQ-VAE without prior.}
         \label{fig:pca-sq-vae-no-prior}
     \end{subfigure}
 
-    \caption{PCA projections of latent codes for SQ-VAE and VQ-VAE with and without the prior}
+    \caption{PCA projections of latent codes for SQ-VAE and VQ-VAE with and without the prior.}
     \label{fig:pca-sq-vq-vae}
 \end{figure}
 
@@ -241,7 +241,7 @@ To ascertain the effectiveness of the AI Mother Tongue architecture, it is compa
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{reward_mean_comparison.png}
-    \caption{Reward mean per step over 30,000 PPO training steps. Each protocol was trained across three runs, and a 95\% confidence interval is shown.}
+    \caption{Reward mean per step over 30,000 PPO training steps. Each protocol was trained across three runs. A 95\% confidence interval is shown.}
     \label{fig:reward-mean-comparison}
 \end{figure}
 
@@ -253,11 +253,17 @@ To ascertain the effectiveness of the AI Mother Tongue architecture, it is compa
 % The first phase underperforms the other protocols, as it struggles to balance optimising auxiliary losses with standard training losses.
 % The second phase converges to a reward mean of 0.13 per step as it learns to use the stored information to optimise the auxiliary heads and reduce the standard training losses.
 
-To rigorously evaluate the performance differences, a one-way Analysis of Variance (ANOVA) is conducted on the mean task reward per step using the final thousand training steps of each protocol's run (Figure \ref{fig:reward-mean-comparison}).
-The ANOVA revealed a statistically significant effect of the communication protocol, $F(2, 8997) = 97353.75, p < 0.001$.
-Pairwise comparisons using Tukey's HSD test (with Family-Wise Error Rate set to 0.05) confirmed that the AI Mother Tongue architecture significantly outperformed both the On-Policy Discrete Communication protocol ($\text{mean\_diff}=-0.0187,p_\text{adj}<0.001$) and the No Communication protocol ($\text{mean\_diff}=-0.0324,p_\text{adj}<0.001$).
+% To rigorously evaluate the performance differences, a one-way Analysis of Variance (ANOVA) is conducted on the mean task reward per step using the final thousand training steps of each protocol's run (Figure \ref{fig:reward-mean-comparison}).
+% The ANOVA revealed a statistically significant effect of the communication protocol, $F(2, 8997) = 97353.75, p < 0.001$.
+% Pairwise comparisons using Tukey's HSD test (with Family-Wise Error Rate set to 0.05) confirmed that the AI Mother Tongue architecture significantly outperformed both the On-Policy Discrete Communication protocol ($\text{mean\_diff}=-0.0187,p_\text{adj}<0.001$) and the No Communication protocol ($\text{mean\_diff}=-0.0324,p_\text{adj}<0.001$).
 
-The expert agent receives a reward mean per step of 0.24, but no protocol can reach it; however, it is vital to contextualise this.
+To rigorously evaluate the performance differences, a one-way Analysis of Variance (ANOVA) is conducted on the mean task reward per step using 512 environment simulations.
+ANOVA assumptions were first checked: Shapiro-Wilk tests indicated approximate normality for all three protocols, and Levene's test indicated homogeneous variances.
+ANOVA found a significant effect of protocol performance, $F=28.27,p<0.001$.
+Tukey's post-hoc test showed AI Mother Tongue differed significantly from both Discrete Communication and No Communication, whilst Discrete Communication and No Communication did not differ significantly from each other.
+Based on mean scores, AI Mother Tongue achieved the best performance overall (matching training performance in Figure \ref{fig:reward-mean-comparison}).
+
+The expert agent receives a reward mean per step of 0.24, which no protocol reached; however, it is vital to contextualise this.
 The agents can only view the nearest entity (not their own pick-up station), whereas the expert agent has a global view of the environment.
 This means other entities often hide other, more important entities, preventing agents from matching this expert agent's score.
 % Therefore, the 0.13 reward demonstrates that the agents utilised the AI Mother Tongue protocol to overcome the POMDP.
@@ -280,7 +286,7 @@ Communication perplexity measures the agent's uncertainty about the next token, 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{comm_perplexity_over_time.png}
-    \caption{Communication Perplexity tracked over a training run of AI Mother Tongue when using SQ-VAE trained across three runs, and a 95\% confidence interval is shown}
+    \caption{Communication Perplexity tracked over a training run of AI Mother Tongue when using SQ-VAE trained across three runs. A 95\% confidence interval is shown.}
     \label{fig:comm-perplexity-over-training}
 \end{figure}
 
@@ -297,17 +303,17 @@ To further understand the agent's use of language, the frequency of each code is
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{vocab-frequency.png}
-    \caption{Normalised frequency of each code across 2880 runs}
+    \caption{Normalised frequency of each code across 2880 runs.}
     \label{fig:vocab-frequency}
 \end{figure}
 
 From Figure \ref{fig:vocab-frequency}, the distribution exhibits a strong skew, giving a low entropy score of 2.98 and a high Gini coefficient of 0.78.
-When visualising this empirical distribution with a rank-frequency plot (Figure \ref{fig:rank-frequency-zipf}), it demonstrates exponential decay closely resembling Zipf's Law, especially for the first 15 codes.
+When visualising this empirical distribution with a rank-frequency plot (Figure \ref{fig:rank-frequency-zipf}), it demonstrates exponential decay resembling Zipf's Law \cite{zipf}, especially for the first 15 codes.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{rank-frequency-vs-zipf.png}
-    \caption{Vocabulary rank-frequency plot compared to Zipf's Law}
+    \caption{Vocabulary rank-frequency plot compared to Zipf's Law.}
     \label{fig:rank-frequency-zipf}
 \end{figure}
 
@@ -327,7 +333,7 @@ Memory is tested for allocentric (information stored using a global coordinate s
 Each probe takes as input the final layer of the Long-Short Term Memory (LSTM) module, and predicts one of the following using MSE loss:
 \begin{itemize}
     \item The agent's own next target's coordinates (tests for allocentric memory)
-    \item The agent's partner's next target's coordinates(tests for allocentric memory)
+    \item The agent's partner's next target's coordinates (tests for allocentric memory)
     \item The agent's own next target's relative coordinates from the agent's coordinates (tests for egocentric positional memory)
     \item The agent's partner's next target's relative coordinates from the agent's coordinates (tests for egocentric positional memory)
     \item A unit vector in the direction of the agent's next target (tests for egocentric directional memory)
@@ -340,7 +346,7 @@ To account for this, the models are trained only on the last half of the timeste
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{lstm_probing.png}
-    \caption{LSTM Probing Models Test Loss over simulation runs with various tasks}
+    \caption{LSTM Probing Models Test Loss over simulation runs with various tasks.}
     \label{fig:lstm-probing}
 \end{figure}
 
@@ -364,7 +370,7 @@ Therefore, to analyse the semantic meaning of messages, only the first six simul
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{partner-target-given-code.png}
-    \caption{Likelihood of location of target given the top four codes broadcast from partner at simulation steps zero and four. Yellow is high likelihood, blue is low likelihood.}
+    \caption{Normalised likelihood $P$(target location $\mid$ top-4 partner codes) at simulation steps 0 and 4. Each column shows one code (global usage rank); color intensity (blue low, yellow high) reflects empirical frequency across rollouts, discretised to grid cells.}
     \label{fig:probability-target-given-code}
 \end{figure}
 
@@ -382,7 +388,7 @@ To see if the agent had a direct impact on the action of its partner, a confusio
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{partners-action-given-code.png}
-    \caption{Probability of partner's action given received code within first four simulation steps}
+    \caption{Probability of partner's action given received code within first four simulation steps.}
     \label{fig:partner-action-given-code}
 \end{figure}
 
@@ -411,12 +417,12 @@ As each agent independently navigates to its target based on its own knowledge o
 \subsection{Context-Aware Signalling (Inventory-Dependent Language)}
 \label{sec:4.7.3}
 
-To determine whether the agents are using a pragmatic language, the conditional probability of a token's use given its ingredients is calculated.
+To determine whether the agents are using a context-dependent signalling, the conditional probability of a token's use given its ingredients is calculated.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{token-given-inventory.png}
-    \caption{Probability of broadcasting token given inventory}
+    \caption{Probability of broadcasting token given inventory.}
     \label{fig:token-given-inventory}
 \end{figure}
 
@@ -424,7 +430,7 @@ As shown in Figure \ref{fig:token-given-inventory}, the active vocabulary underg
 When the agent has an empty inventory, the vocabulary is highly concentrated on a specific subset of codes.
 However, as the progression continues, the vocabulary immediately supersedes these widely used codes.
 Once the inventory contains the product, the vocabulary uses a concise set of codes likely used to coordinate the drop-off location.
-These results suggest that the agents have a Theory of Mind and use a pragmatic language.
+These results are consistent with context-dependent signalling.
 % VAE loss of BCE + 1.75 * MSE
 
 \section{AI Mother Tongue Ablation Studies}
@@ -438,28 +444,41 @@ To determine the individual effects of the frozen encoder and the reflection str
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=0.95\textwidth]{reflection_comparison.png}
-        \caption{Reflection vs no reflection}
+        \caption{Reflection vs no reflection.}
         \label{fig:reward-mean-comparison-reflection}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.48\textwidth}
         \centering
         \includegraphics[width=0.95\textwidth]{discrete_reflection.png}
-        \caption{WhisperWise vs AI Mother Tongue}
+        \caption{WhisperWise vs AI Mother Tongue.}
         \label{fig:reward-mean-comparison-reflection-discrete}
     \end{subfigure}
 
-    \caption{Reward mean per step over 30,000 training steps. Each experiment was trained across three runs, with a 95\% confidence interval shown. The left panel compares reflection against no reflection; the right panel compares the AI Mother Tongue architecture with the WhisperWise communication protocol.}
+    \caption{Reward mean per step over 30,000 training steps. Each experiment was trained across three runs, with a 95\% confidence interval shown. \ref{fig:reward-mean-comparison-reflection} compares reflection against no reflection; \ref{fig:reward-mean-comparison-reflection-discrete} compares the AI Mother Tongue architecture with the WhisperWise communication protocol.}
     \label{fig:reflection_comparison}
 \end{figure}
 
 Each component of the AI Mother Tongue is analysed to examine its effects on the mean task reward per step (Figure \ref{fig:reflection_comparison}).
-To further this figure, a one-way Analysis of Variance (ANOVA) is conducted on the final thousand training steps of each protocol's run.
-The ANOVA revealed a statistically significant effect of the communication protocol, $F(2, 8997) = 1375992.59, p < 0.001$.
-Pairwise comparisons using Tukey's HSD test, with Family-Wise Error Rate (FWER) set to 0.05, confirmed that the AI Mother Tongue architecture significantly outperformed the AI Mother Tongue without auxiliary losses ($\text{mean\_diff}=-0.0555,p_\text{adj}<0.001$).
 
-Pairwise comparisons using Tukey's HSD test, with the same FWER, demonstrated that the novel WhisperWise protocol significantly outperformed the AI Mother Tongue architecture ($\text{mean\_diff}=+0.0457,p_\text{adj}<0.001$).
-This statistical analysis shows that the reflection strategies, not the semantic bottleneck, are the primary driver of successful emergent communication.
+Before conducting a statistical comparison for Figure \ref{fig:reward-mean-comparison-reflection}, the assumptions underlying the t-test were evaluated.
+Shapiro-Wilk tests indicated both protocols were approximately normally distributed, and Levene's test indicated the variances were homogeneous.
+Given these conditions, a Welch's two-sample t-test was performed, revealing a significant difference between the protocols, $t=19.45,p<0.001$.
+This shows AI Mother Tongue (mean=0.1235) outperformed the AI Mother Tongue without auxiliary losses (mean=0.0704).
+
+A statistical comparison was completed for Figure \ref{fig:reward-mean-comparison-reflection-discrete}.
+The same assumptions were evaluated using Shapiro-Wilk tests and Levene's test, which showed results similar to those before.
+Welch's t-test was performed and revealed a significant difference between the protocols, $t=-31.75,p<0.001$.
+In this case, WhisperWise (mean=0.1729) performed better than the AI Mother Tongue architecture (mean=0.1236).
+These results suggest that the reflection strategies contribute more to successful emergent communication than the semantic bottleneck.
+
+
+% To further this figure, a one-way Analysis of Variance (ANOVA) is conducted on the final thousand training steps of each protocol's run.
+% The ANOVA revealed a statistically significant effect of the communication protocol, $F(2, 8997) = 1375992.59, p < 0.001$.
+% Pairwise comparisons using Tukey's HSD test, with Family-Wise Error Rate (FWER) set to 0.05, confirmed that the AI Mother Tongue architecture significantly outperformed the AI Mother Tongue without auxiliary losses ($\text{mean\_diff}=-0.0555,p_\text{adj}<0.001$).
+
+% Pairwise comparisons using Tukey's HSD test, with the same FWER, demonstrated that the novel WhisperWise protocol significantly outperformed the AI Mother Tongue architecture ($\text{mean\_diff}=+0.0457,p_\text{adj}<0.001$).
+% This statistical analysis shows that the reflection strategies, not the semantic bottleneck, are the primary driver of successful emergent communication.
 
 % As shown in Figure \ref{fig:reward-mean-comparison-reflection}, Liu et al's reflection strategies are vital for the learning process.
 % They provide an intermediary step.
@@ -474,8 +493,8 @@ This statistical analysis shows that the reflection strategies, not the semantic
 \label{sec:4.9}
 
 The results of Section \ref{sec:4.8} suggest the AI Mother Tongue architecture relies primarily on the reflection strategies for its success.
-However, the original evaluation is restricted to a task that is relatively complex compared to Liu et al.'s, but ultimately simple.
-Therefore, it remains unclear whether either procotol can support robust emergent communication as the underlying POMDP becomes more complex.
+However, the original evaluation is restricted to a task that is relatively complex compared to Liu's, but ultimately simple.
+Therefore, it remains unclear whether either procotol can support emergent communication as the underlying POMDP becomes more complex.
 
 \subsection{Environment Setup}
 \label{sec{4.9.1}}
@@ -528,7 +547,7 @@ A more demanding task is set up for a more comprehensive evaluation of AI Mother
     \draw[arrow] (A5) -- (S6) node[midway, above] {$I_9$};
 
     \end{tikzpicture}
-    \caption{Agent-station Workflow}
+    \caption{Agent-station Workflow.}
     \label{fig:eval-hard-workflow}
 \end{figure}
 
@@ -545,13 +564,18 @@ To reduce the difference in mean task reward per step between the communication 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{challenge_performance.png}
-    \caption{Reward mean per step over 40,000 PPO training steps. Each protocol was trained across three runs, and a 95\% confidence interval is shown.}
+    \caption{Reward mean per step over 40,000 PPO training steps. Each protocol was trained across three runs. A 95\% confidence interval is shown.}
     \label{fig:eval-hard-performance}
 \end{figure}
 
 As shown in Figure \ref{fig:eval-hard-performance}, WhisperWise outperformed AI Mother Tongue in this complex task.
-To further this figure, a two-sample independent t-test is conducted on the final 5000 training steps of each protocol's run.
-The t-test revealed a statistically significant difference between AI Mother Tongue and WhisperWise, $t=-2562.00,p<0.001$, indicating WhisperWise significantly outperformed AI Mother Tongue.
+To further this, another Welch's two-sample t-test was performed.
+As in previous analyses, the assumptions for parametric testing were verified and satisfied.
+A significant difference between the two protocols was found, $t=-19.98,p=0.0023$.
+WhisperWise achieved a higher mean score of 0.0141 than AI Mother Tongue's 0.0007.
+
+% To further this figure, a two-sample independent t-test is conducted on the final 5000 training steps of each protocol's run.
+% The t-test revealed a statistically significant difference between AI Mother Tongue and WhisperWise, $t=-2562.00,p<0.001$, indicating WhisperWise significantly outperformed AI Mother Tongue.
 
 \subsection{WhisperWise Linguistic and Memory Analysis}
 \label{sec:4.9.3}
@@ -561,7 +585,7 @@ To understand how the WhisperWise agents represent the environment, LSTM probing
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{lstm_probing_hard.png}
-    \caption{LSTM Probing Models Test Loss over simulation runs with various tasks}
+    \caption{LSTM Probing Models Test Loss over simulation runs with various tasks.}
     \label{fig:lstm-probing-hard}
 \end{figure}
 
@@ -621,11 +645,11 @@ C4 required a quantitative evaluation of the communication protocols, including 
 C4 also states that the communication must exhibit context-aware signalling, verified by conditional probability distributions (e.g., $P(\text{Target}|\text{Code})$).
 The evaluation sections (\ref{sec:4.3}, \ref{sec:4.5} - \ref{sec:4.7}) detail in-depth evaluations of communication perplexity, reconstruction losses, LSTM probing, and conditional distributions, in line with C4.
 A low entropy score of 2.98 and a high Gini coefficient of 0.78 were achieved.
-C4 was fully achieved.
+C4 was largely satisfied: high Gini coefficients, low-entropy vocabularies and heavy-tailed code usage, and conditional distributions consistent with context-aware signalling in this environment were observed.
 
 \paragraph{C5 - Software Engineering and Reproducibility}
 C5 required the framework to be reusable for other researchers.
 This includes high testing coverage, logging, and checkpointing.
 Sections \ref{sec:3.1.3} and \ref{sec:3.8} detail this implementation.
 The evaluation would not have been possible without this toolkit.
-C5 was fully achieved.
+C5 is well-supported: the framework has high unit-test coverage in both Rust and Python, structured configuration, logging and checkpointing, and open-source release with documentation intended to support reuse.
