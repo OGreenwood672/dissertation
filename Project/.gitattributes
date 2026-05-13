@@ -1,0 +1,4 @@
+*.ipynb export-ignore
+todo.md export-ignore
+notes.md export-ignore
+*.bash export-ignore
