@@ -1,4 +1,4 @@
-communication_type: reflective
+communication_type: aim
 
 vocab_size: 32
 num_comms: 1

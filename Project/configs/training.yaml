@@ -1,9 +1,9 @@
 training:
   training_timesteps: 40001
-  simulation_timesteps: 200 # 30
+  simulation_timesteps: 30 # 200
   timestep: 0
   rollout_phases: 1
   batch_size: 256
   worlds_parallised: 960 # 64
-  seed: -1
+  seed: 73
   periodic_save_interval: 1000

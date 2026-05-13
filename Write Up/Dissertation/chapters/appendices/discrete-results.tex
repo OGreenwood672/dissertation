@@ -1,12 +1,14 @@
 \label{sec:discrete-res}
 
-
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{vocab-frequency-better.png}
     \caption{Normalised frequency of each code across 2880 runs.}
     \label{fig:vocab-frequency-better}
 \end{figure}
+
+The agent's utilisation of the vocabulary gives an entropy score of 4.61 and a Gini coefficient of 0.94 (Figure \ref{fig:vocab-frequency-better}).
+This suggests the agent utilises the entire capacity of the codebook, unlike the AI Mother Tongue protocol.
 
 \begin{figure}[htbp]
     \centering
@@ -15,12 +17,7 @@
     \label{fig:rank-frequency-zipf-better}
 \end{figure}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{token-given-inventory-better.png}
-    \caption{Probability of broadcasting token given inventory.}
-    \label{fig:token-given-inventory-better}
-\end{figure}
+The vocabulary usage closely follows Zipf's Law (Figure \ref{fig:rank-frequency-zipf-better}) until code around code 31, where, as before, the truncated Zipfian distribution is exhibited.
 
 \begin{figure}[htbp]
     \centering
@@ -29,5 +26,7 @@
     \label{fig:comm-perplexity-over-training-better}
 \end{figure}
 
-
-The agents utilisation of the vocabulary gives an entropy score of 4.61 and a Gini coefficient of 0.94.
+The WhisperWise can learn to use the communication channel (Figure \ref{fig:comm-perplexity-over-training-better}), unlike the AI Mother Tongue protocol.
+The protocol applies semantic compression during the first 5000 timesteps and further refines the language to a minimal set by about 20000 timesteps.
+From then on, WhisperWise's communication protocol steadily increases, suggesting that the agents are learning to communicate the fine details of the environment.
+Future work should evaluate how this communication protocol's perplexity varies over time until convergence.

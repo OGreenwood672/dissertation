@@ -59,7 +59,7 @@ For this RL project, all threads require synchronisation at every simulation tim
 To justify developing the simulation in Rust rather than Python, whilst evaluating C1, a simple mock simulation was developed in Python.
 This mock simulation was compared to the vectorised Rust backend.
 Environment steps per second (SPS) were calculated to analyse the throughput of each simulation.
-Number of worlds parallised was scaled ($W \in {2^0, 2^1, ..., 2^{12}}$) to measure concurrency efficiency.
+Number of worlds parallelised was scaled ($W \in {2^0, 2^1, ..., 2^{12}}$) to measure concurrency efficiency.
 
 \begin{figure}[htbp]
     \centering
@@ -76,7 +76,7 @@ Throughput scales with the number of worlds parallelised, reaching $228,844$ SPS
 By using Rust's native \lstinline[language=Rust]|Rayon| threading, the sequential fraction of the program is minimised per Amdahl's Law \cite{amdahl}, allowing near-perfect scaling that saturates the CPU cores.
 
 For the evaluation, $960$ worlds were parallelised across a single rollout phase.
-This maximised the parallisation whilst also collecting an apt amount of datapoints for the update phase ($960 \times 30 \times 2 = 57,600$).
+This maximised the parallelisation whilst also collecting an apt amount of datapoints for the update phase ($960 \times 30 \textit{(simulation steps per rollout)} \times 2 \textit{(number of agents)} = 57,600$).
 
 \subsection{Rollout Buffer Efficiency}
 \label{sec:4.2.2}
@@ -84,7 +84,7 @@ This maximised the parallisation whilst also collecting an apt amount of datapoi
 A secondary major potential bottleneck is transferring the results of the rollout phase to the training phase (across the CPU-GPU boundary).
 To evaluate the \lstinline[language=Python]|RolloutBuffer|, the memory allocation and transfer overhead are compared to a baseline method (appending to Python lists and executing \lstinline[language=Python]|torch.stack| after the rollout phase).
 
-\begin{table}[h]
+\begin{table}[ht]
     \centering
     \begin{tabular}{|l|c|c|c|}
     \hline
@@ -275,7 +275,7 @@ However, for this evaluation, 30,000 steps are sufficient, as the core research 
 \section{Information-Theoretic \& Linguistic Properties}
 \label{sec:4.4}
 
-Sections \ref{sec:4.4} - \ref{sec:4.5} provide the deeper evaluation required by C4.
+Sections \ref{sec:4.4} - \ref{sec:4.6} provide the deeper evaluation required by C4.
 
 \subsection{Spontaneous Semantic Compression}
 \label{sec:4.4.1}
@@ -308,7 +308,7 @@ To further understand the agent's use of language, the frequency of each code is
 \end{figure}
 
 From Figure \ref{fig:vocab-frequency}, the distribution exhibits a strong skew, giving a low entropy score of 2.98 and a high Gini coefficient of 0.78.
-When visualising this empirical distribution with a rank-frequency plot (Figure \ref{fig:rank-frequency-zipf}), it demonstrates exponential decay resembling Zipf's Law \cite{zipf}, especially for the first 15 codes.
+When visualising this empirical distribution with a rank-frequency plot (Figure \ref{fig:rank-frequency-zipf}), it demonstrates exponential decay resembling Zipf's Law \cite{zipf}, especially for the first 23 codes.
 
 \begin{figure}[htbp]
     \centering
@@ -435,7 +435,7 @@ These results are consistent with context-dependent signalling.
 
 To determine the individual effects of the frozen encoder and the reflection strategies, two ablation studies were performed.
 
-\begin{figure}[h]
+\begin{figure}[ht]
     \centering
 
     \begin{subfigure}{0.49\textwidth}
@@ -593,7 +593,7 @@ The unit direction of the agents' own target and others' targets, decoded from t
 In addition, WhisperWise agents continued to exhibit low-entropy communication, similar to that in the base task (see Appendix \ref{sec:discrete-res} for further results).
 
 
-\textbf{Limitations of Evaluation}
+\section{Limitations of Evaluation}
 \label{sec:4.9}
 
 Whilst the empirical evaluations presented in this chapter demonstrate statistically significant performance gains for the WhisperWise protocol, it is necessary to contextualise these findings within the physical compute constraints.
@@ -601,7 +601,12 @@ In Deep Reinforcement Learning, multi-agent policies are highly sensitive to ini
 Even though the simulation was optimised, the computational overhead could exceed 17 hours of continuous GPU time (NVIDIA RTX 5060 Ti) per complete training run.
 As a result, the sample size for training runs was limited to three random seeds per protocol.
 
-To mitigate this constraint and ensure the reliability of performance metrics within those runs, variance was extensively tested by evaluating policies across 960 randomised parallel environments at every simulation step.
+To compensate for this limitation, variance within each run was rigorously assessed by evaluating policies across 960 randomised parallel environments at every simulation step.
+This large-scale evaluation substantially reduces the impact of environmental stochasticity and provides a robust estimate of expected performance.
+This mirrors common RL practice of using many parallel environments for low-variance evaluations within fixed computational budgets \cite{MAPPO}.
+
+Notably, the performance gap between WhisperWise and AI Mother Tongue was sufficiently large that their 95\% confidence intervals did not overlap.
+
 Therefore, whilst these results provide compelling evidence of WhisperWise's effectiveness, they should be interpreted as strong proof of concept.
 % \section{Linguistic Analysis of WhisperWise}
 % \label{sec:4.10}
@@ -631,8 +636,8 @@ Therefore, whilst these results provide compelling evidence of WhisperWise's eff
 
 \paragraph{C1 - High-Throughput Environment}
 C1 required a configurable, vectorised Rust environment with Python bindings, achieving at least 50K environment steps per second and supporting real-time visualisations.
-Section \ref{sec:3.4} detailed how this was implemented.
-The final system reached over 200K environment steps per second on my hardware, as shown in section \ref{sec:4.2.1}.
+Section \ref{sec:3.2} detailed how this was implemented.
+The final system reached over 200K environment steps per second on my hardware, as shown in Section \ref{sec:4.2.1}.
 C1 was fully achieved.
 
 \paragraph{C2 - MARL Framework}

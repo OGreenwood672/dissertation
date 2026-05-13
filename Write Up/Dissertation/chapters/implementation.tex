@@ -707,7 +707,7 @@ To simulate communication, we send the agent's current nearest target location i
 
 The world is broken into K discrete areas.
 K is chosen such that the world is discretised into no more spatial bins than there are codes in the vocabulary, to balance two effects: avoiding unrealistically precise target locations that the communication channel cannot represent, whilst still providing sufficiently precise spatial information.
-Each area is assigned a unique ID, $\text{unique\_id} = \text{world\_width} \times y + x$, where $x$ and $y$ are the discrete column and row indices.
+Each area is assigned a unique ID, $\text{unique\_id} = y \times \text{world\_width} + x$, where $x$ and $y$ are the discrete column and row indices.
 A lookup in the codebook using \lstinline[language=Python]|unique_id| is done, and the result is injected into the communication channels during training.
 
 The actor outputs action logits, and cross-entropy is calculated for the loss function:

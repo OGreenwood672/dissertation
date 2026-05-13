@@ -26,6 +26,7 @@ environment.cp310-win_amd64.pyd
 
 *.csv
 
+*.coverage
+
 
 *.zip
-# .ipynb

@@ -65,8 +65,8 @@ I am content for my report to be made available to the students and staff of the
                             \\ & \bf in Multi-Agent Reinforcement Learning
                             \\ & \bf for Complex Tasks \\
 	  Examination:        & \bf Computer Science Tripos -- Part II, 2026 \\
-	  Word Count:         & 11,908\footnotemark[1]                        \\
-	  Code Line Count:    & 13,567\footnotemark[2]                         \\
+	  Word Count:         & 11,954\footnotemark[1]                        \\
+	  Code Line Count:    & 13,722\footnotemark[2]                         \\
 	  Project Originator: & The Candidate         \\
 	  Project Supervisor: & Ian Lewis                 \\
   \end{tabular}
@@ -80,10 +80,9 @@ I am content for my report to be made available to the students and staff of the
 % The aim of this project is to evaluate whether the AI Mother Tongue architecture can enable emergent discrete communication in complex multi-agent POMDPs when scaled to high-throughput MAPPO with VAE extensions (SQ-VAE, HQ-VAE), relative to no-communication and fixed discrete communication baselines.
 % The project aims to design a general multi-agent reinforcement learning framework to evaluate several communication protocols (including AI Mother Tongue) in an assembly-line-style environment with asymmetric information, using metrics such as task reward and the semantic meaning of messages.
 
-The aim of this project was to determine whether agents can develop their own language to effectively communicate to solve cooperative tasks.
-The project aimed to compare a specific architecture (AI Mother Tongue) against baseline scenarios where agents cannot communicate or use a basic, fixed communication system.
-Success was measured by how well the agents completed their tasks and whther their generated messages carried understandable, contextuale meaning.
-
+The aim of this project was to determine whether agents can develop their own language to communicate effectively and solve cooperative tasks.
+The project aimed to compare a specific architecture (AI Mother Tongue) with baseline scenarios in which agents cannot communicate or use a basic, fixed communication system.
+Success was measured by how well the agents completed their tasks and whether their generated messages carried understandable, contextual meaning.
 \section*{Work Completed}
 
 % A configurable vectorised, high-throughput MARL environment modelling an assembly-line style environment was implemented, together with a lightweight real-time visualiser.
@@ -92,7 +91,7 @@ Success was measured by how well the agents completed their tasks and whther the
 % Four communication protocols were engineered: no communication, on-policy discrete communication, WhisperWise (on-policy discrete communication with reflection strategies), and AI Mother Tongue using a pretrained VQ-VAE, and others (SQ-VAE, HQ-VAE) were experimented with.
 % A quantitative evaluation of system throughput, learning performance and emergent communication.
 
-A scalable simulation and multi-agent reinforcement learning controller were successfully built to evaluate four communication strategies.
+A scalable simulation and multi-agent reinforcement learning controller were built to evaluate four communication strategies.
 Evaluations revealed that agents developed compressed, context-aware languages.
 However, whilst the AI Mother Tongue architecture enabled meaningful communication, its structural bottleneck impeded the agents' learning process.
 In contrast, a novel protocol, WhisperWise, outperformed AI Mother Tongue by $\sim 40\%$ on the basic task and scaled to more demanding tasks with fewer training steps than AI Mother Tongue.
