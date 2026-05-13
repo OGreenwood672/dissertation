@@ -1,7 +1,7 @@
 \label{sec:1}
 
-Since Google DeepMind released AlphaGo in 2016 \cite{GoogleGo}, there has been a steady increase in interest in the field of reinforcement learning \cite{Overview}.
-This has led to breakthroughs in finance, trading, robotics, and even video games.
+% Since Google DeepMind released AlphaGo in 2016 \cite{GoogleGo}, there has been a steady increase in interest in the field of reinforcement learning \cite{Overview}.
+Since DeepMind's AlphaGo in 2016 \cite{GoogleGo}, interest in reinforcement learning has steadily increased \cite{Overview}, leading to breakthroughs in finance, trading, robotics, and even video games.
 A clear next step for reinforcement learning is multi-agent reinforcement learning, in which multiple agents are placed in the same environment and must learn to interact efficiently with one another.
 This research has the potential to improve surgery robots, traffic optimisations and search-and-rescue operations.
 
@@ -13,10 +13,10 @@ Traditionally, communication is facilitated through every agent broadcasting raw
 While this is perfect for backpropagation, it scales poorly due to limited bandwidth between agents and is difficult for humans to interpret.
 
 Replacing these continuous communication vectors with discrete tokens is highly desirable for both bandwidth and interoperability.
-However, learning a discrete language on-policy suffers from the "Joint Exploration Problem" \cite{Biases}, where agents get stuck in a local optimum because they learn to completely ignore the communication channel, which initially consists solely of noise.
-This local optimum is named the "Communication Vacuum Equilibrium" \cite{Biases}.
+However, learning a discrete language on-policy suffers from the ``Joint Exploration Problem'' \cite{Biases}, in which agents get stuck in a local optimum by learning to completely ignore the communication channel, which initially consists solely of noise.
+This local optimum is named the ``Communication Vacuum Equilibrium'' \cite{Biases}.
 
-This dissertation focuses on the paper "AI Mother Tongue: Self-Emergent Communication in MARL via Endogenous Symbol Systems" \cite{AIMotherTongue}.
+This dissertation focuses on the paper ``AI Mother Tongue: Self-Emergent Communication in MARL via Endogenous Symbol Systems'' \cite{AIMotherTongue}.
 In this paper, Liu \cite{AIMotherTongue} proposes abandoning learning this discrete language during the reinforcement learning phase of training.
 Instead, they propose using a pre-trained discrete language model acting as a semantic bottleneck.
 
@@ -42,12 +42,12 @@ The main contributions in this project are:
 \textbf{A configurable high-throughput multi-agent reinforcement learning (MARL) environment} - a vectorised, Rust-based simulation was implemented that simulates a discrete two-dimensional environment, supporting hundreds of parallel worlds and a real-time, lightweight visualisation.
 
 \textbf{A MAPPO algorithm with hot-swappable communication protocols} - a MAPPO-based MARL training script under a centralised training, decentralised execution framework was engineered.
-It used a shared actor, a global critic, an Long Short-Term Memory (LSTM) module, a custom rollout buffer for efficient storage and Generalised Advantage Estimation (GAE) calculations, and a communication protocol interface to allow hot-swapping of protocols.
+It used a shared actor, a global critic, a Long Short-Term Memory (LSTM) module, a custom rollout buffer for efficient storage and Generalised Advantage Estimation (GAE) calculations, and a communication protocol interface to allow hot-swapping of protocols.
 
 \textbf{The AI Mother Tongue architecture} - a communication protocol that follows and extends the AI Mother Tongue architecture \cite{AIMotherTongue} was built.
-Pretrained VQ-VAE or stochastic (SQ-VAE) and hierarchal (HQ-VAE) variants were injected into the actor network and frozen before MARL training.
+Pretrained VQ-VAE or stochastic (SQ-VAE) and hierarchical (HQ-VAE) variants were injected into the actor network and frozen before MARL training.
 
-\textbf{The WhisperWise Protocol} - a communication protocol that uses reflection strategies to teach agents how to use the communication channels, overcoming the "Joint Exploration Problem" \cite{Biases}.
+\textbf{The WhisperWise Protocol} - a communication protocol that uses reflection strategies to teach agents how to use the communication channels, overcoming the ``Joint Exploration Problem'' \cite{Biases}.
 
 \textbf{Quantitative evaluation of communication protocols} - communication protocols, including AI Mother Tongue, Discrete Communication and No Communication, were evaluated using metrics such as task reward.
 

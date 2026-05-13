@@ -1,83 +1,52 @@
-\begin{longtable}{|p{2.5cm}|p{5cm}|p{7.5cm}|}
-    \hline
-    \textbf{Abbreviation} & \textbf{Stands For} & \textbf{Meaning} \\
-    \hline
-    \endfirsthead
+{\small
+\vspace{-10pt}
 
-    \hline
-    \textbf{Abbreviation} & \textbf{Stands For} & \textbf{Meaning} \\
-    \hline
-    \endhead
+\subsubsection*{Core Reinforcement Learning Concepts}
+\begin{description}[labelwidth=2.5cm, leftmargin=3cm, style=multiline, noitemsep, topsep=0pt]
+    \item[RL] \textit{Reinforcement Learning}: A machine learning paradigm where agents learn to make sequential decisions by taking actions in an environment to maximise cumulative reward.
+    \item[MARL] \textit{Multi-Agent Reinforcement Learning}: A subfield involving multiple agents situated in a shared environment, learning to maximise rewards through interaction. \cite{Overview, SurveyofMARL}
+    \item[MDP] \textit{Markov Decision Process}: A mathematical framework for modelling decision making in situations where outcomes are partly random and partly under the control of a decision maker.
+    \item[POMDP] \textit{Partially Observable Markov Decision Process}: An extension of an MDP where the agent cannot directly observe the underlying state of the environment, requiring inference or communication. \cite{POMDP-COM}
+    \item[Dec-POMDP] \textit{Decentralised Partially Observable MDP}: A cooperative game framework where multiple agents act on the same state, receive individual local observations, and share a common reward signal. \cite{dec-pomdp}
+    \item[CTDE] \textit{Centralised Training Decentralised Execution}: A MARL paradigm where agents are trained using a centralised critic with access to global state information, but act independently during execution.
+\end{description}
 
-    \hline
-    \endfoot
+\vspace{-5pt}
+\subsubsection*{Reinforcement Learning Algorithms \& Mechanisms}
+\begin{description}[labelwidth=2.5cm, leftmargin=2.7cm, style=multiline, noitemsep, topsep=0pt]
+    \item[VDN] \textit{Value-Decomposition Networks}: A MARL architecture that assumes the joint action-value function can be additively decomposed into individual agents' value functions. \cite{VDN}
+    \item[TRPO] \textit{Trust Region Policy Optimisation}: A predecessor to PPO that updates policies by taking a step that improves performance while maintaining a strict region of trust. \cite{TRPO}
+    \item[PPO] \textit{Proximal Policy Optimisation}: A policy gradient method that utilises a clipped surrogate objective function to ensure stable and conservative policy updates. \cite{PPO, ppo_bestpractices}
+    \item[MAPPO] \textit{Multi-Agent PPO}: An extension of PPO tailored for multi-agent settings, utilising a shared actor and a centralised critic to mitigate non-stationarity. \cite{MAPPO}
+    \item[MADDPG] \textit{Multi-Agent Deep Deterministic Policy Gradient}: An off-policy actor-critic algorithm for MARL, noted as unsuitable for emergent communication due to semantic shifts. \cite{MADDPG}
+    \item[GAE] \textit{Generalised Advantage Estimation}: An algorithm used to calculate the advantage function, balancing the bias-variance trade-off by exponentially discounting future TD errors. \cite{formal-gae, gae_normalisation}
+\end{description}
 
-    \hline
-    \endlastfoot
+\vspace{-5pt}
+\subsubsection*{Autoencoders \& Latent Representation Models}
+\begin{description}[labelwidth=2.5cm, leftmargin=2.6cm, style=multiline, noitemsep, topsep=0pt]
+    \item[VAE] \textit{Variational Autoencoder}: A generative model architecture consisting of an encoder and a decoder, used to learn compressed, latent representations of data.
+    \item[VQ-VAE] \textit{Vector-Quantised VAE}: An autoencoder that maps continuous latent vectors to the nearest discrete symbol in a learned finite codebook, acting as a semantic bottleneck. \cite{VQVAE}
+    \item[SQ-VAE] \textit{Stochastically-Quantised VAE}: A VAE variant using a variational Bayes framework that applies a categorical probability distribution over the codebook to mitigate collapse. \cite{SQVAE}
+    \item[vMF SQ-VAE] \textit{von Mises-Fisher SQ-VAE}: An extension of SQ-VAE that utilises cosine similarity and normalises embeddings onto a unit sphere. \cite{SQVAE, semantic-direction}
+    \item[HQ-VAE] \textit{Hierarchically-Quantised VAE}: A VAE variant that splits representations into hierarchical levels to capture macro-level and micro-level strategies. \cite{HQVAE}
+\end{description}
 
-    \multicolumn{3}{|c|}{\textbf{Core Reinforcement Learning Concepts}} \\
-    \hline
-    RL & Reinforcement Learning & A machine learning paradigm where agents learn to make sequential decisions by taking actions in an environment to maximise cumulative reward. \\
-    \hline
-    MARL & Multi-Agent Reinforcement Learning & A subfield of reinforcement learning involving multiple agents situated in a shared environment, learning to maximise rewards through interaction. \cite{Overview, SurveyofMARL} \\
-    \hline
-    MDP & Markov Decision Process & A mathematical framework for modelling decision making in situations where outcomes are partly random and partly under the control of a decision maker. \\
-    \hline
-    POMDP & Partially Observable Markov Decision Process & An extension of an MDP where the agent cannot directly observe the underlying state of the environment, requiring inference or communication. \cite{POMDP-COM} \\
-    \hline
-    Dec-POMDP & Decentralised Partially Observable Markov Decision Process & A cooperative game framework where multiple agents act on the same state, receive individual local observations, and share a common reward signal. \\
-    \hline
-    CTDE & Centralised Training Decentralised Execution & A MARL paradigm where agents are trained using a centralised critic with access to global state information, but act independently using only local observations during execution. \\
-    \hline
+\vspace{-5pt}
+\subsubsection*{Multi-Agent Communication Protocols}
+\begin{description}[labelwidth=2.5cm, leftmargin=2.7cm, style=multiline, noitemsep, topsep=0pt]
+    \item[DIAL] \textit{Differentiable Inter-Agent Learning}: A foundational multi-agent communication protocol that enables continuous gradient flow between agents during training. \cite{dial-rial}
+    \item[TarMAC] \textit{Targeted Multi-Agent Communication}: A framework that employs attention mechanisms to determine which agents to send continuous message vectors to. \cite{tarmac}
+\end{description}
 
-    \multicolumn{3}{|c|}{\textbf{Reinforcement Learning Algorithms \& Mechanisms}} \\
-    \hline
-    VDN & Value-Decomposition Networks & A MARL architecture that assumes the joint action-value function can be additively decomposed into individual agents' value functions. \cite{VDN} \\
-    \hline
-    TRPO & Trust Region Policy Optimisation & A predecessor to PPO that updates policies by taking a step that improves performance while maintaining a strict region of trust. \cite{TRPO} \\
-    \hline
-    PPO & Proximal Policy Optimisation & A policy gradient method for reinforcement learning that utilises a clipped surrogate objective function to ensure stable and conservative policy updates. \cite{PPO, ppo_bestpractices} \\
-    \hline
-    MAPPO & Multi-Agent Proximal Policy Optimisation & An extension of PPO tailored for multi-agent settings, utilising a shared actor and a centralised critic to mitigate non-stationarity and credit assignment problems. \cite{MAPPO} \\
-    \hline
-    MADDPG & Multi-Agent Deep Deterministic Policy Gradient & An off-policy actor-critic algorithm for MARL, noted in the text as unsuitable for emergent communication due to semantic shifts during training. \cite{MADDPG} \\
-    \hline
-    GAE & Generalised Advantage Estimation & An algorithm used to calculate the advantage function in reinforcement learning, balancing the bias-variance trade-off by exponentially discounting future temporal difference errors. \cite{GAE, gae_normalisation} \\
-    \hline
-
-    \multicolumn{3}{|c|}{\textbf{Autoencoders \& Latent Representation Models}} \\
-    \hline
-    VAE & Variational Autoencoder & A generative model architecture consisting of an encoder and a decoder, used to learn compressed, latent representations of data. \\
-    \hline
-    VQ-VAE & Vector-Quantised Variational Autoencoder & An autoencoder that maps continuous latent vectors to the nearest discrete symbol in a learned finite codebook, acting as a semantic bottleneck. \cite{VQVAE} \\
-    \hline
-    SQ-VAE & Stochastically-Quantised Variational Autoencoder & A VAE variant using a variational Bayes framework that applies a categorical probability distribution over the codebook to mitigate codebook collapse. \cite{SQVAE} \\
-    \hline
-    vMF SQ-VAE & von Mises-Fisher Stochastically-Quantised Variational Autoencoder & An extension of SQ-VAE that utilises cosine similarity and normalizes embeddings onto a unit sphere, better suited for semantic feature representation. \cite{SQVAE, semantic-direction} \\
-    \hline
-    HQ-VAE & Hierarchically-Quantised Variational Autoencoder & A VAE variant that splits representations into hierarchical levels to capture macro-level and micro-level strategies, reducing computational burden. \cite{HQVAE} \\
-    \hline
-
-    \multicolumn{3}{|c|}{\textbf{Multi-Agent Communication Protocols}} \\
-    \hline
-    DIAL & Differentiable Inter-Agent Learning & A foundational multi-agent communication protocol that enables continuous gradient flow between agents during training. \cite{dial-rial} \\
-    \hline
-    TarMAC & Targeted Multi-Agent Communication & A multi-agent communication framework that employs attention mechanisms to determine which agents to send continuous message vectors to. \cite{tarmac} \\
-    \hline
-
-    \multicolumn{3}{|c|}{\textbf{Neural Networks \& Mathematical Components}} \\
-    \hline
-    MLP & Multi-Layer Perceptron & A foundational feedforward artificial neural network architecture used to process inputs in actor and critic networks. \\
-    \hline
-    LSTM & Long Short-Term Memory & A type of recurrent neural network module used to process sequences of data, enabling agents to retain allocentric and spatial memory of environments. \\
-    \hline
-    STE & Straight-Through Estimator & A mathematical technique used to bypass non-differentiable operations (like argmin) by copying gradients directly from output to input during backpropagation. \\
-    \hline
-    PCA & Principal Component Analysis & A dimensionality reduction technique used to project and visualise the latent language spaces and codebook embeddings. \\
-    \hline
-    MSE & Mean Squared Error & A standard loss function that measures the average squared difference between a network's predicted values and the actual target values. \\
-    \hline
-    BCE & Binary Cross-Entropy & A standard loss function used for binary classification or evaluating binary features during neural network training. \\
-    \hline
-
-\end{longtable}
+\vspace{-5pt}
+\subsubsection*{Neural Networks \& Mathematical Components}
+\begin{description}[labelwidth=2cm, leftmargin=2.2cm, style=multiline, noitemsep, topsep=0pt]
+    \item[MLP] \textit{Multi-Layer Perceptron}: A foundational feedforward artificial neural network architecture used to process inputs in actor and critic networks.
+    \item[LSTM] \textit{Long Short-Term Memory}: A type of recurrent neural network module used to process sequences of data, enabling agents to retain allocentric and spatial memory.
+    \item[STE] \textit{Straight-Through Estimator}: A mathematical technique to bypass non-differentiable operations (like argmin) by copying gradients directly from output to input during backpropagation.
+    \item[PCA] \textit{Principal Component Analysis}: A dimensionality reduction technique used to project and visualise the latent language spaces and codebook embeddings.
+    \item[MSE] \textit{Mean Squared Error}: A standard loss function that measures the average squared difference between a network's predicted values and the actual target values.
+    \item[BCE] \textit{Binary Cross-Entropy}: A standard loss function used for binary classification or evaluating binary features during neural network training.
+\end{description}
+}

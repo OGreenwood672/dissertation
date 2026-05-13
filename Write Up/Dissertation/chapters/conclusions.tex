@@ -3,8 +3,16 @@
 % Conclusions provide a clear and thorough summary, with interesting future work suggested.
 % Thoughtful personal reflection on the lessons learned.
 
-This dissertation investigated whether the AI Mother Tongue architecture can support emergent discrete communication in a complex multi-agent POMDP when combined with a high-throughput MAPPO training pipeline and introduced a simpler alternative - WhisperWise. 
-The results showed that whilst the AI Mother Tongue architecture establishes meaningful communication in simpler environments, it struggles to scale to more demanding tasks.
+% This dissertation investigated whether the AI Mother Tongue architecture can support emergent discrete communication in a complex multi-agent POMDP when combined with a high-throughput MAPPO training pipeline and introduced a simpler alternative - WhisperWise. 
+% The results showed that whilst the AI Mother Tongue architecture establishes meaningful communication in simpler environments, it struggles to scale to more demanding tasks.
+% In contrast, WhisperWise successfully scales to these complex environments, producing communication.
+
+
+Multi-agent reinforcement learning has potential in many real-world domains, such as robotic surgery, traffic optimisation, and search-and-rescue.
+To succeed in these partially observable environments, agents must learn to communicate effectively.
+However, replacing continuous communication with interpretable, discrete tokens introduces the ``Joint Exploration Problem''.
+This dissertation investigated whether the AI Mother Tongue architecture could overcome this hurdle within a complex MAPPO training pipeline.
+Whilst the architecture proved effective in simpler scenarios, it struggled to scale to more demanding tasks.
 In contrast, WhisperWise successfully scales to these complex environments, producing communication.
 
 \section{Work Completed}
@@ -30,42 +38,42 @@ Finally, the semantics of communication and memory were analysed.
 By collecting and visualising conditional distributions, such as the probability of a partner's target given a code and the probability of a partner's next action given a code, the dissertation examined whether the message correlates with goals or with the next action.
 This analysis showed the agent's communication carried interpretable meaning.
 
-Ultimately, the evaluation suggests that the AI Mother Tongue architecture successfully enables semantically meaningful discrete communication, outperforming both on-policy discrete and no-communication baselines by overcoming the Communication Vacuum Equilibrium in simple tasks.
-However, the evidence indicates the AI Mother Tongue architecture overcomplicates the solution to the "Joint Exploration Problem".
+Ultimately, the evaluation suggests that the AI Mother Tongue architecture enables semantically meaningful discrete communication, outperforming both on-policy discrete and no-communication baselines by overcoming the Communication Vacuum Equilibrium in simple tasks.
+However, the evidence indicates the AI Mother Tongue architecture overcomplicates the solution to the ``Joint Exploration Problem''.
 Consequently, this dissertation presents WhisperWise: a new, streamlined protocol that merges on-policy discrete communication with reflection strategies.
 For basic tasks, WhisperWise significantly outperforms the AI Mother Tongue architecture (reward mean per step improvement of $\sim 40\%$; see Section \ref{sec:4.8}) and achieves a steeper, more efficient semantic compression.
-WhisperWise performed better in the tested scaling task where AI Mother Tongue limited success.
-These results suggest that reflection strategies may account for more of the performance gain than the semantic bottleneck.
+WhisperWise performed better in the tested scaling task, where AI Mother Tongue had limited success.
+These results suggest that reflection strategies may account for a greater share of the performance gain than the semantic bottleneck.
 
 \section{Lessons Learned}
 \label{sec:5.2}
 
 I have learned the importance of logging and checkpointing; when running a program that takes over seventeen hours to complete, waiting until the end to find it overfitted hours ago is catastrophic without these systems in place.
 In terms of MARL communication, I learned that the complexity of an emergent language is fundamentally bounded by the environment that necessitates it.
-Agents will reliably find the most compressed, 'lazy' communication strategy that satisfies the reward function.
-% Maybe another lesson
-
-
-\section{Social and Ethical Considerations}
-\label{sec:5.3}
-
-Integrating these trained models into real-world settings carries social and ethical implications.
-A significant concern is the 'black box' nature of MARL communication, creating a trust deficit in applications.
-Specifically, relying on non-human-readable protocols in safety-critical domains risks serious failures if the system encounters unseen states.
+Agents will reliably find the most compressed, `lazy' communication strategy that satisfies the reward function.
+I also learned the ethical weight of the ``black box'' nature of MARL communication.
+Relying on non-human-readable protocols in safety-critical domains risks serious failures if the system encounters unseen states.
 The analysis tools produced take a step further towards AI transparency, reducing this trust deficit.
 
-In this project, data is generated from a built-in simulation, but for integration into real-world settings, real data must be used.
-For example, the expert agent would likely be human, triggering the application of strict data protection laws (such as GDPR \cite{gdpr}).
+
+% \section{Social and Ethical Considerations}
+% \label{sec:5.3}
+
+% Integrating these trained models into real-world settings carries social and ethical implications.
+% A significant concern is the 'black box' nature of MARL communication, creating a trust deficit in applications.
+% Specifically, relying on non-human-readable protocols in safety-critical domains risks serious failures if the system encounters unseen states.
+% The analysis tools produced take a step further towards AI transparency, reducing this trust deficit.
+
+% In this project, data is generated from a built-in simulation, but for integration into real-world settings, real data must be used.
+% For example, the expert agent would likely be human, triggering the application of strict data protection laws (such as GDPR \cite{gdpr}).
 
 
 \section{Future Work}
-\label{sec:5.4}
+\label{sec:5.3}
 
-This dissertation suggests several promising future directions.
-
-For communication, each agent's code is broadcast to all other agents.
+Each agent's code is broadcast to all other agents.
 For simulations with more than two agents, this will inevitably lead to agents listening to code that is not relevant to their policy.
-An improvement would be applying an attention mechanisms to determine which codes are sent to which agents, similar to TarMAC \cite{tarmac}.
+An improvement would be applying an attention mechanism to determine which codes are sent to which agents, similar to TarMAC \cite{tarmac}.
 This attention mechanism has another key potential use.
 When an agent observes the environment, they only see the closest visible entity.
 This could be improved by using an attention mechanism to select which visible entity to observe.
@@ -73,8 +81,12 @@ This could be improved by using an attention mechanism to select which visible e
 Another direction for improvement is to evaluate whether the established communication protocols can scale to highly complex, hierarchical environments (such as 50x50 grids with agents passing ingredients to one another).
 This would, in theory, push the HQ-VAE to establish macro- and micro-strategies (Appendix \ref{sec:hq-vae}).
 
-Finally, a third direction is to integrate WhisperWise into a real-world application.
+Finally, a third direction is to further research WhisperWise
+WhisperWise (as addressed in Section \ref{sec:4.9}) requires evaluation over a significantly larger range of random seeds ($\geq 30$).
+WhisperWise's next step is to be integrated into a real-world application.
+This transition necessitates a rigorous data protection framework.
+For example, the expert agent would likely be human, triggering the application of strict data protection laws (such as GDPR \cite{gdpr}).
 
-In conclusion, this work shows that the AI Mother Tongue architecture overcomplicates the solution to the "Joint Exploration Problem".
+In conclusion, this work shows that the AI Mother Tongue architecture overcomplicates the solution to the ``Joint Exploration Problem''.
 The reflection strategies teach agents to use the communication channel effectively, but the semantic bottleneck impedes their learning.
 This dissertation introduces WhisperWise, a scalable and elegant solution that takes a step closer to developing artificial agents that can coordinate effectively and transparently.

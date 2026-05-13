@@ -15,27 +15,7 @@ python -m venv .venv
 pip install -e .
 \end{verbatim}
 
-A set of eight configuration files are provided for customisability:
-
-\subsection*{Model Architecture}
-\texttt{actor.yaml} and \texttt{critic.yaml} define the neural network architectures used by the agents. These control layer structure, hidden sizes, and any recurrent components.
-
-\subsection*{Training Parameters}
-\texttt{training.yaml} specifies global training settings such as the number of epochs, dataset size, and checkpoint frequency.
-
-\texttt{mappo.yaml} contains MAPPO-specific hyperparameters including learning rates, clipping values, and optimisation details.
-
-\subsection*{Communication}
-\texttt{comms.yaml} determines the active communication protocol and its hyperparameters.
-
-For AIM-based protocols, \texttt{aim\_training.yaml} controls the pretraining process of the communication model.
-
-\subsection*{Environment}
-\texttt{simulation.yaml} defines the environment, including agent visibility, station behaviour, and other simulation-specific rules.
-
-\subsection*{Imitation Learning}
-\texttt{imitation.yaml} configures the pretraining process using an expert policy, allowing the actor and critic to initialise from a strong baseline before MARL training.
-
+A set of eight configuration files are provided for customisability.
 
 \section{Running the program}
 
@@ -65,7 +45,7 @@ New communication protocols can be added to the folder \texttt{controller/marl/c
 
 A large set of evaluation tools are provided to analyse communication between agents. This includes:
 
-\begin{itemize}
+\begin{itemize}[noitemsep, topsep=0pt]
     \item Discrete codebook usage
     \item Discrete codebook PCA
     \item Comparing training from multiple runs

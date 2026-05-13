@@ -1,0 +1,26 @@
+\label{sec:gae-code}
+
+\begin{algorithm}
+\caption{Compute Advantages and Returns using GAE.}
+\label{alg:gae}
+\begin{algorithmic}[1]
+\Procedure{GeneralisedAdvantageEstimation}{$V_{last}, \gamma, \lambda$}
+    \State \textbf{Input:} Last value $V_{last}$, discount factor $\gamma$, GAE parameter $\lambda$
+    \State \textbf{Initialise:} $gae \gets 0$
+    \State $T \gets \text{timesteps\_per\_run}$
+    
+    \For{$t = T-1$ \textbf{down to} $0$}
+        \State $r \gets R[t]$ \Comment{Reward at timestep $t$}
+        \State $v \gets V[t]$ \Comment{Value at timestep $t$ from critic}
+        
+        \State $\delta \gets r + \gamma V_{last} - v$ \Comment{Compute 1-step TD Error}
+        \State $gae \gets \delta + \gamma \lambda \cdot gae$ \Comment{Compute GAE advantage}
+        
+        \State $A[t] \gets gae$ \Comment{Store advantages}
+        \State $Returns[t] \gets gae + v$ \Comment{Store returns}
+        
+        \State $V_{last} \gets v$ \Comment{Update last value for the next iteration ($t-1$)}
+    \EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}

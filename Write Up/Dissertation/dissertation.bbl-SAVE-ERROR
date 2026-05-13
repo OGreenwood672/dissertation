@@ -337,32 +337,238 @@
       \verb https://arxiv.org/abs/2507.10566
       \endverb
     \endentry
-    \entry{REINFORCE}{article}{}
+    \entry{ppo_bestpractices}{misc}{}
       \name{author}{1}{}{%
-        {{hash=6cbc29ad7fd57ffdb9ed4728418fd988}{%
-           family={Williams},
-           familyi={W\bibinitperiod},
-           given={Ronald\bibnamedelima J.},
-           giveni={R\bibinitperiod\bibinitdelim J\bibinitperiod}}}%
+        {{hash=0bc0d67870cc68bbac4bdd9eb1a2161a}{%
+           family={{EmbersArc}},
+           familyi={E\bibinitperiod}}}%
       }
-      \strng{namehash}{6cbc29ad7fd57ffdb9ed4728418fd988}
-      \strng{fullhash}{6cbc29ad7fd57ffdb9ed4728418fd988}
-      \strng{bibnamehash}{6cbc29ad7fd57ffdb9ed4728418fd988}
-      \strng{authorbibnamehash}{6cbc29ad7fd57ffdb9ed4728418fd988}
-      \strng{authornamehash}{6cbc29ad7fd57ffdb9ed4728418fd988}
-      \strng{authorfullhash}{6cbc29ad7fd57ffdb9ed4728418fd988}
+      \strng{namehash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
+      \strng{fullhash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
+      \strng{bibnamehash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
+      \strng{authorbibnamehash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
+      \strng{authornamehash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
+      \strng{authorfullhash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
       \field{sortinit}{1}
       \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
-      \field{journaltitle}{Machine Learning}
-      \field{title}{Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning}
-      \field{volume}{8}
-      \field{year}{1992}
-      \field{pages}{229\bibrangedash 256}
-      \range{pages}{28}
-      \verb{doi}
-      \verb 10.1007/BF00992696
+      \field{howpublished}{\url{https://github.com/EmbersArc/PPO/blob/master/best-practices-ppo.md}}
+      \field{note}{PPO hyperparameter tuning guide}
+      \field{title}{Best Practices when training with PPO}
+      \field{year}{2017}
+    \endentry
+    \entry{benchmark-marl}{misc}{}
+      \name{author}{4}{}{%
+        {{hash=d0631db9b5ca2e6150a04082663ca08d}{%
+           family={Papoudakis},
+           familyi={P\bibinitperiod},
+           given={Georgios},
+           giveni={G\bibinitperiod}}}%
+        {{hash=f355421623a9ce0d54965817f05f6ad0}{%
+           family={Christianos},
+           familyi={C\bibinitperiod},
+           given={Filippos},
+           giveni={F\bibinitperiod}}}%
+        {{hash=c32fcecebc45af27f83fbcfea1c93b31}{%
+           family={Schäfer},
+           familyi={S\bibinitperiod},
+           given={Lukas},
+           giveni={L\bibinitperiod}}}%
+        {{hash=9da4f3f413d514d731efe34067976909}{%
+           family={Albrecht},
+           familyi={A\bibinitperiod},
+           given={Stefano\bibnamedelima V.},
+           giveni={S\bibinitperiod\bibinitdelim V\bibinitperiod}}}%
+      }
+      \strng{namehash}{f2473647f2bd5df0777ba1def078b0af}
+      \strng{fullhash}{fb48708063b34a78b84029004ce47bdb}
+      \strng{bibnamehash}{f2473647f2bd5df0777ba1def078b0af}
+      \strng{authorbibnamehash}{f2473647f2bd5df0777ba1def078b0af}
+      \strng{authornamehash}{f2473647f2bd5df0777ba1def078b0af}
+      \strng{authorfullhash}{fb48708063b34a78b84029004ce47bdb}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Benchmarking Multi-Agent Deep Reinforcement Learning Algorithms in Cooperative Tasks}
+      \field{year}{2020}
+      \verb{eprint}
+      \verb arXiv:2006.07869
+      \endverb
+    \endentry
+    \entry{VDN}{misc}{}
+      \name{author}{11}{}{%
+        {{hash=daf6cbed703aa44e31d950c3c2720056}{%
+           family={Sunehag},
+           familyi={S\bibinitperiod},
+           given={Peter},
+           giveni={P\bibinitperiod}}}%
+        {{hash=56f0d34650d75bc4863946b239695751}{%
+           family={Lever},
+           familyi={L\bibinitperiod},
+           given={Guy},
+           giveni={G\bibinitperiod}}}%
+        {{hash=670a5857297893dc153211fd8a8ec921}{%
+           family={Gruslys},
+           familyi={G\bibinitperiod},
+           given={Audrunas},
+           giveni={A\bibinitperiod}}}%
+        {{hash=2e540193e28e5b3aa63fef2e515c637b}{%
+           family={Czarnecki},
+           familyi={C\bibinitperiod},
+           given={Wojciech\bibnamedelima Marian},
+           giveni={W\bibinitperiod\bibinitdelim M\bibinitperiod}}}%
+        {{hash=997657b08786dc45aaef854249d8af31}{%
+           family={Zambaldi},
+           familyi={Z\bibinitperiod},
+           given={Vinicius},
+           giveni={V\bibinitperiod}}}%
+        {{hash=7dc1446dea7ff50b2b02fb83780cc9c6}{%
+           family={Jaderberg},
+           familyi={J\bibinitperiod},
+           given={Max},
+           giveni={M\bibinitperiod}}}%
+        {{hash=3075d0e02c0833f6e5fe1addb880898f}{%
+           family={Lanctot},
+           familyi={L\bibinitperiod},
+           given={Marc},
+           giveni={M\bibinitperiod}}}%
+        {{hash=6292996963ada78bbb98cbb8e5cc1651}{%
+           family={Sonnerat},
+           familyi={S\bibinitperiod},
+           given={Nicolas},
+           giveni={N\bibinitperiod}}}%
+        {{hash=698896c85bec4f93adca09e2a21cdf78}{%
+           family={Leibo},
+           familyi={L\bibinitperiod},
+           given={Joel\bibnamedelima Z.},
+           giveni={J\bibinitperiod\bibinitdelim Z\bibinitperiod}}}%
+        {{hash=abe873d21d37af0af9b6711c1efd9caa}{%
+           family={Tuyls},
+           familyi={T\bibinitperiod},
+           given={Karl},
+           giveni={K\bibinitperiod}}}%
+        {{hash=368b9b2de627b852658c433b062d4e1e}{%
+           family={Graepel},
+           familyi={G\bibinitperiod},
+           given={Thore},
+           giveni={T\bibinitperiod}}}%
+      }
+      \strng{namehash}{3aadb03dc863012ae319303e8682f1a2}
+      \strng{fullhash}{b50503a85cbb2a61de88a3b9cf5389a1}
+      \strng{bibnamehash}{3aadb03dc863012ae319303e8682f1a2}
+      \strng{authorbibnamehash}{3aadb03dc863012ae319303e8682f1a2}
+      \strng{authornamehash}{3aadb03dc863012ae319303e8682f1a2}
+      \strng{authorfullhash}{b50503a85cbb2a61de88a3b9cf5389a1}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Value-Decomposition Networks For Cooperative Multi-Agent Learning}
+      \field{year}{2017}
+      \verb{eprint}
+      \verb arXiv:1706.05296
+      \endverb
+    \endentry
+    \entry{QMIX}{misc}{}
+      \name{author}{6}{}{%
+        {{hash=8eb7df23daba9c7bf22402026effdae7}{%
+           family={Rashid},
+           familyi={R\bibinitperiod},
+           given={Tabish},
+           giveni={T\bibinitperiod}}}%
+        {{hash=c76172ee0c2ebda81796624b4a81ae54}{%
+           family={Samvelyan},
+           familyi={S\bibinitperiod},
+           given={Mikayel},
+           giveni={M\bibinitperiod}}}%
+        {{hash=d056cdb8ed6bebb55e13c2246059af79}{%
+           family={Witt},
+           familyi={W\bibinitperiod},
+           given={Christian\bibnamedelima Schroeder},
+           giveni={C\bibinitperiod\bibinitdelim S\bibinitperiod},
+           prefix={de},
+           prefixi={d\bibinitperiod}}}%
+        {{hash=de7fc27bb6e6105440cd3039a5c9b684}{%
+           family={Farquhar},
+           familyi={F\bibinitperiod},
+           given={Gregory},
+           giveni={G\bibinitperiod}}}%
+        {{hash=d62c75690ab7c754f6e7217a242a4318}{%
+           family={Foerster},
+           familyi={F\bibinitperiod},
+           given={Jakob},
+           giveni={J\bibinitperiod}}}%
+        {{hash=0d05819cf2b4fe22ba972c9b2b5d8c9d}{%
+           family={Whiteson},
+           familyi={W\bibinitperiod},
+           given={Shimon},
+           giveni={S\bibinitperiod}}}%
+      }
+      \strng{namehash}{50d98948d170d7e9f0685c5c2364a676}
+      \strng{fullhash}{d69266a177b46120cc1dbedeef7d4a43}
+      \strng{bibnamehash}{50d98948d170d7e9f0685c5c2364a676}
+      \strng{authorbibnamehash}{50d98948d170d7e9f0685c5c2364a676}
+      \strng{authornamehash}{50d98948d170d7e9f0685c5c2364a676}
+      \strng{authorfullhash}{d69266a177b46120cc1dbedeef7d4a43}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{QMIX: Monotonic Value Function Factorisation for Deep Multi-Agent Reinforcement Learning}
+      \field{year}{2018}
+      \verb{eprint}
+      \verb arXiv:1803.11485
+      \endverb
+    \endentry
+    \entry{MADDPG}{misc}{}
+      \name{author}{6}{}{%
+        {{hash=7be01fa6277ef22b804ff6cc54c87b72}{%
+           family={Lowe},
+           familyi={L\bibinitperiod},
+           given={Ryan},
+           giveni={R\bibinitperiod}}}%
+        {{hash=e2101a0f6a72a2fb022cd3e2d45461e1}{%
+           family={Wu},
+           familyi={W\bibinitperiod},
+           given={Yi},
+           giveni={Y\bibinitperiod}}}%
+        {{hash=41ea42ab7e09607e91466632ce419d8c}{%
+           family={Tamar},
+           familyi={T\bibinitperiod},
+           given={Aviv},
+           giveni={A\bibinitperiod}}}%
+        {{hash=5de1025172ba2cd90c9f04ae0ba17006}{%
+           family={Harb},
+           familyi={H\bibinitperiod},
+           given={Jean},
+           giveni={J\bibinitperiod}}}%
+        {{hash=e28d4ee199593959d8c29980a64f1974}{%
+           family={Abbeel},
+           familyi={A\bibinitperiod},
+           given={Pieter},
+           giveni={P\bibinitperiod}}}%
+        {{hash=7570e7c3fc2c13d59af4d7cdb9962a4d}{%
+           family={Mordatch},
+           familyi={M\bibinitperiod},
+           given={Igor},
+           giveni={I\bibinitperiod}}}%
+      }
+      \strng{namehash}{dde2b308cb02077d5b0dcf690cd4ea7e}
+      \strng{fullhash}{d649a4bfdfab1502cd7ae45ec8e10355}
+      \strng{bibnamehash}{dde2b308cb02077d5b0dcf690cd4ea7e}
+      \strng{authorbibnamehash}{dde2b308cb02077d5b0dcf690cd4ea7e}
+      \strng{authornamehash}{dde2b308cb02077d5b0dcf690cd4ea7e}
+      \strng{authorfullhash}{d649a4bfdfab1502cd7ae45ec8e10355}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Multi-Agent Actor-Critic for Mixed Cooperative-Competitive Environments}
+      \field{year}{2017}
+      \verb{eprint}
+      \verb arXiv:1706.02275
       \endverb
     \endentry
     \entry{MAPPO}{article}{}
@@ -394,8 +600,8 @@
       \strng{authorbibnamehash}{7f898c5c184f0d7c614c9d65e51c4625}
       \strng{authornamehash}{7f898c5c184f0d7c614c9d65e51c4625}
       \strng{authorfullhash}{630a32346e571f1cae493829c2cfad40}
-      \field{sortinit}{1}
-      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{journaltitle}{arXiv preprint arXiv:2301.08454}
@@ -437,8 +643,8 @@
       \strng{authornamehash}{8d6613ae59595910252a86a61babf6c8}
       \strng{authorfullhash}{a6c6ed5a5aeb74e536f16291276ae392}
       \field{extraname}{1}
-      \field{sortinit}{1}
-      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{title}{Proximal Policy Optimization Algorithms}
@@ -482,8 +688,8 @@
       \strng{authornamehash}{8d6613ae59595910252a86a61babf6c8}
       \strng{authorfullhash}{945251de1d41bc2767a541a8148f51da}
       \field{extraname}{2}
-      \field{sortinit}{1}
-      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{title}{Trust Region Policy Optimization}
@@ -491,6 +697,52 @@
       \verb{eprint}
       \verb arXiv:1502.05477
       \endverb
+    \endentry
+    \entry{CTDE}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=fa9a6826b3f1170680cb17b160340e97}{%
+           family={Amato},
+           familyi={A\bibinitperiod},
+           given={Christopher},
+           giveni={C\bibinitperiod}}}%
+      }
+      \strng{namehash}{fa9a6826b3f1170680cb17b160340e97}
+      \strng{fullhash}{fa9a6826b3f1170680cb17b160340e97}
+      \strng{bibnamehash}{fa9a6826b3f1170680cb17b160340e97}
+      \strng{authorbibnamehash}{fa9a6826b3f1170680cb17b160340e97}
+      \strng{authornamehash}{fa9a6826b3f1170680cb17b160340e97}
+      \strng{authorfullhash}{fa9a6826b3f1170680cb17b160340e97}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{An Introduction to Centralized Training for Decentralized Execution in Cooperative Multi-Agent Reinforcement Learning}
+      \field{year}{2024}
+      \verb{eprint}
+      \verb arXiv:2409.03052
+      \endverb
+    \endentry
+    \entry{ctde-mappo}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=7fc70d981d2d10e7aab71daa1ef326f8}{%
+           family={{EmergentMind}},
+           familyi={E\bibinitperiod}}}%
+      }
+      \strng{namehash}{7fc70d981d2d10e7aab71daa1ef326f8}
+      \strng{fullhash}{7fc70d981d2d10e7aab71daa1ef326f8}
+      \strng{bibnamehash}{7fc70d981d2d10e7aab71daa1ef326f8}
+      \strng{authorbibnamehash}{7fc70d981d2d10e7aab71daa1ef326f8}
+      \strng{authornamehash}{7fc70d981d2d10e7aab71daa1ef326f8}
+      \strng{authorfullhash}{7fc70d981d2d10e7aab71daa1ef326f8}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://www.emergentmind.com/topics/centralized-training-decentralized-execution-ctde-with-mappo}}
+      \field{month}{2}
+      \field{note}{Multi-agent RL architecture overview}
+      \field{title}{Centralized Training with Decentralized Execution (CTDE) with MAPPO}
+      \field{year}{2026}
     \endentry
     \entry{GAE}{misc}{}
       \name{author}{1}{}{%
@@ -506,12 +758,11 @@
       \strng{authorbibnamehash}{9427fc5f6be4f3d8b94572c17ad0d215}
       \strng{authornamehash}{9427fc5f6be4f3d8b94572c17ad0d215}
       \strng{authorfullhash}{9427fc5f6be4f3d8b94572c17ad0d215}
-      \field{sortinit}{1}
-      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{Medium}
-      \field{month}{3}
       \field{note}{Accessed: 2026-04-02}
       \field{title}{Generalized Advantage Estimation ({GAE}): A Deep Dive into Bias, Variance, and Policy Gradients}
       \field{year}{2025}
@@ -553,14 +804,111 @@
       \strng{authorbibnamehash}{0a48cf62fce206dbe57a8ece7fec7663}
       \strng{authornamehash}{0a48cf62fce206dbe57a8ece7fec7663}
       \strng{authorfullhash}{fbea321dd0c7e7663f70b578b6d7bdcb}
-      \field{sortinit}{1}
-      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{extraname}{1}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{title}{Learning to Communicate with Deep Multi-Agent Reinforcement Learning}
       \field{year}{2016}
       \verb{eprint}
       \verb arXiv:1605.06676
+      \endverb
+    \endentry
+    \entry{dial-rial}{misc}{}
+      \name{author}{4}{}{%
+        {{hash=d02e0768e79bc374c7db58661d344e29}{%
+           family={Foerster},
+           familyi={F\bibinitperiod},
+           given={Jakob\bibnamedelima N.},
+           giveni={J\bibinitperiod\bibinitdelim N\bibinitperiod}}}%
+        {{hash=03c898500b068faf930481c5f422126e}{%
+           family={Assael},
+           familyi={A\bibinitperiod},
+           given={Yannis\bibnamedelima M.},
+           giveni={Y\bibinitperiod\bibinitdelim M\bibinitperiod}}}%
+        {{hash=cf269f9a5106a41ad53847a68a27db1c}{%
+           family={Freitas},
+           familyi={F\bibinitperiod},
+           given={Nando},
+           giveni={N\bibinitperiod},
+           prefix={de},
+           prefixi={d\bibinitperiod}}}%
+        {{hash=0d05819cf2b4fe22ba972c9b2b5d8c9d}{%
+           family={Whiteson},
+           familyi={W\bibinitperiod},
+           given={Shimon},
+           giveni={S\bibinitperiod}}}%
+      }
+      \strng{namehash}{0a48cf62fce206dbe57a8ece7fec7663}
+      \strng{fullhash}{fbea321dd0c7e7663f70b578b6d7bdcb}
+      \strng{bibnamehash}{0a48cf62fce206dbe57a8ece7fec7663}
+      \strng{authorbibnamehash}{0a48cf62fce206dbe57a8ece7fec7663}
+      \strng{authornamehash}{0a48cf62fce206dbe57a8ece7fec7663}
+      \strng{authorfullhash}{fbea321dd0c7e7663f70b578b6d7bdcb}
+      \field{extraname}{2}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Learning to Communicate with Deep Multi-Agent Reinforcement Learning}
+      \field{year}{2016}
+      \verb{eprint}
+      \verb arXiv:1605.06676
+      \endverb
+    \endentry
+    \entry{tarmac}{misc}{}
+      \name{author}{7}{}{%
+        {{hash=95fdc805087b8b7c1bb60f09d4ee2641}{%
+           family={Das},
+           familyi={D\bibinitperiod},
+           given={Abhishek},
+           giveni={A\bibinitperiod}}}%
+        {{hash=429eaf3778dc2c96b539e81af28b0e34}{%
+           family={Gervet},
+           familyi={G\bibinitperiod},
+           given={Théophile},
+           giveni={T\bibinitperiod}}}%
+        {{hash=d1ff652c6fcfdc31237cf919d2845207}{%
+           family={Romoff},
+           familyi={R\bibinitperiod},
+           given={Joshua},
+           giveni={J\bibinitperiod}}}%
+        {{hash=d0a408119272ca1bd49b625e3b927d05}{%
+           family={Batra},
+           familyi={B\bibinitperiod},
+           given={Dhruv},
+           giveni={D\bibinitperiod}}}%
+        {{hash=d0ab7a4601951a0c59352f1dcb531afb}{%
+           family={Parikh},
+           familyi={P\bibinitperiod},
+           given={Devi},
+           giveni={D\bibinitperiod}}}%
+        {{hash=16922b89cdf492fe3becb64ab59c075a}{%
+           family={Rabbat},
+           familyi={R\bibinitperiod},
+           given={Michael},
+           giveni={M\bibinitperiod}}}%
+        {{hash=5b77dedc7f77ff84caad46064e6e3cbb}{%
+           family={Pineau},
+           familyi={P\bibinitperiod},
+           given={Joelle},
+           giveni={J\bibinitperiod}}}%
+      }
+      \strng{namehash}{5f94defeb842da5783d34a166677f56e}
+      \strng{fullhash}{ef119d8e9b9fca36ea534c11a2df7269}
+      \strng{bibnamehash}{5f94defeb842da5783d34a166677f56e}
+      \strng{authorbibnamehash}{5f94defeb842da5783d34a166677f56e}
+      \strng{authornamehash}{5f94defeb842da5783d34a166677f56e}
+      \strng{authorfullhash}{ef119d8e9b9fca36ea534c11a2df7269}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{TarMAC: Targeted Multi-Agent Communication}
+      \field{year}{2018}
+      \verb{eprint}
+      \verb arXiv:1810.11187
       \endverb
     \endentry
     \entry{DiscreteComms}{misc}{}
@@ -617,6 +965,67 @@
       \verb arXiv:2108.01828
       \endverb
     \endentry
+    \entry{belief}{misc}{}
+      \name{author}{2}{}{%
+        {{hash=8ee4af50cc5f19fb12b924001278eeb4}{%
+           family={Pritz},
+           familyi={P\bibinitperiod},
+           given={Paul\bibnamedelima J.},
+           giveni={P\bibinitperiod\bibinitdelim J\bibinitperiod}}}%
+        {{hash=5aa48ddf606faa8081c96eaf1efcfebb}{%
+           family={Leung},
+           familyi={L\bibinitperiod},
+           given={Kin\bibnamedelima K.},
+           giveni={K\bibinitperiod\bibinitdelim K\bibinitperiod}}}%
+      }
+      \strng{namehash}{21bfcec04770f7457ff356cc8db3fa8c}
+      \strng{fullhash}{21bfcec04770f7457ff356cc8db3fa8c}
+      \strng{bibnamehash}{21bfcec04770f7457ff356cc8db3fa8c}
+      \strng{authorbibnamehash}{21bfcec04770f7457ff356cc8db3fa8c}
+      \strng{authornamehash}{21bfcec04770f7457ff356cc8db3fa8c}
+      \strng{authorfullhash}{21bfcec04770f7457ff356cc8db3fa8c}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Belief States for Cooperative Multi-Agent Reinforcement Learning under Partial Observability}
+      \field{year}{2025}
+      \verb{eprint}
+      \verb arXiv:2504.08417
+      \endverb
+    \endentry
+    \entry{shannon}{article}{}
+      \name{author}{1}{}{%
+        {{hash=536c91678d1dde76c9acd47047556291}{%
+           family={Shannon},
+           familyi={S\bibinitperiod},
+           given={Claude\bibnamedelima E.},
+           giveni={C\bibinitperiod\bibinitdelim E\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Bell Labs}%
+      }
+      \strng{namehash}{536c91678d1dde76c9acd47047556291}
+      \strng{fullhash}{536c91678d1dde76c9acd47047556291}
+      \strng{bibnamehash}{536c91678d1dde76c9acd47047556291}
+      \strng{authorbibnamehash}{536c91678d1dde76c9acd47047556291}
+      \strng{authornamehash}{536c91678d1dde76c9acd47047556291}
+      \strng{authorfullhash}{536c91678d1dde76c9acd47047556291}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Bell System Technical Journal}
+      \field{number}{3}
+      \field{title}{A Mathematical Theory of Communication}
+      \field{volume}{27}
+      \field{year}{1948}
+      \field{pages}{379\bibrangedash 423\bibrangessep 623\bibrangedash 656}
+      \range{pages}{79}
+      \verb{doi}
+      \verb 10.1002/j.1538-7305.1948.tb01338.x
+      \endverb
+    \endentry
     \entry{VQVAE}{misc}{}
       \name{author}{3}{}{%
         {{hash=705a5ed355c190be3a39e0a5134d2ae5}{%
@@ -643,8 +1052,8 @@
       \strng{authorbibnamehash}{1f8f233c911e6ffbd85ce894897a4da5}
       \strng{authornamehash}{1f8f233c911e6ffbd85ce894897a4da5}
       \strng{authorfullhash}{1f8f233c911e6ffbd85ce894897a4da5}
-      \field{sortinit}{2}
-      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{title}{Neural Discrete Representation Learning}
@@ -713,8 +1122,8 @@
       \strng{authornamehash}{417ffe77692ed15bde413aa5fe01b589}
       \strng{authorfullhash}{9c0d55558e556420f9f06c853195b761}
       \field{extraname}{1}
-      \field{sortinit}{2}
-      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{title}{SQ-VAE: Variational Bayes on Discrete Representation with Self-annealed Stochastic Quantization}
@@ -788,8 +1197,8 @@
       \strng{authornamehash}{417ffe77692ed15bde413aa5fe01b589}
       \strng{authorfullhash}{e54cad8c8fd8b1ac561dc35c3489561c}
       \field{extraname}{2}
-      \field{sortinit}{2}
-      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{title}{HQ-VAE: Hierarchical Discrete Representation Learning with Variational Bayes}
@@ -813,8 +1222,8 @@
       \strng{authorbibnamehash}{c8387f903484673c0fda5ecbbc22b0ff}
       \strng{authornamehash}{c8387f903484673c0fda5ecbbc22b0ff}
       \strng{authorfullhash}{c8387f903484673c0fda5ecbbc22b0ff}
-      \field{sortinit}{2}
-      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{month}{3}
@@ -843,8 +1252,8 @@
       \strng{authorbibnamehash}{5d41e41313a1c6d48282954d2eae2421}
       \strng{authornamehash}{5d41e41313a1c6d48282954d2eae2421}
       \strng{authorfullhash}{5d41e41313a1c6d48282954d2eae2421}
-      \field{sortinit}{3}
-      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://numpy.org}}
@@ -865,8 +1274,8 @@
       \strng{authorbibnamehash}{faa990629dc58447c60cc78cb906e01c}
       \strng{authornamehash}{faa990629dc58447c60cc78cb906e01c}
       \strng{authorfullhash}{faa990629dc58447c60cc78cb906e01c}
-      \field{sortinit}{3}
-      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://pandas.pydata.org}}
@@ -887,8 +1296,8 @@
       \strng{authorbibnamehash}{301c29e920e5ae91a271c9dd0eec3c9a}
       \strng{authornamehash}{301c29e920e5ae91a271c9dd0eec3c9a}
       \strng{authorfullhash}{301c29e920e5ae91a271c9dd0eec3c9a}
-      \field{sortinit}{3}
-      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://matplotlib.org}}
@@ -908,8 +1317,8 @@
       \strng{authorbibnamehash}{96934f5d192f20a14d4a3a37b394a7fb}
       \strng{authornamehash}{96934f5d192f20a14d4a3a37b394a7fb}
       \strng{authorfullhash}{96934f5d192f20a14d4a3a37b394a7fb}
-      \field{sortinit}{3}
-      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://jupyter.org}}
@@ -929,8 +1338,8 @@
       \strng{authorbibnamehash}{20934bb6b6fc16457bce17b3d0b7bace}
       \strng{authornamehash}{20934bb6b6fc16457bce17b3d0b7bace}
       \strng{authorfullhash}{20934bb6b6fc16457bce17b3d0b7bace}
-      \field{sortinit}{3}
-      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://pytorch.org}}
@@ -951,8 +1360,8 @@
       \strng{authornamehash}{c7b5508dc5e59a2846d22617276cc27c}
       \strng{authorfullhash}{c7b5508dc5e59a2846d22617276cc27c}
       \field{extraname}{1}
-      \field{sortinit}{3}
-      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
+      \field{sortinit}{4}
+      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://wiki.python.org/moin/GlobalInterpreterLock}}
@@ -961,142 +1370,6 @@
       \field{urlmonth}{4}
       \field{urlyear}{2026}
       \field{urldateera}{ce}
-    \endentry
-    \entry{github}{misc}{}
-      \name{author}{1}{}{%
-        {{hash=9b127eb47f59d27ace73783046da8889}{%
-           family={{GitHub, Inc.}},
-           familyi={G\bibinitperiod}}}%
-      }
-      \strng{namehash}{9b127eb47f59d27ace73783046da8889}
-      \strng{fullhash}{9b127eb47f59d27ace73783046da8889}
-      \strng{bibnamehash}{9b127eb47f59d27ace73783046da8889}
-      \strng{authorbibnamehash}{9b127eb47f59d27ace73783046da8889}
-      \strng{authornamehash}{9b127eb47f59d27ace73783046da8889}
-      \strng{authorfullhash}{9b127eb47f59d27ace73783046da8889}
-      \field{sortinit}{3}
-      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
-      \field{labelnamesource}{author}
-      \field{labeltitlesource}{title}
-      \field{howpublished}{\url{https://github.com}}
-      \field{note}{Accessed: 2026-04-18}
-      \field{title}{GitHub}
-      \field{year}{2026}
-    \endentry
-    \entry{pyo3_github}{misc}{}
-      \name{author}{1}{}{%
-        {{hash=5ea1e813dbb2b7b179db1abad4bec8b0}{%
-           family={Project},
-           familyi={P\bibinitperiod},
-           given={{PyO3}},
-           giveni={P\bibinitperiod}}}%
-      }
-      \strng{namehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{fullhash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{bibnamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{authorbibnamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{authornamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{authorfullhash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \field{extraname}{1}
-      \field{sortinit}{3}
-      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
-      \field{labelnamesource}{author}
-      \field{labeltitlesource}{title}
-      \field{howpublished}{\url{https://github.com/PyO3/pyo3}}
-      \field{title}{PyO3 - Rust bindings for the Python interpreter}
-      \field{urlday}{10}
-      \field{urlmonth}{4}
-      \field{urlyear}{2026}
-      \field{year}{2017}
-      \field{urldateera}{ce}
-    \endentry
-    \entry{setuptoolsrust_pypi}{misc}{}
-      \name{author}{1}{}{%
-        {{hash=5ea1e813dbb2b7b179db1abad4bec8b0}{%
-           family={Project},
-           familyi={P\bibinitperiod},
-           given={{PyO3}},
-           giveni={P\bibinitperiod}}}%
-      }
-      \strng{namehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{fullhash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{bibnamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{authorbibnamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{authornamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \strng{authorfullhash}{5ea1e813dbb2b7b179db1abad4bec8b0}
-      \field{extraname}{2}
-      \field{sortinit}{4}
-      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
-      \field{labelnamesource}{author}
-      \field{labeltitlesource}{title}
-      \field{howpublished}{\url{https://pypi.org/project/setuptools-rust/}}
-      \field{title}{setuptools-rust}
-      \field{urlday}{10}
-      \field{urlmonth}{4}
-      \field{urlyear}{2026}
-      \field{year}{2021}
-      \field{urldateera}{ce}
-    \endentry
-    \entry{refactoringguru_adapter}{online}{}
-      \name{author}{1}{}{%
-        {{hash=12f8baf1c20bec0e6f385c47c983b1f4}{%
-           family={Guru},
-           familyi={G\bibinitperiod},
-           given={Refactoring},
-           giveni={R\bibinitperiod}}}%
-      }
-      \list{organization}{1}{%
-        {Refactoring.Guru}%
-      }
-      \strng{namehash}{12f8baf1c20bec0e6f385c47c983b1f4}
-      \strng{fullhash}{12f8baf1c20bec0e6f385c47c983b1f4}
-      \strng{bibnamehash}{12f8baf1c20bec0e6f385c47c983b1f4}
-      \strng{authorbibnamehash}{12f8baf1c20bec0e6f385c47c983b1f4}
-      \strng{authornamehash}{12f8baf1c20bec0e6f385c47c983b1f4}
-      \strng{authorfullhash}{12f8baf1c20bec0e6f385c47c983b1f4}
-      \field{sortinit}{4}
-      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
-      \field{labelnamesource}{author}
-      \field{labeltitlesource}{title}
-      \field{title}{Adapter}
-      \field{urlday}{10}
-      \field{urlmonth}{4}
-      \field{urlyear}{2026}
-      \field{year}{2024}
-      \field{urldateera}{ce}
-      \verb{urlraw}
-      \verb https://refactoring.guru/design-patterns/adapter
-      \endverb
-      \verb{url}
-      \verb https://refactoring.guru/design-patterns/adapter
-      \endverb
-    \endentry
-    \entry{amdahl}{article}{}
-      \name{author}{1}{}{%
-        {{hash=9d4382f1500ff84c4eca531179c994c7}{%
-           family={Amdahl},
-           familyi={A\bibinitperiod},
-           given={Gene\bibnamedelima M},
-           giveni={G\bibinitperiod\bibinitdelim M\bibinitperiod}}}%
-      }
-      \list{publisher}{1}{%
-        {ACM}%
-      }
-      \strng{namehash}{9d4382f1500ff84c4eca531179c994c7}
-      \strng{fullhash}{9d4382f1500ff84c4eca531179c994c7}
-      \strng{bibnamehash}{9d4382f1500ff84c4eca531179c994c7}
-      \strng{authorbibnamehash}{9d4382f1500ff84c4eca531179c994c7}
-      \strng{authornamehash}{9d4382f1500ff84c4eca531179c994c7}
-      \strng{authorfullhash}{9d4382f1500ff84c4eca531179c994c7}
-      \field{sortinit}{4}
-      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
-      \field{labelnamesource}{author}
-      \field{labeltitlesource}{title}
-      \field{journaltitle}{Proceedings of the April 18--20, 1967, spring joint computer conference}
-      \field{title}{Validity of the single processor approach to achieving large scale computing capabilities}
-      \field{year}{1967}
-      \field{pages}{483\bibrangedash 485}
-      \range{pages}{3}
     \endentry
     \entry{rayon_rs}{misc}{}
       \name{author}{1}{}{%
@@ -1151,8 +1424,8 @@
       \strng{authorbibnamehash}{446ac9eabc82f4a220eccbfc6d225baa}
       \strng{authornamehash}{446ac9eabc82f4a220eccbfc6d225baa}
       \strng{authorfullhash}{446ac9eabc82f4a220eccbfc6d225baa}
-      \field{sortinit}{4}
-      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://p5js.org}}
@@ -1172,8 +1445,8 @@
       \strng{authorbibnamehash}{f386182c95bd1f3c679a3493d7e45617}
       \strng{authornamehash}{f386182c95bd1f3c679a3493d7e45617}
       \strng{authorfullhash}{f386182c95bd1f3c679a3493d7e45617}
-      \field{sortinit}{4}
-      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://tokio.rs}}
@@ -1193,13 +1466,170 @@
       \strng{authorbibnamehash}{9333ff7a23129f8cce2bec29f17d1ec4}
       \strng{authornamehash}{9333ff7a23129f8cce2bec29f17d1ec4}
       \strng{authorfullhash}{9333ff7a23129f8cce2bec29f17d1ec4}
-      \field{sortinit}{4}
-      \field{sortinithash}{9381316451d1b9788675a07e972a12a7}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://github.com/seanmonstar/warp}}
       \field{note}{Version 0.3}
       \field{title}{warp: A super-easy, composable, web server framework for warp speeds}
+      \field{year}{2026}
+    \endentry
+    \entry{github}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=9b127eb47f59d27ace73783046da8889}{%
+           family={{GitHub, Inc.}},
+           familyi={G\bibinitperiod}}}%
+      }
+      \strng{namehash}{9b127eb47f59d27ace73783046da8889}
+      \strng{fullhash}{9b127eb47f59d27ace73783046da8889}
+      \strng{bibnamehash}{9b127eb47f59d27ace73783046da8889}
+      \strng{authorbibnamehash}{9b127eb47f59d27ace73783046da8889}
+      \strng{authornamehash}{9b127eb47f59d27ace73783046da8889}
+      \strng{authorfullhash}{9b127eb47f59d27ace73783046da8889}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://github.com}}
+      \field{note}{Accessed: 2026-04-18}
+      \field{title}{GitHub}
+      \field{year}{2026}
+    \endentry
+    \entry{pyo3_github}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=5ea1e813dbb2b7b179db1abad4bec8b0}{%
+           family={Project},
+           familyi={P\bibinitperiod},
+           given={{PyO3}},
+           giveni={P\bibinitperiod}}}%
+      }
+      \strng{namehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{fullhash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{bibnamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{authorbibnamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{authornamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{authorfullhash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \field{extraname}{1}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://github.com/PyO3/pyo3}}
+      \field{title}{PyO3 - Rust bindings for the Python interpreter}
+      \field{urlday}{10}
+      \field{urlmonth}{4}
+      \field{urlyear}{2026}
+      \field{year}{2017}
+      \field{urldateera}{ce}
+    \endentry
+    \entry{setuptoolsrust_pypi}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=5ea1e813dbb2b7b179db1abad4bec8b0}{%
+           family={Project},
+           familyi={P\bibinitperiod},
+           given={{PyO3}},
+           giveni={P\bibinitperiod}}}%
+      }
+      \strng{namehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{fullhash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{bibnamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{authorbibnamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{authornamehash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \strng{authorfullhash}{5ea1e813dbb2b7b179db1abad4bec8b0}
+      \field{extraname}{2}
+      \field{sortinit}{5}
+      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://pypi.org/project/setuptools-rust/}}
+      \field{title}{setuptools-rust}
+      \field{urlday}{10}
+      \field{urlmonth}{4}
+      \field{urlyear}{2026}
+      \field{year}{2021}
+      \field{urldateera}{ce}
+    \endentry
+    \entry{refactoringguru_adapter}{online}{}
+      \name{author}{1}{}{%
+        {{hash=12f8baf1c20bec0e6f385c47c983b1f4}{%
+           family={Guru},
+           familyi={G\bibinitperiod},
+           given={Refactoring},
+           giveni={R\bibinitperiod}}}%
+      }
+      \list{organization}{1}{%
+        {Refactoring.Guru}%
+      }
+      \strng{namehash}{12f8baf1c20bec0e6f385c47c983b1f4}
+      \strng{fullhash}{12f8baf1c20bec0e6f385c47c983b1f4}
+      \strng{bibnamehash}{12f8baf1c20bec0e6f385c47c983b1f4}
+      \strng{authorbibnamehash}{12f8baf1c20bec0e6f385c47c983b1f4}
+      \strng{authornamehash}{12f8baf1c20bec0e6f385c47c983b1f4}
+      \strng{authorfullhash}{12f8baf1c20bec0e6f385c47c983b1f4}
+      \field{sortinit}{6}
+      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Adapter}
+      \field{urlday}{10}
+      \field{urlmonth}{4}
+      \field{urlyear}{2026}
+      \field{year}{2024}
+      \field{urldateera}{ce}
+      \verb{urlraw}
+      \verb https://refactoring.guru/design-patterns/adapter
+      \endverb
+      \verb{url}
+      \verb https://refactoring.guru/design-patterns/adapter
+      \endverb
+    \endentry
+    \entry{amdahl}{article}{}
+      \name{author}{1}{}{%
+        {{hash=9d4382f1500ff84c4eca531179c994c7}{%
+           family={Amdahl},
+           familyi={A\bibinitperiod},
+           given={Gene\bibnamedelima M},
+           giveni={G\bibinitperiod\bibinitdelim M\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {ACM}%
+      }
+      \strng{namehash}{9d4382f1500ff84c4eca531179c994c7}
+      \strng{fullhash}{9d4382f1500ff84c4eca531179c994c7}
+      \strng{bibnamehash}{9d4382f1500ff84c4eca531179c994c7}
+      \strng{authorbibnamehash}{9d4382f1500ff84c4eca531179c994c7}
+      \strng{authornamehash}{9d4382f1500ff84c4eca531179c994c7}
+      \strng{authorfullhash}{9d4382f1500ff84c4eca531179c994c7}
+      \field{sortinit}{6}
+      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Proceedings of the April 18--20, 1967, spring joint computer conference}
+      \field{title}{Validity of the single processor approach to achieving large scale computing capabilities}
+      \field{year}{1967}
+      \field{pages}{483\bibrangedash 485}
+      \range{pages}{3}
+    \endentry
+    \entry{vite}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=d9562fbe4a9b427bb14c1e4928299107}{%
+           family={{Evan You and Vite Contributors}},
+           familyi={E\bibinitperiod}}}%
+      }
+      \strng{namehash}{d9562fbe4a9b427bb14c1e4928299107}
+      \strng{fullhash}{d9562fbe4a9b427bb14c1e4928299107}
+      \strng{bibnamehash}{d9562fbe4a9b427bb14c1e4928299107}
+      \strng{authorbibnamehash}{d9562fbe4a9b427bb14c1e4928299107}
+      \strng{authornamehash}{d9562fbe4a9b427bb14c1e4928299107}
+      \strng{authorfullhash}{d9562fbe4a9b427bb14c1e4928299107}
+      \field{sortinit}{6}
+      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://vite.dev}}
+      \field{note}{Version 8.0}
+      \field{title}{Vite: Next Generation Frontend Tooling}
       \field{year}{2026}
     \endentry
     \entry{python_lists}{misc}{}
@@ -1215,8 +1645,8 @@
       \strng{authornamehash}{c7b5508dc5e59a2846d22617276cc27c}
       \strng{authorfullhash}{c7b5508dc5e59a2846d22617276cc27c}
       \field{extraname}{2}
-      \field{sortinit}{5}
-      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{sortinit}{6}
+      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://docs.python.org/3/c-api/list.html}}
@@ -1236,8 +1666,8 @@
       \strng{authorbibnamehash}{e06e6755ca2fc54937c90502a3827bd4}
       \strng{authornamehash}{e06e6755ca2fc54937c90502a3827bd4}
       \strng{authorfullhash}{e06e6755ca2fc54937c90502a3827bd4}
-      \field{sortinit}{5}
-      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{sortinit}{6}
+      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{http://stefanoborini.com/python-and-memory-fragmentation/}}
@@ -1261,8 +1691,8 @@
       \strng{authornamehash}{8d6613ae59595910252a86a61babf6c8}
       \strng{authorfullhash}{8d6613ae59595910252a86a61babf6c8}
       \field{extraname}{3}
-      \field{sortinit}{5}
-      \field{sortinithash}{20e9b4b0b173788c5dace24730f47d8c}
+      \field{sortinit}{7}
+      \field{sortinithash}{108d0be1b1bee9773a1173443802c0a3}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{\url{https://arxiv.org/abs/1506.02438}}
@@ -1270,26 +1700,214 @@
       \field{title}{High-Dimensional Continuous Control Using Generalized Advantage Estimation}
       \field{year}{2015}
     \endentry
-    \entry{ppo_bestpractices}{misc}{}
-      \name{author}{1}{}{%
-        {{hash=0bc0d67870cc68bbac4bdd9eb1a2161a}{%
-           family={{EmbersArc}},
-           familyi={E\bibinitperiod}}}%
+    \entry{STE}{misc}{}
+      \name{author}{4}{}{%
+        {{hash=ced92cad45ea391d36f3f77da971067b}{%
+           family={Huh},
+           familyi={H\bibinitperiod},
+           given={Minyoung},
+           giveni={M\bibinitperiod}}}%
+        {{hash=a170d7309569d2d129f97b02387ac9b4}{%
+           family={Cheung},
+           familyi={C\bibinitperiod},
+           given={Brian},
+           giveni={B\bibinitperiod}}}%
+        {{hash=8386009211558835d056bfe419103c76}{%
+           family={Agrawal},
+           familyi={A\bibinitperiod},
+           given={Pulkit},
+           giveni={P\bibinitperiod}}}%
+        {{hash=cae9f806bc99a5f19fadea538fc2db04}{%
+           family={Isola},
+           familyi={I\bibinitperiod},
+           given={Phillip},
+           giveni={P\bibinitperiod}}}%
       }
-      \strng{namehash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
-      \strng{fullhash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
-      \strng{bibnamehash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
-      \strng{authorbibnamehash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
-      \strng{authornamehash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
-      \strng{authorfullhash}{0bc0d67870cc68bbac4bdd9eb1a2161a}
-      \field{sortinit}{6}
-      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
+      \strng{namehash}{acb5d912bb2a97f8919561f9b7fba88c}
+      \strng{fullhash}{ac0a23726dd52f3f619a2e8915f31384}
+      \strng{bibnamehash}{acb5d912bb2a97f8919561f9b7fba88c}
+      \strng{authorbibnamehash}{acb5d912bb2a97f8919561f9b7fba88c}
+      \strng{authornamehash}{acb5d912bb2a97f8919561f9b7fba88c}
+      \strng{authorfullhash}{ac0a23726dd52f3f619a2e8915f31384}
+      \field{sortinit}{7}
+      \field{sortinithash}{108d0be1b1bee9773a1173443802c0a3}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
-      \field{howpublished}{\url{https://github.com/EmbersArc/PPO/blob/master/best-practices-ppo.md}}
-      \field{note}{PPO hyperparameter tuning guide}
-      \field{title}{Best Practices when training with PPO}
-      \field{year}{2017}
+      \field{title}{Straightening Out the Straight-Through Estimator: Overcoming Optimization Challenges in Vector Quantized Networks}
+      \field{year}{2023}
+      \verb{eprint}
+      \verb arXiv:2305.08842
+      \endverb
+    \endentry
+    \entry{semantic-direction}{article}{}
+      \name{author}{5}{}{%
+        {{hash=165e0d6c9adb44f2432dfefc685b6ad6}{%
+           family={Davidson},
+           familyi={D\bibinitperiod},
+           given={Tim\bibnamedelima R.},
+           giveni={T\bibinitperiod\bibinitdelim R\bibinitperiod}}}%
+        {{hash=f1d63d828f9502c8df40bad7733e570b}{%
+           family={Falorsi},
+           familyi={F\bibinitperiod},
+           given={Luca},
+           giveni={L\bibinitperiod}}}%
+        {{hash=848d17c801ae461613e3410c7e1d3385}{%
+           family={Cao},
+           familyi={C\bibinitperiod},
+           given={Nicola\bibnamedelima De},
+           giveni={N\bibinitperiod\bibinitdelim D\bibinitperiod}}}%
+        {{hash=92f0e61247770d3248674f4496c148e3}{%
+           family={Kipf},
+           familyi={K\bibinitperiod},
+           given={Thomas},
+           giveni={T\bibinitperiod}}}%
+        {{hash=55defc0f4c0419ceb9d0d1350c2c0cb2}{%
+           family={Tomczak},
+           familyi={T\bibinitperiod},
+           given={Jakub\bibnamedelima M.},
+           giveni={J\bibinitperiod\bibinitdelim M\bibinitperiod}}}%
+      }
+      \strng{namehash}{d3ee8cbd40d278b2acc627fd4dece0a8}
+      \strng{fullhash}{68127bef265eac44f65350c6217e1e75}
+      \strng{bibnamehash}{d3ee8cbd40d278b2acc627fd4dece0a8}
+      \strng{authorbibnamehash}{d3ee8cbd40d278b2acc627fd4dece0a8}
+      \strng{authornamehash}{d3ee8cbd40d278b2acc627fd4dece0a8}
+      \strng{authorfullhash}{68127bef265eac44f65350c6217e1e75}
+      \field{sortinit}{7}
+      \field{sortinithash}{108d0be1b1bee9773a1173443802c0a3}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{Uncertainty in Artificial Intelligence (UAI). Proceedings of the Thirty-Fourth Conference (2018) 856- 865}
+      \field{title}{Hyperspherical Variational Auto-Encoders}
+      \field{year}{2018}
+      \verb{eprint}
+      \verb arXiv:1804.00891
+      \endverb
+    \endentry
+    \entry{gumbel}{misc}{}
+      \name{author}{3}{}{%
+        {{hash=3b21b8aef58f6e35446f2dbc679e5e6e}{%
+           family={Jang},
+           familyi={J\bibinitperiod},
+           given={Eric},
+           giveni={E\bibinitperiod}}}%
+        {{hash=0072cdac4f418553b46ec3ddc61cebad}{%
+           family={Gu},
+           familyi={G\bibinitperiod},
+           given={Shixiang},
+           giveni={S\bibinitperiod}}}%
+        {{hash=e528fda20644135dfae4f481a342148f}{%
+           family={Poole},
+           familyi={P\bibinitperiod},
+           given={Ben},
+           giveni={B\bibinitperiod}}}%
+      }
+      \strng{namehash}{56a47665bbe4612de2bb387bea75ea33}
+      \strng{fullhash}{56a47665bbe4612de2bb387bea75ea33}
+      \strng{bibnamehash}{56a47665bbe4612de2bb387bea75ea33}
+      \strng{authorbibnamehash}{56a47665bbe4612de2bb387bea75ea33}
+      \strng{authornamehash}{56a47665bbe4612de2bb387bea75ea33}
+      \strng{authorfullhash}{56a47665bbe4612de2bb387bea75ea33}
+      \field{sortinit}{7}
+      \field{sortinithash}{108d0be1b1bee9773a1173443802c0a3}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Categorical Reparameterization with Gumbel-Softmax}
+      \field{year}{2016}
+      \verb{eprint}
+      \verb arXiv:1611.01144
+      \endverb
+    \endentry
+    \entry{tom}{article}{}
+      \name{author}{2}{}{%
+        {{hash=20777310f2f3e6c9c3c3d2172f5887a1}{%
+           family={Premack},
+           familyi={P\bibinitperiod},
+           given={David},
+           giveni={D\bibinitperiod}}}%
+        {{hash=47cc726fa88049aeaa1c15781f3f00b6}{%
+           family={Woodruff},
+           familyi={W\bibinitperiod},
+           given={Guy},
+           giveni={G\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Cambridge University Press}%
+      }
+      \strng{namehash}{4b13a4697c5e8cecc80e758777beba14}
+      \strng{fullhash}{4b13a4697c5e8cecc80e758777beba14}
+      \strng{bibnamehash}{4b13a4697c5e8cecc80e758777beba14}
+      \strng{authorbibnamehash}{4b13a4697c5e8cecc80e758777beba14}
+      \strng{authornamehash}{4b13a4697c5e8cecc80e758777beba14}
+      \strng{authorfullhash}{4b13a4697c5e8cecc80e758777beba14}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{journaltitle}{Behavioral and Brain Sciences}
+      \field{number}{4}
+      \field{title}{Does the chimpanzee have a theory of mind?}
+      \field{volume}{1}
+      \field{year}{1978}
+      \field{pages}{515\bibrangedash 526}
+      \range{pages}{12}
+      \verb{doi}
+      \verb 10.1017/S0140525X00076512
+      \endverb
+      \verb{urlraw}
+      \verb https://www.cambridge.org/core/journals/behavioral-and-brain-sciences/article/does-the-chimpanzee-have-a-theory-of-mind/1E96B02C6F8DAA7EE1E1E1E1E1E1E1E1
+      \endverb
+      \verb{url}
+      \verb https://www.cambridge.org/core/journals/behavioral-and-brain-sciences/article/does-the-chimpanzee-have-a-theory-of-mind/1E96B02C6F8DAA7EE1E1E1E1E1E1E1E1
+      \endverb
+    \endentry
+    \entry{rich}{misc}{}
+      \name{author}{1}{}{%
+        {{hash=e02e93cda547c56377bd9c775456dfaf}{%
+           family={{Will McGugan and Textualize}},
+           familyi={W\bibinitperiod}}}%
+      }
+      \strng{namehash}{e02e93cda547c56377bd9c775456dfaf}
+      \strng{fullhash}{e02e93cda547c56377bd9c775456dfaf}
+      \strng{bibnamehash}{e02e93cda547c56377bd9c775456dfaf}
+      \strng{authorbibnamehash}{e02e93cda547c56377bd9c775456dfaf}
+      \strng{authornamehash}{e02e93cda547c56377bd9c775456dfaf}
+      \strng{authorfullhash}{e02e93cda547c56377bd9c775456dfaf}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{\url{https://github.com/Textualize/rich}}
+      \field{note}{Version 13.9}
+      \field{title}{Rich: A Python library for rich text and beautiful formatting in the terminal}
+      \field{year}{2026}
+    \endentry
+    \entry{zipf}{book}{}
+      \name{author}{1}{}{%
+        {{hash=41c489255f6e9ed6cfd9bae1f597a49c}{%
+           family={Zipf},
+           familyi={Z\bibinitperiod},
+           given={George\bibnamedelima Kingsley},
+           giveni={G\bibinitperiod\bibinitdelim K\bibinitperiod}}}%
+      }
+      \list{location}{1}{%
+        {Cambridge, Massachusetts}%
+      }
+      \list{publisher}{1}{%
+        {Addison-Wesley Press}%
+      }
+      \strng{namehash}{41c489255f6e9ed6cfd9bae1f597a49c}
+      \strng{fullhash}{41c489255f6e9ed6cfd9bae1f597a49c}
+      \strng{bibnamehash}{41c489255f6e9ed6cfd9bae1f597a49c}
+      \strng{authorbibnamehash}{41c489255f6e9ed6cfd9bae1f597a49c}
+      \strng{authornamehash}{41c489255f6e9ed6cfd9bae1f597a49c}
+      \strng{authorfullhash}{41c489255f6e9ed6cfd9bae1f597a49c}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Human Behavior and the Principle of Least Effort: An Introduction to Human Ecology}
+      \field{year}{1949}
     \endentry
     \entry{TruncatedZipfianDist}{article}{}
       \name{author}{3}{}{%
@@ -1318,8 +1936,8 @@
       \strng{authorbibnamehash}{4180472b94bb40aa8186b935602be0f7}
       \strng{authornamehash}{4180472b94bb40aa8186b935602be0f7}
       \strng{authorfullhash}{4180472b94bb40aa8186b935602be0f7}
-      \field{sortinit}{6}
-      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{journaltitle}{Statistica Neerlandica}
@@ -1358,14 +1976,78 @@
       \strng{authorbibnamehash}{4e957541298e9eee93986a5720aa709f}
       \strng{authornamehash}{4e957541298e9eee93986a5720aa709f}
       \strng{authorfullhash}{4e957541298e9eee93986a5720aa709f}
-      \field{sortinit}{6}
-      \field{sortinithash}{b33bc299efb3c36abec520a4c896a66d}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{title}{Understanding intermediate layers using linear classifier probes}
       \field{year}{2016}
       \verb{eprint}
       \verb arXiv:1610.01644
+      \endverb
+    \endentry
+    \entry{gdpr}{online}{}
+      \name{author}{1}{}{%
+        {{hash=158562a5e9dc942912330c711ca123ca}{%
+           family={{European Union}},
+           familyi={E\bibinitperiod}}}%
+      }
+      \strng{namehash}{158562a5e9dc942912330c711ca123ca}
+      \strng{fullhash}{158562a5e9dc942912330c711ca123ca}
+      \strng{bibnamehash}{158562a5e9dc942912330c711ca123ca}
+      \strng{authorbibnamehash}{158562a5e9dc942912330c711ca123ca}
+      \strng{authornamehash}{158562a5e9dc942912330c711ca123ca}
+      \strng{authorfullhash}{158562a5e9dc942912330c711ca123ca}
+      \field{sortinit}{8}
+      \field{sortinithash}{a231b008ebf0ecbe0b4d96dcc159445f}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{note}{Regulation (EU) 2016/679}
+      \field{title}{General Data Protection Regulation (GDPR)}
+      \field{urlday}{2}
+      \field{urlmonth}{5}
+      \field{urlyear}{2026}
+      \field{year}{2016}
+      \field{urldateera}{ce}
+      \verb{urlraw}
+      \verb https://gdpr-info.eu
+      \endverb
+      \verb{url}
+      \verb https://gdpr-info.eu
+      \endverb
+    \endentry
+    \entry{posterior-collapse}{misc}{}
+      \name{author}{3}{}{%
+        {{hash=71d8f67795a219bd82bcdf9afdecec87}{%
+           family={Dai},
+           familyi={D\bibinitperiod},
+           given={Bin},
+           giveni={B\bibinitperiod}}}%
+        {{hash=05bc8d503a2c310ef0976ace7f9d2734}{%
+           family={Wang},
+           familyi={W\bibinitperiod},
+           given={Ziyu},
+           giveni={Z\bibinitperiod}}}%
+        {{hash=44415cdab84f0ff4484f5b766e4aaabb}{%
+           family={Wipf},
+           familyi={W\bibinitperiod},
+           given={David},
+           giveni={D\bibinitperiod}}}%
+      }
+      \strng{namehash}{bfea5ab8a146717dc7d88ee99379a442}
+      \strng{fullhash}{bfea5ab8a146717dc7d88ee99379a442}
+      \strng{bibnamehash}{bfea5ab8a146717dc7d88ee99379a442}
+      \strng{authorbibnamehash}{bfea5ab8a146717dc7d88ee99379a442}
+      \strng{authornamehash}{bfea5ab8a146717dc7d88ee99379a442}
+      \strng{authorfullhash}{bfea5ab8a146717dc7d88ee99379a442}
+      \field{sortinit}{9}
+      \field{sortinithash}{0a5ebc79d83c96b6579069544c73c7d4}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{The Usual Suspects? Reassessing Blame for VAE Posterior Collapse}
+      \field{year}{2019}
+      \verb{eprint}
+      \verb arXiv:1912.10702
       \endverb
     \endentry
   \enddatalist

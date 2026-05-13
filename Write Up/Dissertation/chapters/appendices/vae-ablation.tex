@@ -1,0 +1,119 @@
+\label{sec:vae-ablation}
+
+A poorly initialised frozen encoder could severely limit the agents' language, preventing them from reaching their full cooperation potential.
+
+\subsection{Discretisation Stability: VQ-VAE vs SQ-VAE}
+\label{sec:vae-ablation.1}
+
+For this evaluation, reconstruction loss and commitment loss are tracked over a 50-epoch training process using 26880 datapoints.
+Liu defined a healthy encoder for the AI Mother Tongue system \cite{AIMotherTongue}.
+Reconstruction loss should fall between 0.08 and 0.15.
+Commitment Loss must remain below 1.0.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{recon_loss_eval.png}
+    \caption{Reconstruction Loss over 50 epochs comparing VQ-VAE and SQ-VAE.}
+    \label{fig:vae_training_eval}
+\end{figure}
+
+As shown in Figure \ref{fig:vae_training_eval}, both methods of training got below the maximum reconstruction loss of 0.15.
+However, training with the SQ-VAE resulted in a final reconstruction below 0.08.
+Liu's recommended loss for a healthy codebook is based on low reconstruction error, which is often a symptom of `posterior collapse' \cite{VQVAE, posterior-collapse}.
+This is where the network memorises a small set of generalisable states.
+
+To determine if this `posterior collapse' has occurred, the codebook utilisation was analysed.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|l|c|c|}
+    \hline
+    \textbf{} & \textbf{VQ-VAE} & \textbf{SQ-VAE} \\ \hline
+    \textbf{Codebook Utilisation} & $66.67\% \pm 4.8\%$ & $94.8\% \pm 6.5\%$ \\ \hline
+    \end{tabular}
+    \caption{Codebook utilisation comparison between training with VQ-VAE and SQ-VAE.}
+    \label{tab:codebook_util}
+\end{table}
+
+The table \ref{tab:codebook_util} clearly shows that using an SQ-VAE, though having a low reconstruction loss, in fact has a better codebook utilisation than using a VQ-VAE.
+Therefore, this low loss indicates high model effectiveness rather than 'posterior collapse'.
+
+By the end of training, the VQ-VAE's commitment loss had converged to $\sim 0.25$.
+This is well below Liu's requirement.
+
+\subsection{Codebook Initialisation}
+\label{sec:vae-ablation.2}
+
+% A potential concern of using a VQ-VAE is the previously discussed 'mode collapse'.
+% The 'mode collapse' effectivly reduces the vocabulary size of the language restricting the expressiveness of the agents.
+% To evaluate this concern, an ablation study is performed.
+% Two initialisation strategies are compared:
+% a standard uniform random initalisation,
+% and a data-driven K-Means prior.
+
+% \begin{table}[h]
+%     \centering
+%     \begin{tabular}{|l|c|c|c|}
+%     \hline
+%     \textbf{Initialisation Strategy} & \textbf{Final Validation Recon Loss} & \textbf{Active Codes} \\ \hline
+%     \textbf{Random Uniform Prior} & $0.064 \pm 0.01$ & $79.13 \pm 12.63$ \\ \hline
+%     \textbf{K-Means Prior} & $0.070 \pm 0.004$ & $83.53 \pm 7.67$ \\ \hline
+%     \end{tabular}
+%     \caption{Memory Management Overhead per Epoch: $T=20,000$, $W=32$}
+%     \label{tab:init_vae_eval}
+% \end{table}
+
+% The table \ref{tab:init_vae_eval} shows the random uniform initialisation achieved a marginly lower reconstruction loss of $\sim 0.064$.
+% However, the training proved to be much more volatile than the K-Means initialisation method and analysis post-training revealed a average index utilisation.
+% This indicates that the VQ-VAE model initialised with random uniform embeddings is subject to the 'initialisation lottery', which can be mitigated by instead initialising codebook embeddings with a data-driven K-Means prior.
+% The reduced volatility of training the language ensures high reproducibility for MARL training.
+
+To evaluate the robustness of the VAEs, an ablation study is performed.
+Two initialisation strategies are compared:
+a standard uniform random initialisation,
+and a data-driven K-Means prior.
+
+For the VQ-VAE, the uniform random prior yielded superior reconstruction loss and codebook utilisation compared to the K-Means prior.
+However, the SQ-VAE exhibited the opposite behaviour: the reconstruction loss and codebook utilisation were superior when using the K-Means prior rather than the random uniform prior.
+
+\begin{figure}[H]
+    \centering
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-vq-vae.png}
+        \caption{VQ-VAE with prior.}
+        \label{fig:pca-vq-vae}
+    \end{subfigure}
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-vq-vae-no-prior.png}
+        \caption{VQ-VAE without prior.}
+        \label{fig:pca-vq-vae-no-prior}
+    \end{subfigure}
+
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-sq-vae.png}
+        \caption{SQ-VAE with prior.}
+        \label{fig:pca-sq-vae}
+    \end{subfigure}
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{pca-sq-vae-no-prior.png}
+        \caption{SQ-VAE without prior.}
+        \label{fig:pca-sq-vae-no-prior}
+    \end{subfigure}
+
+    \caption{PCA projections of latent codes for SQ-VAE and VQ-VAE with and without the prior.}
+    \label{fig:pca-sq-vq-vae}
+\end{figure}
+
+To visualise, Principal Component Analysis (PCA) was applied to reduce the dimensionality of the learned codebook embeddings, see Figure \ref{fig:pca-sq-vq-vae}.
+This visualisation explains the findings.
+For VQ-VAE (Figures \ref{fig:pca-vq-vae} and \ref{fig:pca-vq-vae-no-prior}), the random uniform initialisation scattered the codes across the latent space.
+This allowed the untrained encoder to naturally interact with them, enabling gradients to flow through each embedding.
+Conversely, the K-Means prior forced the embeddings into a small region, where the untrained encoder would interact only with a select few edge embeddings, leaving a high concentration of unused codes.
+
+For (vMF) SQ-VAE (Figures \ref{fig:pca-sq-vae} and \ref{fig:pca-sq-vae-no-prior}), when using $L_2$-normalised Spherical K-Means prior, the embeddings were each set in the correct region and the model used its stochastic annealing purely for local fine-tuning.
+Whereas, when using the random initialisation, embeddings frequently spawned at extreme angular distances from the true data distribution, and the model's annealing process pushed the embeddings into a suboptimal local minima.
