@@ -18,12 +18,12 @@ In contrast, WhisperWise successfully scales to these complex environments, prod
 \section{Work Completed}
 \label{sec:5.1}
 
-First, I implemented a configurable vectorised, high-throughput MARL environment capable of achieving over 100K steps per second.
+First, I implemented a configurable vectorised, high-throughput MARL environment capable of achieving over 200K steps per second.
 The simulation modelled a discrete two-dimensional environment populated by agents and stations.
 A lightweight real-time visualisation was created to enable inspection of the rollout phase.
 
 Second, a MAPPO-based MARL training script under a centralised training, decentralised execution framework was implemented.
-It uses a shared actor, a global critic, an LSTM module, a custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface that supports hot-swapping.
+It used a shared actor, a global critic, an LSTM module, a custom rollout buffer for efficient storage and GAE calculations, and a communication protocol interface that supports hot-swapping.
 To reduce training time, a separate script was introduced to pre-train the actor-critic networks using imitation learning.
 
 Third, I faithfully followed and extended the AI Mother Tongue architecture \cite{AIMotherTongue}.
@@ -38,11 +38,11 @@ Finally, the semantics of communication and memory were analysed.
 By collecting and visualising conditional distributions, such as the probability of a partner's target given a code and the probability of a partner's next action given a code, the dissertation examined whether the message correlates with goals or with the next action.
 This analysis showed the agent's communication carried interpretable meaning.
 
-Ultimately, the evaluation suggests that the AI Mother Tongue architecture enables semantically meaningful discrete communication, outperforming both on-policy discrete and no-communication baselines by overcoming the Communication Vacuum Equilibrium in simple tasks.
+Ultimately, the evaluation suggests that the AI Mother Tongue architecture enables semantically meaningful discrete communication, outperforming discrete and no-communication baselines by overcoming the Communication Vacuum Equilibrium in simple tasks.
 However, the evidence indicates the AI Mother Tongue architecture overcomplicates the solution to the ``Joint Exploration Problem''.
 Consequently, this dissertation presents WhisperWise: a new, streamlined protocol that merges on-policy discrete communication with reflection strategies.
-For basic tasks, WhisperWise significantly outperforms the AI Mother Tongue architecture (reward mean per step improvement of $\sim 40\%$; see Section \ref{sec:4.8}) and achieves a steeper, more efficient semantic compression.
-WhisperWise performed better in the tested scaling task, where AI Mother Tongue had limited success.
+For basic tasks, WhisperWise significantly outperforms the AI Mother Tongue architecture ($\sim 40\%$ higher mean reward per step; see Section \ref{sec:4.8}) and achieves a steeper, more efficient semantic compression.
+WhisperWise also outperforms in the scaled task.
 These results suggest that reflection strategies may account for a greater share of the performance gain than the semantic bottleneck.
 
 \section{Lessons Learned}
@@ -81,12 +81,12 @@ This could be improved by using an attention mechanism to select which visible e
 Another direction for improvement is to evaluate whether the established communication protocols can scale to highly complex, hierarchical environments (such as 50x50 grids with agents passing ingredients to one another).
 This would, in theory, push the HQ-VAE to establish macro- and micro-strategies (Appendix \ref{sec:hq-vae}).
 
-Finally, a third direction is to further research the WhisperWise protocol.
-WhisperWise (as addressed in Section \ref{sec:4.9}) requires evaluation over a significantly larger range of random seeds ($\geq 30$).
-WhisperWise's next step is to be integrated into a real-world application.
+Finally, a third direction is to research the WhisperWise protocol further.
+As discussed in Section \ref{sec:4.9}, WhisperWise requires evaluation over a significantly larger range of random seeds ($\geq 30$).
+Beyond this, a key next step is its integration into real-world applications.
 This transition necessitates a rigorous data protection framework.
 For example, the expert agent would likely be human, triggering the application of strict data protection laws (such as GDPR \cite{gdpr}).
 
-In conclusion, this work shows that the AI Mother Tongue architecture overcomplicates the solution to the ``Joint Exploration Problem''.
+In conclusion, this work shows that the AI Mother Tongue architecture does enable emergent communication but overcomplicates the solution to the ``Joint Exploration Problem''.
 The reflection strategies teach agents to use the communication channel effectively, but the semantic bottleneck impedes their learning.
 This dissertation introduces WhisperWise, a scalable and elegant solution that takes a step closer to developing artificial agents that can coordinate effectively and transparently.

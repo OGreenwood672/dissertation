@@ -133,13 +133,12 @@ To collect this data efficiently, a vectorised environment with efficient data m
 \label{sec:3.2.2}
 
 To allow the Rust simulation to be callable from the Python RL training scripts, \lstinline[language=Rust]|PyO3| \cite{pyo3_github} bindings are developed.
-A fundamental bottleneck of Python$<=$3.13 is the GIL \cite{python_gil_wiki}.
 The Rust library \lstinline[language=Rust]|PyO3| generates C-compatible Foreign Function Interface (FFI) bindings that can be called from the Python scripts.
 This FFI is compiled using setuptools-rust, a plugin for the setuptools library \cite{setuptoolsrust_pypi}, that allows for the compilation of Rust extensions.
 This toolchain is defined within the \lstinline[language=bash]|pyproject.toml| configuration enabling all building into a single installation command.
 
 For interacting with the simulation from Python, a \lstinline[language=Python]|SimWrapper| class is developed following the Adapter Design Pattern \cite{refactoringguru_adapter}.
-This wrapper isolates the reinforcement learning algorithm from the foreign function interface mechanics.
+This wrapper isolates the reinforcement learning algorithm from the FFI mechanics.
 PyTorch works in high-dimensional matrices; it is computationally faster to pass flat arrays to the Rust simulation to exploit CPU cache locality and throughput.
 To take a simulation step, the \lstinline[language=Python]|SimWrapper| class reshapes the data and passes it to the Rust simulation.
 On return from the Rust simulation, \lstinline[language=Rust]|PyO3| provides a numpy \cite{numpy} array, allowing zero-copy reshaping back to PyTorch's expected tensor shape in $O(1)$ time.
@@ -306,7 +305,7 @@ This algorithm has a time complexity of $O(T)$.
 
 % TODO: Make diagram of flow
 
-To avoid repetition of code blocks and consistency over each protocol, an abstract base class is engineered (\lstinline[language=Python]|Comms|) using the Python library \lstinline[language=Python]|abc| to require each subclass to implement the necessary methods.
+To avoid repetition of code blocks and consistency over each protocol, an abstract base class is engineered using the Python library \lstinline[language=Python]|abc| to require each subclass to implement the necessary methods.
 Each protocol is implemented as a PyTorch module that inherits from the aforementioned base class and \lstinline[language=Python]|torch.nn.Module|.
 On initialisation, the \lstinline[language=Python]|actor| module dynamically instantiates the required protocol based on the configuration.
 This enabled seamless experimental hot-swapping of protocols without altering the MAPPO algorithm.
@@ -326,7 +325,6 @@ The communication and action policies are optimised using separate clipped objec
 This strict isolation ensures that a confident, but incorrect, communication policy update does not destructively skew the gradients of a well-performing spatial movement policy.
 
 Each of these surrogate losses is aggregated into a single composite loss, along with an entropy loss to encourage continued exploration.
-However, before applying the final gradients to the networks, the complete actor and critic parameters are clamped to a maximum $L_2$ norm of 0.5.
 
 % Due to imitation learning (as detailed in Section \ref{sec:3.6.3}), a single learning rate is not suitable for MAPPO.
 % Because the actor and critic networks have already been partially optimised, aggressive learning rates risk causing them to forget the pre-trained policies.
@@ -366,8 +364,9 @@ The No Communication baseline lacks a communication head and ignores external me
 % To mitigate this, we will implement dead code revival. (TODO: Maths, citation)
 
 Another comparable baseline is required, one with communication.
-For this, each agent broadcasts a set of discrete values learned jointly with its policy.
-To make the discrete value differentiable, the Straight-Through Estimator (STE) is used (explained in Section \ref{sec:3.5.2}).
+For this, each agent broadcasts a set of discrete values.
+The set of possible discrete symbols is fixed (e.g. ${1,...,K}$), but how the agents use those symbols is learned and can change during training.
+To make the discrete values differentiable, the Straight-Through Estimator (STE) is used (explained in Section \ref{sec:3.5.2}).
 This yields a simple, differentiable communication.
 
 \item \textbf{AI Mother Tongue}
@@ -672,7 +671,7 @@ The AI Mother Tongue framework requires these autoencoders to be trained before 
 
 A rich codebook is vital for adequately describing external observations.
 A significant challenge in training autoencoders is codebook collapse, where only a small subset of the codebook's embeddings is used.
-To mitigate this, the codebooks are not randomly initialised; instead, data-driven codebook initialisation is used to set the codebook's spatial priors.
+To mitigate this, a data-driven codebook initialisation is tested to set the codebook's spatial priors (evaluated in Appendix \ref{sec:vae-ablation.2}).
 
 Algorithm \ref{alg:codebook-priors} (see Appendix \ref{sec:codebook-priors}) shows how the priors are collected and set.
 A subset of the data collected from the expert agent is used to estimate the spatial priors by passing it through the initialised, but untrained, encoder.
@@ -700,15 +699,16 @@ This is done in PyTorch via \lstinline[language=Python]|parameter.requires_grad 
 
 Training the RL phase takes a significant amount of time.
 To reduce the training time required, Liu suggests training both the actor and critic models with supervised learning directly before the RL phase \cite{AIMotherTongue}.
-Required observations, optimal actions and their associated advantages can be pre-collected from an expert agent.
+Required observations, optimal actions and their associated advantages can be pre-collected from the expert agent.
 
 Using this data, supervised learning is applied to the actor and critic networks.
-To simulate communication, we send the agent's current nearest target location in its communication slot, encoded via a learned codebook lookup from spatial binning.
+To simulate communication, spatial binning is used.
+The agent's current nearest target location is sent in its communication slot, encoded via the previously learned codebook.
 
 The world is broken into K discrete areas.
 K is chosen such that the world is discretised into no more spatial bins than there are codes in the vocabulary, to balance two effects: avoiding unrealistically precise target locations that the communication channel cannot represent, whilst still providing sufficiently precise spatial information.
 Each area is assigned a unique ID, $\text{unique\_id} = y \times \text{world\_width} + x$, where $x$ and $y$ are the discrete column and row indices.
-A lookup in the codebook using \lstinline[language=Python]|unique_id| is done, and the result is injected into the communication channels during training.
+A lookup in the codebook using the \lstinline[language=Python]|unique_id| relevant to the agent's current target is done, and the result is injected into the communication channels during training.
 
 The actor outputs action logits, and cross-entropy is calculated for the loss function:
 \begin{equation}
@@ -881,11 +881,10 @@ Additionally, a \lstinline[language=Python]|Visualiser| class was developed usin
 
 \item \textbf{Configuration Management}:
 A modular configuration system is engineered to manage the large number of hyperparameters, with separate configuration files for actor and critic hyperparameters, imitation learning, VAE training, reinforcement learning, environment settings, communication protocols, and MAPPO.
-The configuration files allow seeds to be set for easy reproducibility.
+Notably, the configuration files allow seeds to be set for easy reproducibility.
 
-To prevent silent errors, the Python library \lstinline[language=Python]|pydantic| is used.
-The configuration dataclass is inherited from \lstinline[language=Python]|pydantic|. \lstinline[language=Python]|BaseModel| defines the expected schema for each of the aforementioned files.
-This data class is then passed throughout the program.
+To prevent silent errors, the configuration dataclass inherits from the Python library \lstinline[language=Python]|pydantic|.
+This data class defines the expected schema for each configuration file (see Appendix \ref{sec:CONFIG}) and is used throughout the program.
 
 \item \textbf{Checkpointing}:
 Simply storing the logs accumulated during the run is insufficient for resuming training in the event of hardware failure.
@@ -898,7 +897,7 @@ These saved models and optimisers can be loaded on startup to reproduce any resu
 \section{Implementation Summary}
 \label{sec:3.9}
 
-This project makes several contributions to the field beyond the scope of a dissertation.
+This project makes several contributions to the field.
 The project provides a framework for communication in MARL, which includes a configurable, vectorised, high-throughput MARL simulation and a MAPPO-based controller with interchangeable communication protocols.
 This allows other researchers to plug in new alternative protocols and VAE bottlenecks and compare them consistently with others.
 

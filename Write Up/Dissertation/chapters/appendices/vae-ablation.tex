@@ -2,7 +2,7 @@
 
 A poorly initialised frozen encoder could severely limit the agents' language, preventing them from reaching their full cooperation potential.
 
-\subsection{Discretisation Stability: VQ-VAE vs SQ-VAE}
+\section{Discretisation Stability: VQ-VAE vs SQ-VAE}
 \label{sec:vae-ablation.1}
 
 For this evaluation, reconstruction loss and commitment loss are tracked over a 50-epoch training process using 26880 datapoints.
@@ -41,7 +41,7 @@ Therefore, this low loss indicates high model effectiveness rather than 'posteri
 By the end of training, the VQ-VAE's commitment loss had converged to $\sim 0.25$.
 This is well below Liu's requirement.
 
-\subsection{Codebook Initialisation}
+\section{Codebook Initialisation}
 \label{sec:vae-ablation.2}
 
 % A potential concern of using a VQ-VAE is the previously discussed 'mode collapse'.

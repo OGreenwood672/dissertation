@@ -2,8 +2,8 @@
 
 % Since Google DeepMind released AlphaGo in 2016 \cite{GoogleGo}, there has been a steady increase in interest in the field of reinforcement learning \cite{Overview}.
 Since DeepMind's AlphaGo in 2016 \cite{GoogleGo}, interest in reinforcement learning has steadily increased \cite{Overview}, leading to breakthroughs in finance, trading, robotics, and even video games.
-A clear next step for reinforcement learning is multi-agent reinforcement learning, in which multiple agents are placed in the same environment and must learn to interact efficiently with one another.
-This research has the potential to improve surgery robots, traffic optimisations and search-and-rescue operations.
+A clear next step is multi-agent reinforcement learning, in which multiple agents are placed in the same environment and must learn to interact efficiently with one another.
+This research could improve surgery robots, traffic optimisations and search-and-rescue operations.
 
 However, several challenges make multi-agent reinforcement learning more difficult in practice, such as non-stationarity, credit assignment issues (both explained in Section \ref{sec:2.2}), and the one I will focus on in this project: communication problems \cite{SurveyofMARL}.
 Unlike single-agent reinforcement learning, multi-agent reinforcement learning can leverage communication to improve agents' knowledge of their environment and/or guide them toward the optimal next step.
@@ -17,7 +17,7 @@ However, learning a discrete language on-policy suffers from the ``Joint Explora
 This local optimum is named the ``Communication Vacuum Equilibrium'' \cite{Biases}.
 
 This dissertation focuses on the paper ``AI Mother Tongue: Self-Emergent Communication in MARL via Endogenous Symbol Systems'' \cite{AIMotherTongue}.
-In this paper, Liu \cite{AIMotherTongue} proposes abandoning learning this discrete language during the reinforcement learning phase of training.
+In this paper, Liu proposes abandoning learning a discrete language during the reinforcement learning phase of training.
 Instead, they propose using a pre-trained discrete language model acting as a semantic bottleneck.
 
 By using a Vector-Quantised Variational Autoencoder (VQ-VAE), continuous observations can be mapped to a finite set of discrete symbols.
@@ -33,8 +33,8 @@ This dissertation provides an extensive evaluation and extends the ideas discuss
 \section{Project Overview \& Contributions}
 \label{sec:1.1}
 
-To answer the proposed research question, this project implements a general framework for emergent communication in multi-agent systems using a configurable assembly-line-style environment.
-It is designed to be a reusable toolkit for training and analysing communication protocols in POMDPs.
+To answer the research question, this project implements a framework for emergent communication in multi-agent systems using a configurable assembly-line-style environment.
+It is a reusable toolkit for training and analysing communication protocols in POMDPs.
 Users can interact with the framework through a single script with modes for language pretraining, imitation learning and reinforcement learning.
 
 The main contributions in this project are:

@@ -29,7 +29,7 @@ For a similar reason, agents are randomly placed across the map at world initial
 Each agent is assigned an ordered pair of ingredient sets ($I_\text{in}$, $I_\text{out}$).
 The agent must first collect all ingredients in $I_\text{in}$.
 Then the agent's inventory is replaced with $I_\text{out}$, and the agent must remove all the ingredients from their inventory.
-This defines a single recipe, but agents may complete multiple recipes in their lifetime.
+This defines a single recipe, but agents may complete this recipe multiple times in their lifetime.
 
 Ingredients can be collected and dropped off at both other agents and stations.
 
@@ -43,8 +43,8 @@ The first four of which move the agent one step in the given direction.
 If agent A executes the `Interact' action:
 \begin{enumerate}[noitemsep, topsep=0pt]
     \item If visible agent B has a required item, place it in A's inventory, and remove it from B's inventory.
-    \item If visible `pick up' station has a required item, place in A's inventory.
-    \item If visible `drop off' station wants an item we have, remove from A's inventory.
+    \item If visible `pick up' station has a required item for A, place in A's inventory.
+    \item If visible `drop off' station wants an item A has, remove from A's inventory.
 \end{enumerate}
 The five actions form the action space $\mathcal{A}$ in the POMDP definition (Section \ref{sec:2.2}).
 
@@ -265,7 +265,7 @@ At the start of training, the agent's communication policy outputs random values
 Therefore, the section of the agent's network which listens to this noise rapidly updates its weights to silence it.
 However, once the weights become zero, the gradients stop flowing through the communication channel, trapping the agents in the Communication Vacuum Equilibrium.
 
-Several works attempt to address this Communication Vacuum Equilibrium by introducing architectural biases or auxiliary objectives (e.g., adding rewards for mutual information between messages and observations).
+Several works attempt to address this Communication Vacuum Equilibrium by introducing architectural biases or auxiliary objectives (e.g., adding rewards for mutual information between messages and observations) \cite{Biases, mi_comms}.
 Whilst these approaches improve communication usage, they reduce generality.
 Liu \cite{AIMotherTongue} proposes the AI Mother Tongue architecture, in which language is learned offline, separate from online reinforcement learning.
 Then the agents are trained in this language using auxiliary losses rather than relying on architectural biases or auxiliary objectives.
@@ -349,11 +349,10 @@ Still, Liu proposes more expressive codebook learning methods, such as Stochasti
 
     \end{tikzpicture}
     }
-    \caption{Architecture diagram for frozen Vector-Quantised Variational Autoencoder (VQ-VAE) pretraining and RL training the actor network.}
+    \caption{Diagram of the AI Mother Tongue architecture as proposed by Liu.}
     \label{fig:ai-mother-tongue}
 \end{figure}
 
-The architecture of the AI Mother Tongue protocol proposed by Liu \cite{AIMotherTongue} is shown in Figure \ref{fig:ai-mother-tongue}.
 The VAE is first trained offline using collected observations, and the encoder and codebook (i.e., all possible quantised values) are saved.
 Liu explicitly states values indicating a healthy encoder and codebook (reconstruction loss between 0.08 and 0.15, and commitment loss below 1.0).
 An evaluation of the health of the trained codebooks is presented in Appendix \ref{sec:vae-ablation}.
@@ -377,7 +376,7 @@ The architecture has three outputs:
     The auxiliary heads provide additional learning signals that are backpropagated into the actor network to guide and improve policy optimisation.
 \end{itemize}
 
-This dissertation adopts the AI Mother Tongue architecture but extends it to a more complex MAPPO setting.
+This dissertation adopts the AI Mother Tongue architecture but extends it to a more complex MAPPO setting using both suggestions from Liu and original contributions.
 Instead of a simple linear action head used by Liu, a Multi-Layer Perceptron (MLP) is used.
 The actor network will also contain a Long Short-Term Memory (LSTM) module.
 In addition to VQ-VAE, this project evaluates alternative discrete bottlenecks such as SQ-VAE and HQ-VAE (Appendix \ref{sec:hq-vae}).
@@ -502,17 +501,17 @@ To prioritise tasks, a MoSCoW analysis was completed.
     \small
     \begin{tabularx}{\textwidth}{@{} l X X @{}}
         \toprule
-        \textbf{Priority} & \textbf{Feature} \\ \midrule
-        \textbf{Must Have} & Vectorised Rust environment with PyO3 bindings \\
-        \textbf{} & Functioning MAPPO-based multi-agent reinforcement learning system \\
-        \textbf{} & At least two communication protocols, including the AI Mother Tongue architecture \\ \midrule
-        \textbf{Should Have} & Real time visualisation of simulations running \\
-        \textbf{} & Pipeline to train autoencoders \\ \midrule
-        \textbf{Could Have} & Advanced VAE varients: SQ-VAE, HQ-VAE \\
-        \textbf{} & A separate environment task to test agents on \\
-        \textbf{} & Hyperparameter tuning for all ML training loops \\ \midrule
-        \textbf{Won't Have} & Non-Stationary Environment \\
-        \textbf{} & Modelling of network latency and packet loss \\ \bottomrule
+        \textbf{Priority} & \textbf{Feature} & \textbf{Risk} \\ \midrule
+        \textbf{Must Have} & Vectorised Rust environment with PyO3 bindings & Insufficient samples for stable MAPPO convergence. \\ \addlinespace
+        \textbf{} & Functioning MAPPO-based multi-agent reinforcement learning system & Unable to validate any communication protocols. \\ \addlinespace
+        \textbf{} & At least two communication protocols, including the AI Mother Tongue architecture & No evidence AI Mother Tongue enables emergent communication. \\ \midrule
+        \textbf{Should Have} & Real time visualisation of simulations & Increased diffculty for debugging environment. \\ \addlinespace
+        \textbf{} & Pre-training of agent-critic architecture & More training steps required, reducing experimentation speed. \\ \midrule
+        \textbf{Could Have} & Advanced VAE varients: SQ-VAE, HQ-VAE & Reduced novelty and weaker evaluation of AI Mother Tongue. \\ \addlinespace
+        \textbf{} & The novel WhisperWise protocol & Missed opportunity to test whether reflection strategies outperform AI Mother Tongue. \\ \addlinespace
+        \textbf{} & Scaling the evaluation task & Limited evidence that the method generalises to more complex environments. \\ \midrule
+        \textbf{Won't Have} & Non-Stationary Environment & Outside the scope of this dissertation. \\ \addlinespace
+        \textbf{} & Modelling of network latency and packet loss & Unnecessary for the research question. \\ \bottomrule
     \end{tabularx}
 \end{table}
 
@@ -559,4 +558,4 @@ Consequently, a significant initial phase was dedicated to learning these.
 \label{sec:2.8}
 
 This chapter specified the cooperative environment as a Dec-POMDP, reviewed candidate MARL algorithms and selected MAPPO for this project.
-It also introduced the success criteria C1-5 and a MoSCoW analysis table, which, together, define what it would mean for the project to convincingly answer the research question.
+It also introduced the success criteria C1-5 and a MoSCoW analysis table, which, together, define what it would mean for the project to answer the research question convincingly.

@@ -264,7 +264,7 @@ Based on mean scores, AI Mother Tongue achieved the best performance overall (ma
 % The agents can only view the nearest entity (not their own pick-up station), whereas the expert agent has a global view of the environment.
 % This means other entities often hide other, more important entities, preventing agents from matching this expert agent's score.
 
-The expert agent achieves a mean reward per step of 0.24, highlighting the performance gap imposed by the agents' partial observability and confirming the difficulty of the POMDP
+The expert agent achieves a mean reward per step of 0.24, highlighting the performance gap imposed by the agents' partial observability and confirming the difficulty of the POMDP.
 
 % Therefore, the 0.13 reward demonstrates that the agents utilised the AI Mother Tongue protocol to overcome the POMDP.
 
@@ -280,7 +280,6 @@ Sections \ref{sec:4.4} - \ref{sec:4.6} provide the deeper evaluation required by
 \subsection{Spontaneous Semantic Compression}
 \label{sec:4.4.1}
 
-Throughout training, the agent's vocabulary perplexity is tracked.
 Communication perplexity measures the agent's uncertainty about the next token, defined as $e^{-\text{entropy of vocabulary}}$.
 
 \begin{figure}[htbp]
@@ -348,14 +347,14 @@ To account for this, the models are trained only on the last half of the timeste
 \end{figure}
 
 The relative distance and unit direction models are shown to never improve over the course of a simulation, suggesting the LSTM does not follow egocentric memory.
-However, the absolute location model shows that the LSTM uses allocentric memory.
+However, the absolute location model shows that the LSTM uses allocentric memory (Figure \ref{fig:lstm-probing}).
 
 Even though the absolute location model shows the LSTM storing some information, it converges to an MSE of 1.6.
 This error represents an uncertainty radius of 1.6 cells, showing how the memory acts as a `regional beacon' for the agent's targets.
 
 An important conclusion from Figure \ref{fig:lstm-probing} is that the agent's need for communication decreases as the simulation runs, and they store target locations in the LSTM module.
 
-\section{Semantic Grounding and Pragmatics}
+\section{Emergent Communication Analysis}
 \label{sec:4.6}
 
 \subsection{Semantic Grounding: $P(\text{Target}_{\text{partner}}^{t} | \text{Code}_{self}^t)$}
